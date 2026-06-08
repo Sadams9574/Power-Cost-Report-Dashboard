@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Power Cost Report Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root{--bg:#0f1720;--card:#1b2530;--accent:#3b9eff;--good:#2ecc71;--bad:#e74c3c;--muted:#8aa0b4;--text:#e7eef5;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:20px 28px;border-bottom:1px solid #2a3744;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+  header h1{margin:0;font-size:22px;}
+  header .sub{color:var(--muted);font-size:13px;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;padding:20px 28px;}
+  .kpi{background:var(--card);border-radius:10px;padding:16px 18px;}
+  .kpi .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em;}
+  .kpi .value{font-size:26px;font-weight:600;margin-top:6px;}
+  .kpi .value.good{color:var(--good);}
+  .kpi .value.bad{color:var(--bad);}
+  .charts{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;padding:0 28px;}
+  @media(max-width:900px){.charts{grid-template-columns:1fr;}}
+  .panel{background:var(--card);border-radius:10px;padding:16px;margin-bottom:16px;}
+  .panel h2{margin:0 0 12px;font-size:15px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{padding:8px 10px;text-align:right;border-bottom:1px solid #2a3744;white-space:nowrap;}
+  th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left;}
+  th{color:var(--muted);font-weight:600;cursor:pointer;position:sticky;top:0;background:var(--card);}
+  tbody tr:hover{background:#22303d;}
+  .neg{color:var(--bad);}
+  .pos{color:var(--good);}
+  .table-wrap{max-height:520px;overflow:auto;}
+  input[type=search]{background:#0f1720;border:1px solid #2a3744;color:var(--text);padding:8px 12px;border-radius:6px;width:260px;margin-bottom:12px;}
+  .container{padding:0 28px 40px;}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Power Cost Report — Executive Dashboard</h1>
+    <div class="sub" id="jobMeta">Loading…</div>
+  </div>
+  <input type="search" id="search" placeholder="Filter by cost code or description…">
+</header>
+
+<div class="kpis" id="kpis"></div>
+
+<div class="container">
+  <div class="charts">
+    <div class="panel">
+      <h2>Top Cost Codes — Budget vs Actual</h2>
+      <canvas id="barChart" height="260"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Overall Budget vs Actual vs Forecast</h2>
+      <canvas id="donutChart" height="260"></canvas>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Cost Code Detail — Actuals vs Budget vs Unit Rates</h2>
+    <div class="table-wrap">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th data-key="Cost Code">Cost Code</th>
+            <th data-key="Description">Description</th>
+            <th data-key="Units">Units</th>
+            <th data-key="Budget">Budget ($)</th>
+            <th data-key="Actual">Actual ($)</th>
+            <th data-key="Variance">Variance ($)</th>
+            <th data-key="VariancePct">Variance (%)</th>
+            <th data-key="UnitRateBudget">Unit Rate — Budget</th>
+            <th data-key="UnitRateActual">Unit Rate — Actual</th>
+            <th data-key="UnitRateVariance">Unit Rate Δ</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const fmtMoney = n => n.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});
+const fmtPct = n => (n>=0?'+':'') + n.toFixed(1) + '%';
+const fmtRate = n => n.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2});
+
+let rows = [];
+let sortKey = 'Variance', sortDir = -1;
+
+fetch('data/cost_data.json').then(r=>r.json()).then(data=>{
+  document.getElementById('jobMeta').textContent =
+    `Job ${data.job} — Report Date ${data.reportDate} — ${data.rows.length} cost codes`;
+
+  rows = data.rows.map(r => ({
+    ...r,
+    VariancePct: r.Budget ? (r.Variance / r.Budget) * 100 : 0,
+    UnitRateVariance: r.UnitRateBudget - r.UnitRateActual,
+  }));
+
+  renderKPIs();
+  renderCharts();
+  renderTable();
+
+  document.getElementById('search').addEventListener('input', e=>{
+    renderTable(e.target.value.toLowerCase());
+  });
+  document.querySelectorAll('#dataTable th').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const key = th.dataset.key;
+      sortDir = (sortKey===key) ? -sortDir : -1;
+      sortKey = key;
+      renderTable(document.getElementById('search').value.toLowerCase());
+    });
+  });
+});
+
+function renderKPIs(){
+  const totalBudget = rows.reduce((s,r)=>s+r.Budget,0);
+  const totalActual = rows.reduce((s,r)=>s+r.Actual,0);
+  const totalForecast = rows.reduce((s,r)=>s+r.Forecast,0);
+  const variance = totalBudget - totalActual;
+  const variancePct = totalBudget ? (variance/totalBudget)*100 : 0;
+
+  const kpis = [
+    {label:'Total Budget (Original ECAC)', value: fmtMoney(totalBudget), cls:''},
+    {label:'Total Actual (JTD Charges)', value: fmtMoney(totalActual), cls:''},
+    {label:'Total Forecast (Projected ECAC)', value: fmtMoney(totalForecast), cls:''},
+    {label:'Budget Variance', value: fmtMoney(variance), cls: variance>=0?'good':'bad'},
+    {label:'Variance %', value: fmtPct(variancePct), cls: variancePct>=0?'good':'bad'},
+  ];
+  document.getElementById('kpis').innerHTML = kpis.map(k=>
+    `<div class="kpi"><div class="label">${k.label}</div><div class="value ${k.cls}">${k.value}</div></div>`
+  ).join('');
+}
+
+let barChart, donutChart;
+function renderCharts(){
+  const top = [...rows].sort((a,b)=>b.Budget-a.Budget).slice(0,12);
+  const ctx1 = document.getElementById('barChart');
+  if(barChart) barChart.destroy();
+  barChart = new Chart(ctx1, {
+    type:'bar',
+    data:{
+      labels: top.map(r=>r['Cost Code']),
+      datasets:[
+        {label:'Budget', data: top.map(r=>r.Budget), backgroundColor:'#3b9eff'},
+        {label:'Actual', data: top.map(r=>r.Actual), backgroundColor:'#e7a23b'},
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{labels:{color:'#e7eef5'}}},
+      scales:{
+        x:{ticks:{color:'#8aa0b4'}, grid:{color:'#2a3744'}},
+        y:{ticks:{color:'#8aa0b4', callback:v=>'$'+(v/1e6).toFixed(1)+'M'}, grid:{color:'#2a3744'}}
+      }
+    }
+  });
+
+  const totalBudget = rows.reduce((s,r)=>s+r.Budget,0);
+  const totalActual = rows.reduce((s,r)=>s+r.Actual,0);
+  const totalForecast = rows.reduce((s,r)=>s+r.Forecast,0);
+  const ctx2 = document.getElementById('donutChart');
+  if(donutChart) donutChart.destroy();
+  donutChart = new Chart(ctx2, {
+    type:'doughnut',
+    data:{
+      labels:['Budget','Actual','Forecast'],
+      datasets:[{data:[totalBudget,totalActual,totalForecast], backgroundColor:['#3b9eff','#e7a23b','#7a5cff']}]
+    },
+    options:{responsive:true, plugins:{legend:{position:'bottom', labels:{color:'#e7eef5'}}}}
+  });
+}
+
+function renderTable(filter=''){
+  let data = rows.filter(r =>
+    !filter || r['Cost Code'].toLowerCase().includes(filter) || r.Description.toLowerCase().includes(filter)
+  );
+  data = data.sort((a,b)=>{
+    const av=a[sortKey], bv=b[sortKey];
+    if(typeof av === 'string') return sortDir * av.localeCompare(bv);
+    return sortDir * (av-bv);
+  });
+
+  const tbody = document.querySelector('#dataTable tbody');
+  tbody.innerHTML = data.map(r=>`
+    <tr>
+      <td>${r['Cost Code']}</td>
+      <td>${r.Description}</td>
+      <td>${r.Units.toLocaleString()}</td>
+      <td>${fmtMoney(r.Budget)}</td>
+      <td>${fmtMoney(r.Actual)}</td>
+      <td class="${r.Variance>=0?'pos':'neg'}">${fmtMoney(r.Variance)}</td>
+      <td class="${r.VariancePct>=0?'pos':'neg'}">${fmtPct(r.VariancePct)}</td>
+      <td>${fmtRate(r.UnitRateBudget)}</td>
+      <td>${fmtRate(r.UnitRateActual)}</td>
+      <td class="${r.UnitRateVariance>=0?'pos':'neg'}">${fmtRate(r.UnitRateVariance)}</td>
+    </tr>
+  `).join('');
+}
+</script>
+</body>
+</html>
