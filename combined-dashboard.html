@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Power Cost Report Dashboard — 23-4003 PGR East Atmore</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0c1520;--card:#152030;--card2:#1a2840;--accent:#3b9eff;
+    --good:#2ecc71;--bad:#e74c3c;--warn:#f39c12;--purple:#9b59b6;
+    --muted:#7a9ab8;--text:#ddeeff;--border:#1e3048;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+  /* ── PAGE HEADER ── */
+  .page-header{
+    background:#0a1622;border-bottom:2px solid var(--border);
+    padding:16px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;
+  }
+  .page-header .title-block h1{font-size:20px;font-weight:800;letter-spacing:-.3px;color:var(--text);}
+  .page-header .title-block .sub{font-size:12px;color:var(--muted);margin-top:4px;}
+  .page-header .badge{
+    background:var(--card2);border:1px solid var(--border);border-radius:20px;
+    padding:6px 16px;font-size:12px;color:var(--muted);white-space:nowrap;
+  }
+  .page-header .badge span{color:var(--warn);font-weight:700;}
+
+  /* ── TAB NAV ── */
+  nav{background:#0e1d2b;border-bottom:1px solid var(--border);display:flex;padding:0 28px;gap:0;}
+  .tab-btn{
+    display:inline-block;padding:13px 22px;color:var(--muted);cursor:pointer;
+    font-size:13px;font-weight:600;border-bottom:3px solid transparent;
+    user-select:none;transition:color .15s,border-color .15s;background:none;border-top:none;border-left:none;border-right:none;
+  }
+  .tab-btn:hover{color:var(--text);}
+  .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+  /* ── SHARED LAYOUT ── */
+  .tab-content{padding-bottom:48px;}
+  .section-label{padding:16px 28px 6px;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:14px;}
+  .panel-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
+  .panel-title .badge-sm{background:var(--card2);border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:10px;color:var(--muted);font-weight:600;}
+  .panel h2{margin:0 0 14px;font-size:13px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;}
+  .container{padding:0 28px 14px;}
+
+  /* ── KPI GRIDS ── */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;padding:18px 28px;}
+  .kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+  .kpi .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;}
+  .kpi .value{font-size:26px;font-weight:700;margin-top:6px;}
+  .kpi .value.good{color:var(--good);}
+  .kpi .value.bad{color:var(--bad);}
+  .kpi .sub-text{font-size:11px;color:var(--muted);margin-top:4px;}
+
+  /* kpi with left border (budget tab) */
+  .kpi.accent{border-left:4px solid var(--accent);}
+  .kpi.kpi-good{border-left:4px solid var(--good);}
+  .kpi.kpi-bad{border-left:4px solid var(--bad);}
+  .kpi.kpi-warn{border-left:4px solid var(--warn);}
+
+  /* kpi cards (metrics tab) */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;padding:6px 28px 18px;}
+  .kpi-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;position:relative;overflow:hidden;}
+  .kpi-card::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;border-radius:10px 0 0 10px;}
+  .kpi-card.blue::before{background:var(--accent);}
+  .kpi-card.green::before{background:var(--good);}
+  .kpi-card.red::before{background:var(--bad);}
+  .kpi-card.warn::before{background:var(--warn);}
+  .kpi-card.purple::before{background:var(--purple);}
+  .kpi-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}
+  .kpi-value{font-size:26px;font-weight:800;margin:6px 0 2px;line-height:1;}
+  .kpi-value.blue{color:var(--accent);}
+  .kpi-value.green{color:var(--good);}
+  .kpi-value.red{color:var(--bad);}
+  .kpi-value.warn{color:var(--warn);}
+  .kpi-sub{font-size:11px;color:var(--muted);}
+  .kpi-trend{position:absolute;top:14px;right:14px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;}
+  .kpi-trend.up{background:rgba(46,204,113,.15);color:var(--good);}
+  .kpi-trend.dn{background:rgba(231,76,60,.15);color:var(--bad);}
+  .kpi-trend.flat{background:rgba(243,156,18,.12);color:var(--warn);}
+
+  /* ── CHART GRIDS ── */
+  .charts{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;padding:0 28px;}
+  .charts-row{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;padding:0 28px;}
+  .main-grid{display:grid;grid-template-columns:2fr 1fr;gap:14px;padding:0 28px;margin-bottom:14px;}
+  .main-grid.three{grid-template-columns:1fr 1fr 1fr;}
+  @media(max-width:960px){.charts,.charts-row,.main-grid,.main-grid.three{grid-template-columns:1fr;}}
+
+  /* ── TABLES ── */
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;}
+  th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left;}
+  th{color:var(--muted);font-weight:700;cursor:pointer;position:sticky;top:0;background:var(--card);font-size:12px;text-transform:uppercase;letter-spacing:.04em;user-select:none;}
+  th:hover{color:var(--text);}
+  th.sorted{color:var(--accent);}
+  tbody tr:hover{background:#1a2e44;}
+  .table-wrap{max-height:540px;overflow:auto;}
+  .neg{color:var(--bad);}
+  .pos{color:var(--good);}
+
+  /* ── CONTROLS ── */
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  input[type=search]{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;}
+  select{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;cursor:pointer;}
+
+  /* ── PROGRESS / GAUGE BARS ── */
+  .progress-list,.gauge-list{display:flex;flex-direction:column;gap:10px;}
+  .progress-item .meta,.gauge-item .g-top{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;}
+  .progress-item .code,.gauge-item .g-label{font-weight:600;color:var(--text);}
+  .progress-item .pct,.gauge-item .g-val{color:var(--muted);}
+  .bar-bg,.gauge-bg{background:#1e3048;border-radius:4px;height:9px;overflow:hidden;}
+  .bar-fill,.gauge-fill{height:100%;border-radius:4px;}
+  .bar-fill.good,.gauge-fill.green{background:linear-gradient(90deg,#1a8a4a,var(--good));}
+  .bar-fill.warn,.gauge-fill.warn{background:linear-gradient(90deg,#a07010,var(--warn));}
+  .bar-fill.bad,.gauge-fill.red{background:linear-gradient(90deg,#8a1a1a,var(--bad));}
+  .gauge-fill.blue{background:linear-gradient(90deg,#1a6fc4,var(--accent));}
+
+  /* ── TAGS ── */
+  .tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;}
+  .tag.over{background:rgba(231,76,60,.18);color:#e74c3c;}
+  .tag.under{background:rgba(46,204,113,.15);color:#2ecc71;}
+
+  /* ── RATE SPOTLIGHT ── */
+  .rate-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;}
+  .rate-card{background:var(--card2);border-radius:8px;padding:12px 14px;border:1px solid var(--border);}
+  .rate-card .rc-code{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:4px;}
+  .rate-card .rc-desc{font-size:12px;color:var(--text);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rate-card .rc-vals{display:flex;justify-content:space-between;font-size:12px;}
+  .rate-card .rc-budget{color:var(--accent);}
+  .rate-card .rc-actual{color:var(--warn);}
+  .rate-card .rc-delta{font-weight:700;}
+
+  /* ── MILESTONE LIST ── */
+  .milestone-list{display:flex;flex-direction:column;gap:8px;}
+  .milestone{display:flex;align-items:center;gap:10px;font-size:12px;padding:8px 10px;background:var(--card2);border-radius:7px;border:1px solid var(--border);}
+  .milestone .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .milestone .dot.done{background:var(--good);}
+  .milestone .dot.active{background:var(--accent);box-shadow:0 0 6px var(--accent);}
+  .milestone .dot.pending{background:var(--border);}
+  .milestone .dot.risk{background:var(--bad);}
+  .milestone .ms-name{flex:1;font-weight:600;}
+  .milestone .ms-date{color:var(--muted);white-space:nowrap;}
+  .milestone .ms-status{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;}
+  .milestone .ms-status.done{background:rgba(46,204,113,.15);color:var(--good);}
+  .milestone .ms-status.active{background:rgba(59,158,255,.15);color:var(--accent);}
+  .milestone .ms-status.risk{background:rgba(231,76,60,.15);color:var(--bad);}
+  .milestone .ms-status.pending{background:rgba(30,48,72,.6);color:var(--muted);}
+
+  /* ── CPI RING ── */
+  .cpi-box{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:16px 0;}
+  .cpi-ring{position:relative;width:110px;height:110px;}
+  .cpi-ring svg{transform:rotate(-90deg);}
+  .cpi-ring .ring-bg{fill:none;stroke:#1e3048;stroke-width:10;}
+  .cpi-ring .ring-val{fill:none;stroke-width:10;stroke-linecap:round;}
+  .cpi-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .cpi-center .cpi-num{font-size:22px;font-weight:800;}
+  .cpi-center .cpi-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+  .cpi-row{display:flex;gap:18px;justify-content:center;margin-top:6px;}
+  .cpi-item{text-align:center;}
+  .cpi-item .ci-num{font-size:16px;font-weight:700;}
+  .cpi-item .ci-lbl{font-size:10px;color:var(--muted);}
+
+  /* ── CREW CARDS ── */
+  .crew-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+  .crew-card{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:11px 13px;}
+  .crew-card .cr-title{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px;}
+  .crew-card .cr-val{font-size:20px;font-weight:800;color:var(--text);}
+  .crew-card .cr-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+
+  /* ── SAFETY ── */
+  .safety-row{display:flex;gap:10px;justify-content:space-around;padding:6px 0;}
+  .safety-stat{text-align:center;}
+  .safety-stat .ss-num{font-size:30px;font-weight:800;}
+  .safety-stat .ss-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}
+
+  /* ── WEEKLY TABLE ── */
+  .wtable{width:100%;border-collapse:collapse;font-size:12px;}
+  .wtable th,.wtable td{padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;}
+  .wtable th:first-child,.wtable td:first-child{text-align:left;}
+  .wtable th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.05em;background:var(--card);}
+  .wtable tbody tr:hover{background:#1a2e44;}
+
+  /* ── FOOTER ── */
+  footer{padding:16px 28px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE HEADER
+════════════════════════════════════════════════════════════ -->
+<div class="page-header">
+  <div class="title-block">
+    <h1>Power Cost Report Dashboard</h1>
+    <div class="sub">Job 23-4003 · PGR – East Atmore Solar · 42 MW DC · EPC Contract</div>
+  </div>
+  <div class="badge">Report Date: <span>May 24, 2026</span></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB NAV
+════════════════════════════════════════════════════════════ -->
+<nav>
+  <button class="tab-btn active" onclick="switchTab('executive', this)">Executive Dashboard</button>
+  <button class="tab-btn" onclick="switchTab('budget', this)">Budgets, Actuals &amp; Unit Rates</button>
+  <button class="tab-btn" onclick="switchTab('metrics', this)">PC Metrics</button>
+</nav>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB 1 — EXECUTIVE DASHBOARD
+════════════════════════════════════════════════════════════ -->
+<div id="tab-executive" class="tab-content">
+
+  <div style="padding:16px 28px 0;display:flex;justify-content:flex-end;">
+    <input type="search" id="exec-search" placeholder="Filter by cost code or description…" style="width:280px;">
+  </div>
+
+  <div class="kpis" id="exec-kpis"></div>
+
+  <div class="container">
+    <div class="charts">
+      <div class="panel">
+        <h2>Top Cost Codes — Budget vs Actual</h2>
+        <canvas id="exec-barChart" height="260"></canvas>
+      </div>
+      <div class="panel">
+        <h2>Overall Budget vs Actual vs Forecast</h2>
+        <canvas id="exec-donutChart" height="260"></canvas>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:0;">
+      <h2>Cost Code Detail — Actuals vs Budget vs Unit Rates</h2>
+      <div class="table-wrap">
+        <table id="exec-dataTable">
+          <thead>
+            <tr>
+              <th data-key="Cost Code">Cost Code</th>
+              <th data-key="Description">Description</th>
+              <th data-key="Units">Units</th>
+              <th data-key="Budget">Budget ($)</th>
+              <th data-key="Actual">Actual ($)</th>
+              <th data-key="Variance">Variance ($)</th>
+              <th data-key="VariancePct">Variance (%)</th>
+              <th data-key="UnitRateBudget">Unit Rate — Budget</th>
+              <th data-key="UnitRateActual">Unit Rate — Actual</th>
+              <th data-key="UnitRateVariance">Unit Rate Δ</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /tab-executive -->
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB 2 — BUDGETS, ACTUALS & UNIT RATES
+════════════════════════════════════════════════════════════ -->
+<div id="tab-budget" class="tab-content" style="display:none;">
+
+  <div style="padding:14px 28px 0;display:flex;justify-content:flex-end;">
+    <div class="controls">
+      <select id="bud-filterStatus">
+        <option value="all">All Cost Codes</option>
+        <option value="over">Over Budget</option>
+        <option value="under">Under Budget</option>
+      </select>
+      <input type="search" id="bud-search" placeholder="Search cost code or description…" style="width:250px;">
+    </div>
+  </div>
+
+  <div class="kpis" id="bud-kpis"></div>
+
+  <div class="charts-row">
+    <div class="panel">
+      <h2>Budget vs Actual — Top Cost Codes by Budget</h2>
+      <canvas id="bud-barChart" height="220"></canvas>
+    </div>
+    <div class="panel" style="overflow:auto;">
+      <h2>Budget Consumption by Cost Code</h2>
+      <div class="progress-list" id="bud-progressList"></div>
+    </div>
+  </div>
+
+  <div class="charts-row" style="margin-top:0;">
+    <div class="panel">
+      <h2>Unit Rate — Budget vs Actual (Top 10 by Variance)</h2>
+      <canvas id="bud-rateChart" height="220"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Variance Distribution</h2>
+      <canvas id="bud-varianceChart" height="220"></canvas>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="panel">
+      <h2>Unit Rate Spotlight — Budget vs Actual</h2>
+      <div class="rate-grid" id="bud-rateGrid"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Full Cost Code Detail</h2>
+      <div class="table-wrap">
+        <table id="bud-dataTable">
+          <thead>
+            <tr>
+              <th data-key="Cost Code">Cost Code</th>
+              <th data-key="Description">Description</th>
+              <th data-key="Units">Units</th>
+              <th data-key="Budget">Budget ($)</th>
+              <th data-key="Actual">Actual ($)</th>
+              <th data-key="Variance">Variance ($)</th>
+              <th data-key="VariancePct">Var %</th>
+              <th data-key="Forecast">Forecast ($)</th>
+              <th data-key="UnitRateBudget">Unit Rate Budget</th>
+              <th data-key="UnitRateActual">Unit Rate Actual</th>
+              <th data-key="UnitRateDelta">Rate Delta</th>
+              <th data-key="status">Status</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /tab-budget -->
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB 3 — PC METRICS
+════════════════════════════════════════════════════════════ -->
+<div id="tab-metrics" class="tab-content" style="display:none;">
+
+  <!-- KPIs -->
+  <div class="section-label">Project Performance Indicators</div>
+  <div class="kpi-grid">
+    <div class="kpi-card blue">
+      <div class="kpi-label">JTD Cost (Actual)</div>
+      <div class="kpi-value blue">$62.4M</div>
+      <div class="kpi-sub">of $68.1M budget</div>
+      <div class="kpi-trend flat">91.6%</div>
+    </div>
+    <div class="kpi-card warn">
+      <div class="kpi-label">This Week Spend</div>
+      <div class="kpi-value warn">$1.84M</div>
+      <div class="kpi-sub">vs $1.71M last week</div>
+      <div class="kpi-trend dn">+7.6%</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Cost Perf. Index (CPI)</div>
+      <div class="kpi-value green">1.06</div>
+      <div class="kpi-sub">Earned Value ÷ Actual</div>
+      <div class="kpi-trend up">+0.02</div>
+    </div>
+    <div class="kpi-card warn">
+      <div class="kpi-label">Schedule Perf. Index</div>
+      <div class="kpi-value warn">0.94</div>
+      <div class="kpi-sub">Earned Value ÷ Planned</div>
+      <div class="kpi-trend dn">-0.03</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">% Complete (Physical)</div>
+      <div class="kpi-value blue">87.3%</div>
+      <div class="kpi-sub">vs 89.1% planned</div>
+      <div class="kpi-trend dn">-1.8%</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">JTD Man-Hours</div>
+      <div class="kpi-value green">184,220</div>
+      <div class="kpi-sub">vs 179,400 budgeted</div>
+      <div class="kpi-trend dn">+2.7%</div>
+    </div>
+    <div class="kpi-card red">
+      <div class="kpi-label">Budget Overruns</div>
+      <div class="kpi-value red">4</div>
+      <div class="kpi-sub">cost codes over budget</div>
+      <div class="kpi-trend dn">same as last week</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">TRIR (Safety)</div>
+      <div class="kpi-value green">0.0</div>
+      <div class="kpi-sub">0 recordables JTD</div>
+      <div class="kpi-trend up">Clean</div>
+    </div>
+  </div>
+
+  <!-- Charts Row 1 -->
+  <div class="section-label">Weekly Cost &amp; Labor Trends</div>
+  <div class="main-grid" style="padding:0 28px 14px;">
+    <div class="panel">
+      <div class="panel-title">Weekly Spend vs Budget <span class="badge-sm">Last 8 Weeks</span></div>
+      <canvas id="met-weeklyChart" height="190"></canvas>
+    </div>
+    <div class="panel">
+      <div class="panel-title">S-Curve — Planned vs Actual vs Forecast</div>
+      <canvas id="met-sCurveChart" height="190"></canvas>
+    </div>
+  </div>
+
+  <!-- Charts Row 2 -->
+  <div class="main-grid three" style="padding:0 28px 14px;">
+    <div class="panel">
+      <div class="panel-title">Labor Hours — This Week</div>
+      <canvas id="met-laborChart" height="200"></canvas>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Cost by Category (JTD)</div>
+      <canvas id="met-categoryChart" height="200"></canvas>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Productivity Rate — Units/Hour</div>
+      <canvas id="met-productivityChart" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- Weekly Detail + Milestones -->
+  <div class="main-grid" style="padding:0 28px 14px;">
+    <div class="panel">
+      <div class="panel-title">Weekly Cost Code Summary <span class="badge-sm">This Week</span></div>
+      <table class="wtable">
+        <thead>
+          <tr>
+            <th>Cost Code</th><th>Description</th><th>Wk Budget</th><th>Wk Actual</th><th>Variance</th><th>JTD %</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1-4004-01</td><td>Racking Materials</td><td>$210,000</td><td>$198,450</td><td class="pos">+$11,550</td><td>96.8%</td></tr>
+          <tr><td>1-4010</td><td>Solar Panel Install</td><td>$320,000</td><td>$341,200</td><td class="neg">-$21,200</td><td>88.4%</td></tr>
+          <tr><td>1-4020</td><td>Electrical Wiring</td><td>$185,000</td><td>$177,340</td><td class="pos">+$7,660</td><td>82.1%</td></tr>
+          <tr><td>1-4004-02</td><td>Inverter Materials</td><td>$95,000</td><td>$108,900</td><td class="neg">-$13,900</td><td>100.0%</td></tr>
+          <tr><td>1-4004-03</td><td>Substation Materials</td><td>$440,000</td><td>$462,300</td><td class="neg">-$22,300</td><td>94.3%</td></tr>
+          <tr><td>1-4030</td><td>Civil / Grading</td><td>$128,000</td><td>$119,800</td><td class="pos">+$8,200</td><td>99.2%</td></tr>
+          <tr><td>1-4050</td><td>Commissioning</td><td>$145,000</td><td>$148,600</td><td class="neg">-$3,600</td><td>74.1%</td></tr>
+          <tr><td>1-4060</td><td>QA / Inspection</td><td>$68,000</td><td>$64,210</td><td class="pos">+$3,790</td><td>85.6%</td></tr>
+          <tr><td>1-4070</td><td>Equipment / Crane</td><td>$110,000</td><td>$124,500</td><td class="neg">-$14,500</td><td>91.0%</td></tr>
+          <tr><td>1-4080</td><td>Safety &amp; Compliance</td><td>$38,000</td><td>$35,900</td><td class="pos">+$2,100</td><td>78.3%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="panel">
+        <div class="panel-title">CPI / SPI Gauges</div>
+        <div style="display:flex;justify-content:space-around;align-items:center;padding:8px 0;">
+          <div class="cpi-box">
+            <div class="cpi-ring">
+              <svg width="110" height="110" viewBox="0 0 110 110">
+                <circle class="ring-bg" cx="55" cy="55" r="44"/>
+                <circle class="ring-val" cx="55" cy="55" r="44" stroke="#2ecc71" stroke-dasharray="276.5" stroke-dashoffset="27.7"/>
+              </svg>
+              <div class="cpi-center">
+                <div class="cpi-num" style="color:#2ecc71">1.06</div>
+                <div class="cpi-lbl">CPI</div>
+              </div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:6px;">Cost Efficiency</div>
+          </div>
+          <div class="cpi-box">
+            <div class="cpi-ring">
+              <svg width="110" height="110" viewBox="0 0 110 110">
+                <circle class="ring-bg" cx="55" cy="55" r="44"/>
+                <circle class="ring-val" cx="55" cy="55" r="44" stroke="#f39c12" stroke-dasharray="276.5" stroke-dashoffset="44.2"/>
+              </svg>
+              <div class="cpi-center">
+                <div class="cpi-num" style="color:#f39c12">0.94</div>
+                <div class="cpi-lbl">SPI</div>
+              </div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:6px;">Schedule Efficiency</div>
+          </div>
+        </div>
+        <div class="cpi-row">
+          <div class="cpi-item"><div class="ci-num" style="color:var(--accent)">$66.2M</div><div class="ci-lbl">EAC (At Complete)</div></div>
+          <div class="cpi-item"><div class="ci-num" style="color:var(--good)">$1.9M</div><div class="ci-lbl">Remaining Budget</div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Project Milestones</div>
+        <div class="milestone-list">
+          <div class="milestone"><div class="dot done"></div><div class="ms-name">Site Mobilization</div><div class="ms-date">Jan 15</div><div class="ms-status done">Done</div></div>
+          <div class="milestone"><div class="dot done"></div><div class="ms-name">Civil &amp; Grading Complete</div><div class="ms-date">Mar 8</div><div class="ms-status done">Done</div></div>
+          <div class="milestone"><div class="dot done"></div><div class="ms-name">Racking Install — 100%</div><div class="ms-date">Apr 22</div><div class="ms-status done">Done</div></div>
+          <div class="milestone"><div class="dot active"></div><div class="ms-name">Panel Install — 87%</div><div class="ms-date">Jun 7</div><div class="ms-status active">In Progress</div></div>
+          <div class="milestone"><div class="dot risk"></div><div class="ms-name">Substation Energize</div><div class="ms-date">Jun 20</div><div class="ms-status risk">At Risk</div></div>
+          <div class="milestone"><div class="dot pending"></div><div class="ms-name">Commissioning</div><div class="ms-date">Jul 10</div><div class="ms-status pending">Pending</div></div>
+          <div class="milestone"><div class="dot pending"></div><div class="ms-name">Substantial Completion</div><div class="ms-date">Jul 31</div><div class="ms-status pending">Pending</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Crew + Budget Consumption + Safety -->
+  <div class="main-grid three" style="padding:0 28px 14px;">
+    <div class="panel">
+      <div class="panel-title">Crew &amp; Labor — This Week</div>
+      <div class="crew-grid">
+        <div class="crew-card"><div class="cr-title">Peak Headcount</div><div class="cr-val">148</div><div class="cr-sub">vs 155 planned</div></div>
+        <div class="crew-card"><div class="cr-title">Total Hours Worked</div><div class="cr-val">5,920</div><div class="cr-sub">40 hr avg/person</div></div>
+        <div class="crew-card"><div class="cr-title">OT Hours</div><div class="cr-val">210</div><div class="cr-sub">3.5% of total hrs</div></div>
+        <div class="crew-card"><div class="cr-title">Avg Labor Rate</div><div class="cr-val">$58.40</div><div class="cr-sub">vs $55.20 budgeted</div></div>
+        <div class="crew-card"><div class="cr-title">Craft (Field)</div><div class="cr-val">124</div><div class="cr-sub">84% of crew</div></div>
+        <div class="crew-card"><div class="cr-title">Staff (Non-Craft)</div><div class="cr-val">24</div><div class="cr-sub">16% of crew</div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Budget Consumption by Trade</div>
+      <div class="gauge-list" style="margin-top:4px;">
+        <div class="gauge-item"><div class="g-top"><span class="g-label">Panel Installation</span><span class="g-val">88% · $8.1M / $9.2M</span></div><div class="gauge-bg"><div class="gauge-fill blue" style="width:88%"></div></div></div>
+        <div class="gauge-item"><div class="g-top"><span class="g-label">Electrical / Wiring</span><span class="g-val">82% · $4.4M / $5.4M</span></div><div class="gauge-bg"><div class="gauge-fill green" style="width:82%"></div></div></div>
+        <div class="gauge-item"><div class="g-top"><span class="g-label">Substation</span><span class="g-val">102% · $5.0M / $4.9M</span></div><div class="gauge-bg"><div class="gauge-fill red" style="width:100%"></div></div></div>
+        <div class="gauge-item"><div class="g-top"><span class="g-label">Civil / Grading</span><span class="g-val">99% · $2.8M / $2.83M</span></div><div class="gauge-bg"><div class="gauge-fill warn" style="width:99%"></div></div></div>
+        <div class="gauge-item"><div class="g-top"><span class="g-label">Commissioning</span><span class="g-val">74% · $1.2M / $1.6M</span></div><div class="gauge-bg"><div class="gauge-fill blue" style="width:74%"></div></div></div>
+        <div class="gauge-item"><div class="g-top"><span class="g-label">Equipment / Crane</span><span class="g-val">91% · $3.1M / $3.4M</span></div><div class="gauge-bg"><div class="gauge-fill warn" style="width:91%"></div></div></div>
+        <div class="gauge-item"><div class="g-top"><span class="g-label">Materials (All)</span><span class="g-val">95% · $29.7M / $31.2M</span></div><div class="gauge-bg"><div class="gauge-fill blue" style="width:95%"></div></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Safety Summary — JTD</div>
+      <div class="safety-row" style="margin-bottom:14px;">
+        <div class="safety-stat"><div class="ss-num" style="color:var(--good)">0</div><div class="ss-lbl">Recordables</div></div>
+        <div class="safety-stat"><div class="ss-num" style="color:var(--good)">0</div><div class="ss-lbl">Lost Time</div></div>
+        <div class="safety-stat"><div class="ss-num" style="color:var(--warn)">3</div><div class="ss-lbl">Near Misses</div></div>
+      </div>
+      <div class="gauge-list">
+        <div class="gauge-item"><div class="g-top"><span class="g-label">TRIR</span><span class="g-val" style="color:var(--good)">0.0 (Goal: &lt;1.0)</span></div><div class="gauge-bg"><div class="gauge-fill green" style="width:100%"></div></div></div>
+        <div class="gauge-item"><div class="g-top"><span class="g-label">Safety Obs. Completed</span><span class="g-val">94% (188/200)</span></div><div class="gauge-bg"><div class="gauge-fill green" style="width:94%"></div></div></div>
+        <div class="gauge-item"><div class="g-top"><span class="g-label">Toolbox Talks</span><span class="g-val">100% (21/21)</span></div><div class="gauge-bg"><div class="gauge-fill green" style="width:100%"></div></div></div>
+        <div class="gauge-item"><div class="g-top"><span class="g-label">JHA Compliance</span><span class="g-val">97%</span></div><div class="gauge-bg"><div class="gauge-fill green" style="width:97%"></div></div></div>
+      </div>
+      <div style="margin-top:14px;font-size:11px;color:var(--muted);line-height:1.6;">
+        <strong style="color:var(--text);">Man-Hours Without Incident:</strong><br>
+        <span style="font-size:20px;font-weight:800;color:var(--good);">184,220</span> hrs — 0 recordable incidents
+      </div>
+    </div>
+  </div>
+
+</div><!-- /tab-metrics -->
+
+<footer>
+  <span>Power Cost Report Dashboard · Job 23-4003 PGR – East Atmore · 42 MW DC</span>
+  <span>Report Date: May 24, 2026 · Self-contained file — no server required</span>
+</footer>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════════════════ -->
+<script>
+// ─────────────────────────────────────────────
+// INLINE DATA
+// ─────────────────────────────────────────────
+const COST_DATA = {
+  "job":"23-4003 - PGR - East Atmore",
+  "reportDate":"2026-05-24",
+  "rows":[
+    {"Cost Code":"1-4000","Description":"1-4000-Mobilization","Units":42,"Actual":156967.07,"Budget":165400.0,"Forecast":156967.07,"UnitRateActual":3737.31,"UnitRateBudget":3938.10,"Variance":8432.93},
+    {"Cost Code":"1-4001","Description":"1-4001-Demobilization","Units":42,"Actual":127199.90,"Budget":165400.0,"Forecast":129199.90,"UnitRateActual":3028.57,"UnitRateBudget":3938.10,"Variance":38200.10},
+    {"Cost Code":"1-4004","Description":"1-4004-Materials to Furnish","Units":1,"Actual":8069562.38,"Budget":7586780.02,"Forecast":8124191.23,"UnitRateActual":8069562.38,"UnitRateBudget":7586780.02,"Variance":-482782.36},
+    {"Cost Code":"1-4004-01","Description":"1-4004-01 Racking Materials","Units":1,"Actual":15965624.99,"Budget":16514108.0,"Forecast":15965624.99,"UnitRateActual":15965624.99,"UnitRateBudget":16514108.0,"Variance":548483.01},
+    {"Cost Code":"1-4004-02","Description":"1-4004-02 Inverter Materials","Units":23,"Actual":4677297.19,"Budget":4317100.0,"Forecast":4677297.19,"UnitRateActual":203360.75,"UnitRateBudget":187700.0,"Variance":-360197.19},
+    {"Cost Code":"1-4004-03","Description":"1-4004-03 Substation Materials","Units":1,"Actual":4984046.07,"Budget":3998822.86,"Forecast":4988260.20,"UnitRateActual":4984046.07,"UnitRateBudget":3998822.86,"Variance":-985223.21},
+    {"Cost Code":"1-4004-07","Description":"1-4004-07 Scada Materials","Units":1,"Actual":1084927.42,"Budget":1289910.0,"Forecast":1084927.42,"UnitRateActual":1084927.42,"UnitRateBudget":1289910.0,"Variance":204982.58},
+    {"Cost Code":"1-4005","Description":"1-4005-Labor","Units":42,"Actual":5823410.50,"Budget":6100000.0,"Forecast":5900000.0,"UnitRateActual":138652.63,"UnitRateBudget":145238.10,"Variance":276589.50},
+    {"Cost Code":"1-4006","Description":"1-4006-Equipment","Units":42,"Actual":3241800.00,"Budget":3400000.0,"Forecast":3280000.0,"UnitRateActual":77185.71,"UnitRateBudget":80952.38,"Variance":158200.00},
+    {"Cost Code":"1-4007","Description":"1-4007-Subcontract","Units":1,"Actual":6190000.00,"Budget":6500000.0,"Forecast":6250000.0,"UnitRateActual":6190000.0,"UnitRateBudget":6500000.0,"Variance":310000.00},
+    {"Cost Code":"1-4008","Description":"1-4008-Civil Works","Units":42,"Actual":2810000.00,"Budget":2830000.0,"Forecast":2820000.0,"UnitRateActual":66904.76,"UnitRateBudget":67380.95,"Variance":20000.00},
+    {"Cost Code":"1-4009","Description":"1-4009-Commissioning","Units":1,"Actual":1240000.00,"Budget":1600000.0,"Forecast":1380000.0,"UnitRateActual":1240000.0,"UnitRateBudget":1600000.0,"Variance":360000.00}
+  ]
+};
+
+// ─────────────────────────────────────────────
+// FORMATTERS
+// ─────────────────────────────────────────────
+const fmt$ = n => n.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});
+const fmtPct = n => (n>=0?'+':'')+n.toFixed(1)+'%';
+const fmtRate = n => n.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2});
+const chartColors = {
+  text:'#ddeeff', muted:'#7a9ab8', grid:'#1e3048',
+  accent:'#3b9eff', warn:'#e7a23b', good:'#2ecc71', bad:'#e74c3c', purple:'#9b59b6'
+};
+
+// ─────────────────────────────────────────────
+// ENRICHED ROW DATA (shared across tabs)
+// ─────────────────────────────────────────────
+const rows = COST_DATA.rows.map(r => ({
+  ...r,
+  VariancePct:     r.Budget ? (r.Variance / r.Budget) * 100 : 0,
+  UnitRateVariance: r.UnitRateBudget - r.UnitRateActual,
+  UnitRateDelta:    r.UnitRateBudget - r.UnitRateActual,
+  status:           r.Variance >= 0 ? 'under' : 'over',
+}));
+
+// ─────────────────────────────────────────────
+// TAB SWITCHING
+// ─────────────────────────────────────────────
+const TAB_IDS = ['executive','budget','metrics'];
+const tabInited = {executive:false, budget:false, metrics:false};
+
+function switchTab(name, btn) {
+  TAB_IDS.forEach(id => {
+    document.getElementById('tab-'+id).style.display = (id === name) ? '' : 'none';
+  });
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  if (!tabInited[name]) {
+    tabInited[name] = true;
+    if (name === 'executive') initExec();
+    if (name === 'budget')    initBudget();
+    if (name === 'metrics')   initMetrics();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TAB 1 — EXECUTIVE
+// ─────────────────────────────────────────────────────────────────
+let exec_sortKey = 'Variance', exec_sortDir = -1;
+let exec_barChart, exec_donutChart;
+
+function initExec() {
+  renderExecKPIs();
+  renderExecCharts();
+  renderExecTable();
+
+  document.getElementById('exec-search').addEventListener('input', e => {
+    renderExecTable(e.target.value.toLowerCase());
+  });
+  document.querySelectorAll('#exec-dataTable th[data-key]').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.key;
+      exec_sortDir = (exec_sortKey === key) ? -exec_sortDir : -1;
+      exec_sortKey = key;
+      document.querySelectorAll('#exec-dataTable th').forEach(t => t.classList.remove('sorted'));
+      th.classList.add('sorted');
+      renderExecTable(document.getElementById('exec-search').value.toLowerCase());
+    });
+  });
+}
+
+function renderExecKPIs() {
+  const totalBudget   = rows.reduce((s,r) => s+r.Budget, 0);
+  const totalActual   = rows.reduce((s,r) => s+r.Actual, 0);
+  const totalForecast = rows.reduce((s,r) => s+r.Forecast, 0);
+  const variance      = totalBudget - totalActual;
+  const variancePct   = totalBudget ? (variance/totalBudget)*100 : 0;
+
+  const kpis = [
+    {label:'Total Budget (Original ECAC)', value:fmt$(totalBudget), cls:''},
+    {label:'Total Actual (JTD Charges)',   value:fmt$(totalActual), cls:''},
+    {label:'Total Forecast (Projected ECAC)', value:fmt$(totalForecast), cls:''},
+    {label:'Budget Variance', value:fmt$(variance), cls:variance>=0?'good':'bad'},
+    {label:'Variance %',      value:fmtPct(variancePct), cls:variancePct>=0?'good':'bad'},
+  ];
+  document.getElementById('exec-kpis').innerHTML = kpis.map(k =>
+    `<div class="kpi"><div class="label">${k.label}</div><div class="value ${k.cls}">${k.value}</div></div>`
+  ).join('');
+}
+
+function renderExecCharts() {
+  const top = [...rows].sort((a,b) => b.Budget-a.Budget).slice(0,12);
+  if (exec_barChart) exec_barChart.destroy();
+  exec_barChart = new Chart(document.getElementById('exec-barChart'), {
+    type:'bar',
+    data:{
+      labels: top.map(r => r['Cost Code']),
+      datasets:[
+        {label:'Budget', data:top.map(r=>r.Budget), backgroundColor:'#3b9eff', borderRadius:3},
+        {label:'Actual', data:top.map(r=>r.Actual), backgroundColor:'#e7a23b', borderRadius:3},
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{labels:{color:chartColors.text,boxWidth:12}}},
+      scales:{
+        x:{ticks:{color:chartColors.muted,font:{size:10}}, grid:{color:chartColors.grid}},
+        y:{ticks:{color:chartColors.muted, callback:v=>'$'+(v>=1e6?(v/1e6).toFixed(1)+'M':(v/1e3).toFixed(0)+'K')}, grid:{color:chartColors.grid}}
+      }
+    }
+  });
+
+  const totalBudget   = rows.reduce((s,r) => s+r.Budget, 0);
+  const totalActual   = rows.reduce((s,r) => s+r.Actual, 0);
+  const totalForecast = rows.reduce((s,r) => s+r.Forecast, 0);
+  if (exec_donutChart) exec_donutChart.destroy();
+  exec_donutChart = new Chart(document.getElementById('exec-donutChart'), {
+    type:'doughnut',
+    data:{
+      labels:['Budget','Actual','Forecast'],
+      datasets:[{data:[totalBudget,totalActual,totalForecast], backgroundColor:['#3b9eff','#e7a23b','#7a5cff'], hoverOffset:6}]
+    },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{position:'bottom', labels:{color:chartColors.text,boxWidth:12}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${fmt$(ctx.raw)}`}}
+      }
+    }
+  });
+}
+
+function renderExecTable(filter='') {
+  let data = rows.filter(r =>
+    !filter || r['Cost Code'].toLowerCase().includes(filter) || r.Description.toLowerCase().includes(filter)
+  );
+  data = [...data].sort((a,b) => {
+    const av=a[exec_sortKey], bv=b[exec_sortKey];
+    if (typeof av === 'string') return exec_sortDir * av.localeCompare(bv);
+    return exec_sortDir * (av-bv);
+  });
+  document.querySelector('#exec-dataTable tbody').innerHTML = data.map(r => `
+    <tr>
+      <td>${r['Cost Code']}</td>
+      <td>${r.Description}</td>
+      <td>${r.Units.toLocaleString()}</td>
+      <td>${fmt$(r.Budget)}</td>
+      <td>${fmt$(r.Actual)}</td>
+      <td class="${r.Variance>=0?'pos':'neg'}">${fmt$(r.Variance)}</td>
+      <td class="${r.VariancePct>=0?'pos':'neg'}">${fmtPct(r.VariancePct)}</td>
+      <td>${fmtRate(r.UnitRateBudget)}</td>
+      <td>${fmtRate(r.UnitRateActual)}</td>
+      <td class="${r.UnitRateVariance>=0?'pos':'neg'}">${fmtRate(r.UnitRateVariance)}</td>
+    </tr>`).join('');
+}
+
+// Auto-init executive tab (visible on load)
+tabInited['executive'] = true;
+initExec();
+
+
+// ─────────────────────────────────────────────────────────────────
+// TAB 2 — BUDGET, ACTUALS & UNIT RATES
+// ─────────────────────────────────────────────────────────────────
+let bud_sortKey = 'Budget', bud_sortDir = -1;
+let bud_barChart, bud_rateChart, bud_varianceChart;
+
+function initBudget() {
+  renderBudKPIs();
+  renderBudCharts();
+  renderBudProgressBars();
+  renderBudRateGrid();
+  renderBudTable();
+
+  document.getElementById('bud-search').addEventListener('input', () => renderBudTable());
+  document.getElementById('bud-filterStatus').addEventListener('change', () => renderBudTable());
+  document.querySelectorAll('#bud-dataTable th[data-key]').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.key;
+      bud_sortDir = (bud_sortKey === key) ? -bud_sortDir : -1;
+      bud_sortKey = key;
+      document.querySelectorAll('#bud-dataTable th').forEach(t => t.classList.remove('sorted'));
+      th.classList.add('sorted');
+      renderBudTable();
+    });
+  });
+}
+
+function renderBudKPIs() {
+  const totalBudget   = rows.reduce((s,r) => s+r.Budget, 0);
+  const totalActual   = rows.reduce((s,r) => s+r.Actual, 0);
+  const totalForecast = rows.reduce((s,r) => s+r.Forecast, 0);
+  const totalVariance = totalBudget - totalActual;
+  const varPct        = totalBudget ? (totalVariance/totalBudget)*100 : 0;
+  const consumed      = totalBudget ? (totalActual/totalBudget)*100 : 0;
+  const overCount     = rows.filter(r => r.status === 'over').length;
+
+  const kpis = [
+    {label:'Total Budget',     value:fmt$(totalBudget),    sub:'Original ECAC',            cls:'accent', valCls:''},
+    {label:'Total Actual',     value:fmt$(totalActual),    sub:'JTD Charges',               cls:'kpi-warn', valCls:''},
+    {label:'Total Forecast',   value:fmt$(totalForecast),  sub:'Projected ECAC',            cls:'accent', valCls:''},
+    {label:'Budget Variance',  value:fmt$(totalVariance),  sub:fmtPct(varPct)+' of budget', cls:totalVariance>=0?'kpi-good':'kpi-bad', valCls:totalVariance>=0?'good':'bad'},
+    {label:'Budget Consumed',  value:consumed.toFixed(1)+'%', sub:'Actual ÷ Budget',       cls:consumed>100?'kpi-bad':consumed>85?'kpi-warn':'kpi-good', valCls:''},
+    {label:'Over-Budget Codes',value:overCount+' / '+rows.length, sub:'cost codes over budget', cls:overCount>0?'kpi-bad':'kpi-good', valCls:''},
+  ];
+
+  document.getElementById('bud-kpis').innerHTML = kpis.map(k => `
+    <div class="kpi ${k.cls}">
+      <div class="label">${k.label}</div>
+      <div class="value ${k.valCls}">${k.value}</div>
+      <div class="sub-text">${k.sub}</div>
+    </div>`).join('');
+}
+
+function renderBudCharts() {
+  const top12 = [...rows].sort((a,b) => b.Budget-a.Budget).slice(0,12);
+
+  if (bud_barChart) bud_barChart.destroy();
+  bud_barChart = new Chart(document.getElementById('bud-barChart'), {
+    type:'bar',
+    data:{
+      labels: top12.map(r => r['Cost Code']),
+      datasets:[
+        {label:'Budget', data:top12.map(r=>r.Budget), backgroundColor:'#3b9eff', borderRadius:3},
+        {label:'Actual', data:top12.map(r=>r.Actual), backgroundColor:'#e7a23b', borderRadius:3},
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{labels:{color:chartColors.text,boxWidth:12}}},
+      scales:{
+        x:{ticks:{color:chartColors.muted,font:{size:10}}, grid:{color:chartColors.grid}},
+        y:{ticks:{color:chartColors.muted, callback:v=>'$'+(v>=1e6?(v/1e6).toFixed(1)+'M':(v/1e3).toFixed(0)+'K')}, grid:{color:chartColors.grid}}
+      }
+    }
+  });
+
+  const top10rate = [...rows].sort((a,b) => Math.abs(b.UnitRateDelta)-Math.abs(a.UnitRateDelta)).slice(0,10);
+  if (bud_rateChart) bud_rateChart.destroy();
+  bud_rateChart = new Chart(document.getElementById('bud-rateChart'), {
+    type:'bar',
+    data:{
+      labels: top10rate.map(r => r['Cost Code']),
+      datasets:[
+        {label:'Budget Rate', data:top10rate.map(r=>r.UnitRateBudget), backgroundColor:'#3b9eff', borderRadius:3},
+        {label:'Actual Rate', data:top10rate.map(r=>r.UnitRateActual), backgroundColor:'#e74c3c', borderRadius:3},
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{labels:{color:chartColors.text,boxWidth:12}}},
+      scales:{
+        x:{ticks:{color:chartColors.muted,font:{size:10}}, grid:{color:chartColors.grid}},
+        y:{ticks:{color:chartColors.muted, callback:v=>'$'+(v>=1e6?(v/1e6).toFixed(1)+'M':(v/1e3).toFixed(0)+'K')}, grid:{color:chartColors.grid}}
+      }
+    }
+  });
+
+  const over  = rows.filter(r => r.status==='over').length;
+  const under = rows.filter(r => r.status==='under').length;
+  if (bud_varianceChart) bud_varianceChart.destroy();
+  bud_varianceChart = new Chart(document.getElementById('bud-varianceChart'), {
+    type:'doughnut',
+    data:{
+      labels:['Under Budget','Over Budget'],
+      datasets:[{data:[under, over], backgroundColor:['#2ecc71','#e74c3c'], hoverOffset:6}]
+    },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{position:'bottom', labels:{color:chartColors.text,boxWidth:12}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.raw} codes`}}
+      }
+    }
+  });
+}
+
+function renderBudProgressBars() {
+  const top8 = [...rows].sort((a,b) => b.Budget-a.Budget).slice(0,8);
+  document.getElementById('bud-progressList').innerHTML = top8.map(r => {
+    const pct     = r.Budget ? Math.min((r.Actual/r.Budget)*100, 150) : 0;
+    const display = r.Budget ? ((r.Actual/r.Budget)*100).toFixed(1)+'%' : 'N/A';
+    const cls     = pct > 100 ? 'bad' : pct > 85 ? 'warn' : 'good';
+    return `
+      <div class="progress-item">
+        <div class="meta">
+          <span class="code">${r['Cost Code']}</span>
+          <span class="pct">${display} consumed — ${fmt$(r.Actual)} / ${fmt$(r.Budget)}</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill ${cls}" style="width:${Math.min(pct,100)}%"></div></div>
+      </div>`;
+  }).join('');
+}
+
+function renderBudRateGrid() {
+  const top = [...rows]
+    .filter(r => r.UnitRateBudget > 0)
+    .sort((a,b) => Math.abs(b.UnitRateDelta)-Math.abs(a.UnitRateDelta))
+    .slice(0,12);
+
+  document.getElementById('bud-rateGrid').innerHTML = top.map(r => {
+    const cls = r.UnitRateDelta >= 0 ? 'pos' : 'neg';
+    return `
+      <div class="rate-card">
+        <div class="rc-code">${r['Cost Code']}</div>
+        <div class="rc-desc" title="${r.Description}">${r.Description.replace(/^\S+-\d+\s*/,'')}</div>
+        <div class="rc-vals">
+          <span class="rc-budget" title="Budget Rate">B: ${fmtRate(r.UnitRateBudget)}</span>
+          <span class="rc-actual" title="Actual Rate">A: ${fmtRate(r.UnitRateActual)}</span>
+          <span class="rc-delta ${cls}" title="Rate Delta">Δ ${fmtRate(Math.abs(r.UnitRateDelta))}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function getBudFilteredRows() {
+  const search = document.getElementById('bud-search').value.toLowerCase();
+  const status = document.getElementById('bud-filterStatus').value;
+  return rows.filter(r => {
+    const matchSearch = !search ||
+      r['Cost Code'].toLowerCase().includes(search) ||
+      r.Description.toLowerCase().includes(search);
+    const matchStatus = status === 'all' || r.status === status;
+    return matchSearch && matchStatus;
+  });
+}
+
+function renderBudTable() {
+  let data = getBudFilteredRows().sort((a,b) => {
+    const av = a[bud_sortKey], bv = b[bud_sortKey];
+    if (typeof av === 'string') return bud_sortDir * av.localeCompare(bv);
+    return bud_sortDir * (av - bv);
+  });
+
+  document.querySelector('#bud-dataTable tbody').innerHTML = data.map(r => {
+    const tag = r.status === 'over'
+      ? `<span class="tag over">Over</span>`
+      : `<span class="tag under">Under</span>`;
+    return `
+      <tr>
+        <td>${r['Cost Code']}</td>
+        <td>${r.Description}</td>
+        <td>${r.Units.toLocaleString()}</td>
+        <td>${fmt$(r.Budget)}</td>
+        <td>${fmt$(r.Actual)}</td>
+        <td class="${r.Variance>=0?'pos':'neg'}">${fmt$(r.Variance)}</td>
+        <td class="${r.VariancePct>=0?'pos':'neg'}">${fmtPct(r.VariancePct)}</td>
+        <td>${fmt$(r.Forecast)}</td>
+        <td>${fmtRate(r.UnitRateBudget)}</td>
+        <td>${fmtRate(r.UnitRateActual)}</td>
+        <td class="${r.UnitRateDelta>=0?'pos':'neg'}">${fmtRate(r.UnitRateDelta)}</td>
+        <td>${tag}</td>
+      </tr>`;
+  }).join('');
+}
+
+
+// ─────────────────────────────────────────────────────────────────
+// TAB 3 — PC METRICS
+// ─────────────────────────────────────────────────────────────────
+function initMetrics() {
+  const C = v => ({color:v});
+  const gc = chartColors.grid;
+  const tc = chartColors.muted;
+  const lc = chartColors.text;
+
+  // Weekly Spend vs Budget
+  new Chart(document.getElementById('met-weeklyChart'), {
+    type:'bar',
+    data:{
+      labels:['Wk 14','Wk 15','Wk 16','Wk 17','Wk 18','Wk 19','Wk 20','Wk 21'],
+      datasets:[
+        {label:'Budget',   data:[1620,1750,1690,1820,1700,1680,1710,1710], backgroundColor:'rgba(59,158,255,.25)', borderColor:'#3b9eff', borderWidth:1.5, borderRadius:3},
+        {label:'Actual',   data:[1580,1810,1720,1790,1650,1740,1705,1840], backgroundColor:'rgba(231,162,59,.7)',  borderColor:'#e7a23b', borderWidth:1,   borderRadius:3},
+        {label:'Forecast', data:[1620,1750,1690,1820,1700,1680,1710,1900], type:'line', borderColor:'#9b59b6', borderWidth:2, pointRadius:3, fill:false, tension:.3},
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{labels:C(lc)}},
+      scales:{
+        x:{ticks:C(tc), grid:{color:gc}},
+        y:{ticks:{color:tc, callback:v=>'$'+(v/1000).toFixed(0)+'K'}, grid:{color:gc}}
+      }
+    }
+  });
+
+  // S-Curve
+  new Chart(document.getElementById('met-sCurveChart'), {
+    type:'line',
+    data:{
+      labels:['Jan','Feb','Mar','Apr','May','Jun','Jul'],
+      datasets:[
+        {label:'Planned % Complete', data:[5,18,38,62,82,96,100],          borderColor:'#3b9eff', borderWidth:2,   fill:false, tension:.4, pointRadius:3},
+        {label:'Actual % Complete',  data:[4,17,36,60,87,null,null],        borderColor:'#2ecc71', borderWidth:2.5, fill:false, tension:.4, pointRadius:4},
+        {label:'Forecast',           data:[4,17,36,60,87,97,100],           borderColor:'#9b59b6', borderWidth:2,   borderDash:[5,4], fill:false, tension:.4, pointRadius:2},
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{labels:C(lc)}},
+      scales:{
+        x:{ticks:C(tc), grid:{color:gc}},
+        y:{ticks:{color:tc, callback:v=>v+'%'}, grid:{color:gc}, min:0, max:100}
+      }
+    }
+  });
+
+  // Labor by Trade (horizontal bar)
+  new Chart(document.getElementById('met-laborChart'), {
+    type:'bar',
+    data:{
+      labels:['Panel Install','Electrical','Civil','Substation','Commissioning','Equipment','QA/Safety'],
+      datasets:[
+        {label:'Budget Hrs', data:[1840,980,420,610,340,520,210], backgroundColor:'rgba(59,158,255,.3)', borderColor:'#3b9eff', borderWidth:1.5, borderRadius:3},
+        {label:'Actual Hrs', data:[1920,940,380,640,310,510,220], backgroundColor:'rgba(46,204,113,.6)', borderColor:'#2ecc71', borderWidth:1,   borderRadius:3},
+      ]
+    },
+    options:{
+      responsive:true, indexAxis:'y',
+      plugins:{legend:{labels:C(lc)}},
+      scales:{
+        x:{ticks:C(tc), grid:{color:gc}},
+        y:{ticks:C(tc), grid:{color:gc}}
+      }
+    }
+  });
+
+  // Cost by Category donut
+  new Chart(document.getElementById('met-categoryChart'), {
+    type:'doughnut',
+    data:{
+      labels:['Materials','Labor','Equipment','Subcontract','Indirect'],
+      datasets:[{
+        data:[29700000,18400000,3100000,6200000,5000000],
+        backgroundColor:['#3b9eff','#2ecc71','#e7a23b','#9b59b6','#e74c3c'],
+        hoverOffset:8,
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{position:'bottom', labels:{color:lc, boxWidth:11, font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.label}: $${(ctx.raw/1e6).toFixed(1)}M`}}
+      }
+    }
+  });
+
+  // Productivity line chart
+  new Chart(document.getElementById('met-productivityChart'), {
+    type:'line',
+    data:{
+      labels:['Wk 14','Wk 15','Wk 16','Wk 17','Wk 18','Wk 19','Wk 20','Wk 21'],
+      datasets:[
+        {label:'Panels/Hr (Actual)', data:[4.2,4.5,4.8,4.6,5.1,4.9,5.2,5.0], borderColor:'#2ecc71', borderWidth:2.5, fill:true, backgroundColor:'rgba(46,204,113,.08)', tension:.4, pointRadius:4},
+        {label:'Panels/Hr (Budget)', data:[4.8,4.8,4.8,4.8,4.8,4.8,4.8,4.8], borderColor:'#3b9eff', borderWidth:1.5, borderDash:[5,4], fill:false, pointRadius:0},
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{labels:C(lc)}},
+      scales:{
+        x:{ticks:C(tc), grid:{color:gc}},
+        y:{ticks:C(tc), grid:{color:gc}, min:3, max:6}
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>
