@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Power Cost Report Dashboard — 23-4003 PGR East Atmore</title>
+<title>Power Cost Report Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
   :root{
@@ -17,15 +17,22 @@
   /* ── PAGE HEADER ── */
   .page-header{
     background:#0a1622;border-bottom:2px solid var(--border);
-    padding:16px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;
+    padding:14px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;
   }
   .page-header .title-block h1{font-size:20px;font-weight:800;letter-spacing:-.3px;color:var(--text);}
   .page-header .title-block .sub{font-size:12px;color:var(--muted);margin-top:4px;}
-  .page-header .badge{
+  .header-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .badge{
     background:var(--card2);border:1px solid var(--border);border-radius:20px;
     padding:6px 16px;font-size:12px;color:var(--muted);white-space:nowrap;
   }
-  .page-header .badge span{color:var(--warn);font-weight:700;}
+  .badge span{color:var(--warn);font-weight:700;}
+  select.job-selector{
+    background:#1a2840;border:1px solid #1e3048;color:#ddeeff;
+    padding:8px 14px;border-radius:7px;font-size:13px;font-weight:600;
+    min-width:320px;cursor:pointer;outline:none;
+  }
+  select.job-selector:focus{border-color:var(--accent);}
 
   /* ── TAB NAV ── */
   nav{background:#0e1d2b;border-bottom:1px solid var(--border);display:flex;padding:0 28px;gap:0;}
@@ -54,8 +61,6 @@
   .kpi .value.good{color:var(--good);}
   .kpi .value.bad{color:var(--bad);}
   .kpi .sub-text{font-size:11px;color:var(--muted);margin-top:4px;}
-
-  /* kpi with left border (budget tab) */
   .kpi.accent{border-left:4px solid var(--accent);}
   .kpi.kpi-good{border-left:4px solid var(--good);}
   .kpi.kpi-bad{border-left:4px solid var(--bad);}
@@ -195,9 +200,14 @@
 <div class="page-header">
   <div class="title-block">
     <h1>Power Cost Report Dashboard</h1>
-    <div class="sub">Job 23-4003 · PGR – East Atmore Solar · 42 MW DC · EPC Contract</div>
+    <div class="sub" id="hdr-subtitle">Loading…</div>
   </div>
-  <div class="badge">Report Date: <span>May 24, 2026</span></div>
+  <div class="header-right">
+    <select class="job-selector" id="jobSelector" onchange="selectJob(this.value)">
+      <!-- Options injected by JS -->
+    </select>
+    <div class="badge">Report Date: <span id="hdr-date">—</span></div>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -340,61 +350,10 @@
 ════════════════════════════════════════════════════════════ -->
 <div id="tab-metrics" class="tab-content" style="display:none;">
 
-  <!-- KPIs -->
   <div class="section-label">Project Performance Indicators</div>
-  <div class="kpi-grid">
-    <div class="kpi-card blue">
-      <div class="kpi-label">JTD Cost (Actual)</div>
-      <div class="kpi-value blue">$62.4M</div>
-      <div class="kpi-sub">of $68.1M budget</div>
-      <div class="kpi-trend flat">91.6%</div>
-    </div>
-    <div class="kpi-card warn">
-      <div class="kpi-label">This Week Spend</div>
-      <div class="kpi-value warn">$1.84M</div>
-      <div class="kpi-sub">vs $1.71M last week</div>
-      <div class="kpi-trend dn">+7.6%</div>
-    </div>
-    <div class="kpi-card green">
-      <div class="kpi-label">Cost Perf. Index (CPI)</div>
-      <div class="kpi-value green">1.06</div>
-      <div class="kpi-sub">Earned Value ÷ Actual</div>
-      <div class="kpi-trend up">+0.02</div>
-    </div>
-    <div class="kpi-card warn">
-      <div class="kpi-label">Schedule Perf. Index</div>
-      <div class="kpi-value warn">0.94</div>
-      <div class="kpi-sub">Earned Value ÷ Planned</div>
-      <div class="kpi-trend dn">-0.03</div>
-    </div>
-    <div class="kpi-card blue">
-      <div class="kpi-label">% Complete (Physical)</div>
-      <div class="kpi-value blue">87.3%</div>
-      <div class="kpi-sub">vs 89.1% planned</div>
-      <div class="kpi-trend dn">-1.8%</div>
-    </div>
-    <div class="kpi-card green">
-      <div class="kpi-label">JTD Man-Hours</div>
-      <div class="kpi-value green">184,220</div>
-      <div class="kpi-sub">vs 179,400 budgeted</div>
-      <div class="kpi-trend dn">+2.7%</div>
-    </div>
-    <div class="kpi-card red">
-      <div class="kpi-label">Budget Overruns</div>
-      <div class="kpi-value red">4</div>
-      <div class="kpi-sub">cost codes over budget</div>
-      <div class="kpi-trend dn">same as last week</div>
-    </div>
-    <div class="kpi-card green">
-      <div class="kpi-label">TRIR (Safety)</div>
-      <div class="kpi-value green">0.0</div>
-      <div class="kpi-sub">0 recordables JTD</div>
-      <div class="kpi-trend up">Clean</div>
-    </div>
-  </div>
+  <div class="kpi-grid" id="met-kpiGrid"></div>
 
-  <!-- Charts Row 1 -->
-  <div class="section-label">Weekly Cost &amp; Labor Trends</div>
+  <div class="section-label">Weekly Cost &amp; Schedule Trends</div>
   <div class="main-grid" style="padding:0 28px 14px;">
     <div class="panel">
       <div class="panel-title">Weekly Spend vs Budget <span class="badge-sm">Last 8 Weeks</span></div>
@@ -406,7 +365,6 @@
     </div>
   </div>
 
-  <!-- Charts Row 2 -->
   <div class="main-grid three" style="padding:0 28px 14px;">
     <div class="panel">
       <div class="panel-title">Labor Hours — This Week</div>
@@ -422,7 +380,6 @@
     </div>
   </div>
 
-  <!-- Weekly Detail + Milestones -->
   <div class="main-grid" style="padding:0 28px 14px;">
     <div class="panel">
       <div class="panel-title">Weekly Cost Code Summary <span class="badge-sm">This Week</span></div>
@@ -432,123 +389,46 @@
             <th>Cost Code</th><th>Description</th><th>Wk Budget</th><th>Wk Actual</th><th>Variance</th><th>JTD %</th>
           </tr>
         </thead>
-        <tbody>
-          <tr><td>1-4004-01</td><td>Racking Materials</td><td>$210,000</td><td>$198,450</td><td class="pos">+$11,550</td><td>96.8%</td></tr>
-          <tr><td>1-4010</td><td>Solar Panel Install</td><td>$320,000</td><td>$341,200</td><td class="neg">-$21,200</td><td>88.4%</td></tr>
-          <tr><td>1-4020</td><td>Electrical Wiring</td><td>$185,000</td><td>$177,340</td><td class="pos">+$7,660</td><td>82.1%</td></tr>
-          <tr><td>1-4004-02</td><td>Inverter Materials</td><td>$95,000</td><td>$108,900</td><td class="neg">-$13,900</td><td>100.0%</td></tr>
-          <tr><td>1-4004-03</td><td>Substation Materials</td><td>$440,000</td><td>$462,300</td><td class="neg">-$22,300</td><td>94.3%</td></tr>
-          <tr><td>1-4030</td><td>Civil / Grading</td><td>$128,000</td><td>$119,800</td><td class="pos">+$8,200</td><td>99.2%</td></tr>
-          <tr><td>1-4050</td><td>Commissioning</td><td>$145,000</td><td>$148,600</td><td class="neg">-$3,600</td><td>74.1%</td></tr>
-          <tr><td>1-4060</td><td>QA / Inspection</td><td>$68,000</td><td>$64,210</td><td class="pos">+$3,790</td><td>85.6%</td></tr>
-          <tr><td>1-4070</td><td>Equipment / Crane</td><td>$110,000</td><td>$124,500</td><td class="neg">-$14,500</td><td>91.0%</td></tr>
-          <tr><td>1-4080</td><td>Safety &amp; Compliance</td><td>$38,000</td><td>$35,900</td><td class="pos">+$2,100</td><td>78.3%</td></tr>
-        </tbody>
+        <tbody id="met-weeklyTableBody"></tbody>
       </table>
     </div>
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div class="panel">
         <div class="panel-title">CPI / SPI Gauges</div>
-        <div style="display:flex;justify-content:space-around;align-items:center;padding:8px 0;">
-          <div class="cpi-box">
-            <div class="cpi-ring">
-              <svg width="110" height="110" viewBox="0 0 110 110">
-                <circle class="ring-bg" cx="55" cy="55" r="44"/>
-                <circle class="ring-val" cx="55" cy="55" r="44" stroke="#2ecc71" stroke-dasharray="276.5" stroke-dashoffset="27.7"/>
-              </svg>
-              <div class="cpi-center">
-                <div class="cpi-num" style="color:#2ecc71">1.06</div>
-                <div class="cpi-lbl">CPI</div>
-              </div>
-            </div>
-            <div style="font-size:11px;color:var(--muted);margin-top:6px;">Cost Efficiency</div>
-          </div>
-          <div class="cpi-box">
-            <div class="cpi-ring">
-              <svg width="110" height="110" viewBox="0 0 110 110">
-                <circle class="ring-bg" cx="55" cy="55" r="44"/>
-                <circle class="ring-val" cx="55" cy="55" r="44" stroke="#f39c12" stroke-dasharray="276.5" stroke-dashoffset="44.2"/>
-              </svg>
-              <div class="cpi-center">
-                <div class="cpi-num" style="color:#f39c12">0.94</div>
-                <div class="cpi-lbl">SPI</div>
-              </div>
-            </div>
-            <div style="font-size:11px;color:var(--muted);margin-top:6px;">Schedule Efficiency</div>
-          </div>
-        </div>
-        <div class="cpi-row">
-          <div class="cpi-item"><div class="ci-num" style="color:var(--accent)">$66.2M</div><div class="ci-lbl">EAC (At Complete)</div></div>
-          <div class="cpi-item"><div class="ci-num" style="color:var(--good)">$1.9M</div><div class="ci-lbl">Remaining Budget</div></div>
-        </div>
+        <div id="met-gaugeBox" style="display:flex;justify-content:space-around;align-items:center;padding:8px 0;"></div>
+        <div class="cpi-row" id="met-eacRow"></div>
       </div>
       <div class="panel">
         <div class="panel-title">Project Milestones</div>
-        <div class="milestone-list">
-          <div class="milestone"><div class="dot done"></div><div class="ms-name">Site Mobilization</div><div class="ms-date">Jan 15</div><div class="ms-status done">Done</div></div>
-          <div class="milestone"><div class="dot done"></div><div class="ms-name">Civil &amp; Grading Complete</div><div class="ms-date">Mar 8</div><div class="ms-status done">Done</div></div>
-          <div class="milestone"><div class="dot done"></div><div class="ms-name">Racking Install — 100%</div><div class="ms-date">Apr 22</div><div class="ms-status done">Done</div></div>
-          <div class="milestone"><div class="dot active"></div><div class="ms-name">Panel Install — 87%</div><div class="ms-date">Jun 7</div><div class="ms-status active">In Progress</div></div>
-          <div class="milestone"><div class="dot risk"></div><div class="ms-name">Substation Energize</div><div class="ms-date">Jun 20</div><div class="ms-status risk">At Risk</div></div>
-          <div class="milestone"><div class="dot pending"></div><div class="ms-name">Commissioning</div><div class="ms-date">Jul 10</div><div class="ms-status pending">Pending</div></div>
-          <div class="milestone"><div class="dot pending"></div><div class="ms-name">Substantial Completion</div><div class="ms-date">Jul 31</div><div class="ms-status pending">Pending</div></div>
-        </div>
+        <div class="milestone-list" id="met-milestones"></div>
       </div>
     </div>
   </div>
 
-  <!-- Crew + Budget Consumption + Safety -->
   <div class="main-grid three" style="padding:0 28px 14px;">
     <div class="panel">
       <div class="panel-title">Crew &amp; Labor — This Week</div>
-      <div class="crew-grid">
-        <div class="crew-card"><div class="cr-title">Peak Headcount</div><div class="cr-val">148</div><div class="cr-sub">vs 155 planned</div></div>
-        <div class="crew-card"><div class="cr-title">Total Hours Worked</div><div class="cr-val">5,920</div><div class="cr-sub">40 hr avg/person</div></div>
-        <div class="crew-card"><div class="cr-title">OT Hours</div><div class="cr-val">210</div><div class="cr-sub">3.5% of total hrs</div></div>
-        <div class="crew-card"><div class="cr-title">Avg Labor Rate</div><div class="cr-val">$58.40</div><div class="cr-sub">vs $55.20 budgeted</div></div>
-        <div class="crew-card"><div class="cr-title">Craft (Field)</div><div class="cr-val">124</div><div class="cr-sub">84% of crew</div></div>
-        <div class="crew-card"><div class="cr-title">Staff (Non-Craft)</div><div class="cr-val">24</div><div class="cr-sub">16% of crew</div></div>
-      </div>
+      <div class="crew-grid" id="met-crewGrid"></div>
     </div>
 
     <div class="panel">
       <div class="panel-title">Budget Consumption by Trade</div>
-      <div class="gauge-list" style="margin-top:4px;">
-        <div class="gauge-item"><div class="g-top"><span class="g-label">Panel Installation</span><span class="g-val">88% · $8.1M / $9.2M</span></div><div class="gauge-bg"><div class="gauge-fill blue" style="width:88%"></div></div></div>
-        <div class="gauge-item"><div class="g-top"><span class="g-label">Electrical / Wiring</span><span class="g-val">82% · $4.4M / $5.4M</span></div><div class="gauge-bg"><div class="gauge-fill green" style="width:82%"></div></div></div>
-        <div class="gauge-item"><div class="g-top"><span class="g-label">Substation</span><span class="g-val">102% · $5.0M / $4.9M</span></div><div class="gauge-bg"><div class="gauge-fill red" style="width:100%"></div></div></div>
-        <div class="gauge-item"><div class="g-top"><span class="g-label">Civil / Grading</span><span class="g-val">99% · $2.8M / $2.83M</span></div><div class="gauge-bg"><div class="gauge-fill warn" style="width:99%"></div></div></div>
-        <div class="gauge-item"><div class="g-top"><span class="g-label">Commissioning</span><span class="g-val">74% · $1.2M / $1.6M</span></div><div class="gauge-bg"><div class="gauge-fill blue" style="width:74%"></div></div></div>
-        <div class="gauge-item"><div class="g-top"><span class="g-label">Equipment / Crane</span><span class="g-val">91% · $3.1M / $3.4M</span></div><div class="gauge-bg"><div class="gauge-fill warn" style="width:91%"></div></div></div>
-        <div class="gauge-item"><div class="g-top"><span class="g-label">Materials (All)</span><span class="g-val">95% · $29.7M / $31.2M</span></div><div class="gauge-bg"><div class="gauge-fill blue" style="width:95%"></div></div></div>
-      </div>
+      <div class="gauge-list" id="met-budgetGauges" style="margin-top:4px;"></div>
     </div>
 
     <div class="panel">
       <div class="panel-title">Safety Summary — JTD</div>
-      <div class="safety-row" style="margin-bottom:14px;">
-        <div class="safety-stat"><div class="ss-num" style="color:var(--good)">0</div><div class="ss-lbl">Recordables</div></div>
-        <div class="safety-stat"><div class="ss-num" style="color:var(--good)">0</div><div class="ss-lbl">Lost Time</div></div>
-        <div class="safety-stat"><div class="ss-num" style="color:var(--warn)">3</div><div class="ss-lbl">Near Misses</div></div>
-      </div>
-      <div class="gauge-list">
-        <div class="gauge-item"><div class="g-top"><span class="g-label">TRIR</span><span class="g-val" style="color:var(--good)">0.0 (Goal: &lt;1.0)</span></div><div class="gauge-bg"><div class="gauge-fill green" style="width:100%"></div></div></div>
-        <div class="gauge-item"><div class="g-top"><span class="g-label">Safety Obs. Completed</span><span class="g-val">94% (188/200)</span></div><div class="gauge-bg"><div class="gauge-fill green" style="width:94%"></div></div></div>
-        <div class="gauge-item"><div class="g-top"><span class="g-label">Toolbox Talks</span><span class="g-val">100% (21/21)</span></div><div class="gauge-bg"><div class="gauge-fill green" style="width:100%"></div></div></div>
-        <div class="gauge-item"><div class="g-top"><span class="g-label">JHA Compliance</span><span class="g-val">97%</span></div><div class="gauge-bg"><div class="gauge-fill green" style="width:97%"></div></div></div>
-      </div>
-      <div style="margin-top:14px;font-size:11px;color:var(--muted);line-height:1.6;">
-        <strong style="color:var(--text);">Man-Hours Without Incident:</strong><br>
-        <span style="font-size:20px;font-weight:800;color:var(--good);">184,220</span> hrs — 0 recordable incidents
-      </div>
+      <div class="safety-row" style="margin-bottom:14px;" id="met-safetyRow"></div>
+      <div class="gauge-list" id="met-safetyGauges"></div>
+      <div style="margin-top:14px;font-size:11px;color:var(--muted);line-height:1.6;" id="met-safetyFooter"></div>
     </div>
   </div>
 
 </div><!-- /tab-metrics -->
 
 <footer>
-  <span>Power Cost Report Dashboard · Job 23-4003 PGR – East Atmore · 42 MW DC</span>
-  <span>Report Date: May 24, 2026 · Self-contained file — no server required</span>
+  <span id="footer-left">Power Cost Report Dashboard</span>
+  <span id="footer-right">Self-contained file — no server required</span>
 </footer>
 
 
@@ -556,167 +436,595 @@
      JAVASCRIPT
 ════════════════════════════════════════════════════════════ -->
 <script>
-// ─────────────────────────────────────────────
-// INLINE DATA
-// ─────────────────────────────────────────────
-const COST_DATA = {
-  "job":"23-4003 - PGR - East Atmore",
-  "reportDate":"2026-05-24",
-  "rows":[
-    {"Cost Code":"1-4000","Description":"1-4000-Mobilization","Units":42,"Actual":156967.07,"Budget":165400.0,"Forecast":156967.07,"UnitRateActual":3737.31,"UnitRateBudget":3938.10,"Variance":8432.93},
-    {"Cost Code":"1-4001","Description":"1-4001-Demobilization","Units":42,"Actual":127199.90,"Budget":165400.0,"Forecast":129199.90,"UnitRateActual":3028.57,"UnitRateBudget":3938.10,"Variance":38200.10},
-    {"Cost Code":"1-4004","Description":"1-4004-Materials to Furnish","Units":1,"Actual":8069562.38,"Budget":7586780.02,"Forecast":8124191.23,"UnitRateActual":8069562.38,"UnitRateBudget":7586780.02,"Variance":-482782.36},
-    {"Cost Code":"1-4004-01","Description":"1-4004-01 Racking Materials","Units":1,"Actual":15965624.99,"Budget":16514108.0,"Forecast":15965624.99,"UnitRateActual":15965624.99,"UnitRateBudget":16514108.0,"Variance":548483.01},
-    {"Cost Code":"1-4004-02","Description":"1-4004-02 Inverter Materials","Units":23,"Actual":4677297.19,"Budget":4317100.0,"Forecast":4677297.19,"UnitRateActual":203360.75,"UnitRateBudget":187700.0,"Variance":-360197.19},
-    {"Cost Code":"1-4004-03","Description":"1-4004-03 Substation Materials","Units":1,"Actual":4984046.07,"Budget":3998822.86,"Forecast":4988260.20,"UnitRateActual":4984046.07,"UnitRateBudget":3998822.86,"Variance":-985223.21},
-    {"Cost Code":"1-4004-07","Description":"1-4004-07 Scada Materials","Units":1,"Actual":1084927.42,"Budget":1289910.0,"Forecast":1084927.42,"UnitRateActual":1084927.42,"UnitRateBudget":1289910.0,"Variance":204982.58},
-    {"Cost Code":"1-4005","Description":"1-4005-Labor","Units":42,"Actual":5823410.50,"Budget":6100000.0,"Forecast":5900000.0,"UnitRateActual":138652.63,"UnitRateBudget":145238.10,"Variance":276589.50},
-    {"Cost Code":"1-4006","Description":"1-4006-Equipment","Units":42,"Actual":3241800.00,"Budget":3400000.0,"Forecast":3280000.0,"UnitRateActual":77185.71,"UnitRateBudget":80952.38,"Variance":158200.00},
-    {"Cost Code":"1-4007","Description":"1-4007-Subcontract","Units":1,"Actual":6190000.00,"Budget":6500000.0,"Forecast":6250000.0,"UnitRateActual":6190000.0,"UnitRateBudget":6500000.0,"Variance":310000.00},
-    {"Cost Code":"1-4008","Description":"1-4008-Civil Works","Units":42,"Actual":2810000.00,"Budget":2830000.0,"Forecast":2820000.0,"UnitRateActual":66904.76,"UnitRateBudget":67380.95,"Variance":20000.00},
-    {"Cost Code":"1-4009","Description":"1-4009-Commissioning","Units":1,"Actual":1240000.00,"Budget":1600000.0,"Forecast":1380000.0,"UnitRateActual":1240000.0,"UnitRateBudget":1600000.0,"Variance":360000.00}
-  ]
-};
+// ═══════════════════════════════════════════════════════════════
+// ALL_JOBS — Master data for 5 solar EPC projects
+// Each job has: id, name, subtitle, reportDate, rows (12 cost codes), metrics
+// ═══════════════════════════════════════════════════════════════
+const ALL_JOBS = [
 
-// ─────────────────────────────────────────────
-// FORMATTERS
-// ─────────────────────────────────────────────
-const fmt$ = n => n.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});
-const fmtPct = n => (n>=0?'+':'')+n.toFixed(1)+'%';
-const fmtRate = n => n.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2});
-const chartColors = {
+  // ─────────────────────────────────────────────────────────────
+  // JOB 0 · 23-4003 · PGR – East Atmore Solar · 42 MW · $68.1M
+  // Profile: mostly under budget, 4 over, 87% complete, CPI 1.06
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: '23-4003',
+    name: '23-4003 · PGR – East Atmore Solar · 42 MW DC · $68.1M',
+    subtitle: 'Job 23-4003 · PGR – East Atmore Solar · 42 MW DC · EPC Contract',
+    reportDate: 'May 24, 2026',
+    rows: [
+      {Code:'1-4000', Description:'Mobilization',              Units:42,  Budget:165400,    Actual:156967,   Forecast:156967,   UnitRateBudget:3938,    UnitRateActual:3737},
+      {Code:'1-4001', Description:'Demobilization',            Units:42,  Budget:165400,    Actual:127200,   Forecast:129200,   UnitRateBudget:3938,    UnitRateActual:3029},
+      {Code:'1-4004', Description:'Materials to Furnish',      Units:1,   Budget:7586780,   Actual:8069562,  Forecast:8124191,  UnitRateBudget:7586780, UnitRateActual:8069562},
+      {Code:'1-4004-01',Description:'Racking Materials',       Units:1,   Budget:16514108,  Actual:15965625, Forecast:15965625, UnitRateBudget:16514108,UnitRateActual:15965625},
+      {Code:'1-4004-02',Description:'Inverter Materials',      Units:23,  Budget:4317100,   Actual:4677297,  Forecast:4677297,  UnitRateBudget:187700,  UnitRateActual:203360},
+      {Code:'1-4004-03',Description:'Substation Materials',    Units:1,   Budget:3998823,   Actual:4984046,  Forecast:4988260,  UnitRateBudget:3998823, UnitRateActual:4984046},
+      {Code:'1-4004-07',Description:'SCADA Materials',         Units:1,   Budget:1289910,   Actual:1084927,  Forecast:1084927,  UnitRateBudget:1289910, UnitRateActual:1084927},
+      {Code:'1-4005', Description:'Labor',                     Units:42,  Budget:6100000,   Actual:5823411,  Forecast:5900000,  UnitRateBudget:145238,  UnitRateActual:138653},
+      {Code:'1-4006', Description:'Equipment',                 Units:42,  Budget:3400000,   Actual:3241800,  Forecast:3280000,  UnitRateBudget:80952,   UnitRateActual:77186},
+      {Code:'1-4007', Description:'Subcontract',               Units:1,   Budget:6500000,   Actual:6190000,  Forecast:6250000,  UnitRateBudget:6500000, UnitRateActual:6190000},
+      {Code:'1-4008', Description:'Civil Works',               Units:42,  Budget:2830000,   Actual:2810000,  Forecast:2820000,  UnitRateBudget:67381,   UnitRateActual:66905},
+      {Code:'1-4009', Description:'Commissioning',             Units:1,   Budget:1600000,   Actual:1240000,  Forecast:1380000,  UnitRateBudget:1600000, UnitRateActual:1240000},
+    ],
+    metrics: {
+      pctComplete: 87.3, pctPlanned: 89.1,
+      cpi: 1.06, spi: 0.94,
+      jtdHours: 184220, budgetHours: 179400,
+      thisWeekSpend: 1840, lastWeekSpend: 1710,
+      overBudgetCodes: 4,
+      trir: 0.0, recordables: 0, lostTime: 0, nearMisses: 3,
+      safetyObs: {done:188, goal:200}, toolboxTalks: {done:21, goal:21}, jhaCompliance: 97,
+      headcount: 148, headcountPlanned: 155,
+      totalHours: 5920, otHours: 210, avgLaborRate: 58.40, budgetLaborRate: 55.20,
+      craftCount: 124, staffCount: 24,
+      weeklySpend:  [1580,1810,1720,1790,1650,1740,1705,1840],
+      weeklyBudget: [1620,1750,1690,1820,1700,1680,1710,1710],
+      sCurvePlanned:[5,18,38,62,82,96,100],
+      sCurveActual: [4,17,36,60,87,null,null],
+      sCurveFcst:   [4,17,36,60,87,97,100],
+      sCurveLabels: ['Jan','Feb','Mar','Apr','May','Jun','Jul'],
+      laborBudget:  [1840,980,420,610,340,520,210],
+      laborActual:  [1920,940,380,640,310,510,220],
+      laborLabels:  ['Panel Install','Electrical','Civil','Substation','Commissioning','Equipment','QA/Safety'],
+      categoryData: [29700000,18400000,3100000,6200000,5000000],
+      productActual:[4.2,4.5,4.8,4.6,5.1,4.9,5.2,5.0],
+      productBudget: 4.8,
+      weeklyTable: [
+        {code:'1-4004-01',desc:'Racking Materials',      wkBud:210000, wkAct:198450, jtdPct:96.8},
+        {code:'1-4004',   desc:'Solar Panel Install',    wkBud:320000, wkAct:341200, jtdPct:88.4},
+        {code:'1-4005',   desc:'Electrical / Labor',     wkBud:185000, wkAct:177340, jtdPct:82.1},
+        {code:'1-4004-02',desc:'Inverter Materials',     wkBud:95000,  wkAct:108900, jtdPct:100.0},
+        {code:'1-4004-03',desc:'Substation Materials',   wkBud:440000, wkAct:462300, jtdPct:94.3},
+        {code:'1-4008',   desc:'Civil / Grading',        wkBud:128000, wkAct:119800, jtdPct:99.2},
+        {code:'1-4009',   desc:'Commissioning',          wkBud:145000, wkAct:148600, jtdPct:74.1},
+        {code:'1-4006',   desc:'Equipment / Crane',      wkBud:110000, wkAct:124500, jtdPct:91.0},
+      ],
+      budgetGauges: [
+        {label:'Panel Installation',  pct:88, act:8100000, bud:9200000},
+        {label:'Electrical / Wiring', pct:82, act:4400000, bud:5400000},
+        {label:'Substation',          pct:102,act:5000000, bud:4900000},
+        {label:'Civil / Grading',     pct:99, act:2800000, bud:2830000},
+        {label:'Commissioning',       pct:74, act:1200000, bud:1600000},
+        {label:'Equipment / Crane',   pct:91, act:3100000, bud:3400000},
+        {label:'Materials (All)',      pct:95, act:29700000,bud:31200000},
+      ],
+      milestones: [
+        {name:'Site Mobilization',       date:'Jan 15', state:'done'},
+        {name:'Civil & Grading Complete',date:'Mar 8',  state:'done'},
+        {name:'Racking Install — 100%',  date:'Apr 22', state:'done'},
+        {name:'Panel Install — 87%',     date:'Jun 7',  state:'active'},
+        {name:'Substation Energize',     date:'Jun 20', state:'risk'},
+        {name:'Commissioning',           date:'Jul 10', state:'pending'},
+        {name:'Substantial Completion',  date:'Jul 31', state:'pending'},
+      ],
+    }
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // JOB 1 · 23-4011 · SunRidge – Decatur Farms · 78 MW · $124.5M
+  // Profile: larger job, mixed over/under, 61% complete, CPI 0.97 (slight overrun)
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: '23-4011',
+    name: '23-4011 · SunRidge – Decatur Farms · 78 MW DC · $124.5M',
+    subtitle: 'Job 23-4011 · SunRidge – Decatur Farms · 78 MW DC · EPC Contract',
+    reportDate: 'May 24, 2026',
+    rows: [
+      {Code:'1-4000', Description:'Mobilization',              Units:78,  Budget:298000,    Actual:312400,   Forecast:312400,   UnitRateBudget:3821,    UnitRateActual:4005},
+      {Code:'1-4001', Description:'Demobilization',            Units:78,  Budget:298000,    Actual:80000,    Forecast:298000,   UnitRateBudget:3821,    UnitRateActual:1026},
+      {Code:'1-4004', Description:'Materials to Furnish',      Units:1,   Budget:14100000,  Actual:14820000, Forecast:15100000, UnitRateBudget:14100000,UnitRateActual:14820000},
+      {Code:'1-4004-01',Description:'Racking Materials',       Units:1,   Budget:30800000,  Actual:29950000, Forecast:30200000, UnitRateBudget:30800000,UnitRateActual:29950000},
+      {Code:'1-4004-02',Description:'Inverter Materials',      Units:42,  Budget:8064000,   Actual:8630000,  Forecast:8630000,  UnitRateBudget:192000,  UnitRateActual:205476},
+      {Code:'1-4004-03',Description:'Substation Materials',    Units:2,   Budget:7400000,   Actual:8210000,  Forecast:8350000,  UnitRateBudget:3700000, UnitRateActual:4105000},
+      {Code:'1-4004-07',Description:'SCADA Materials',         Units:1,   Budget:2400000,   Actual:2190000,  Forecast:2250000,  UnitRateBudget:2400000, UnitRateActual:2190000},
+      {Code:'1-4005', Description:'Labor',                     Units:78,  Budget:11440000,  Actual:11920000, Forecast:12300000, UnitRateBudget:146667,  UnitRateActual:152821},
+      {Code:'1-4006', Description:'Equipment',                 Units:78,  Budget:6240000,   Actual:6100000,  Forecast:6200000,  UnitRateBudget:80000,   UnitRateActual:78205},
+      {Code:'1-4007', Description:'Subcontract',               Units:1,   Budget:12000000,  Actual:11400000, Forecast:11700000, UnitRateBudget:12000000,UnitRateActual:11400000},
+      {Code:'1-4008', Description:'Civil Works',               Units:78,  Budget:5300000,   Actual:5610000,  Forecast:5700000,  UnitRateBudget:67949,   UnitRateActual:71923},
+      {Code:'1-4009', Description:'Commissioning',             Units:1,   Budget:2960000,   Actual:680000,   Forecast:3100000,  UnitRateBudget:2960000, UnitRateActual:680000},
+    ],
+    metrics: {
+      pctComplete: 61.2, pctPlanned: 65.8,
+      cpi: 0.97, spi: 0.93,
+      jtdHours: 328400, budgetHours: 318000,
+      thisWeekSpend: 3210, lastWeekSpend: 2980,
+      overBudgetCodes: 6,
+      trir: 0.54, recordables: 1, lostTime: 0, nearMisses: 5,
+      safetyObs: {done:312, goal:350}, toolboxTalks: {done:38, goal:40}, jhaCompliance: 94,
+      headcount: 274, headcountPlanned: 290,
+      totalHours: 10960, otHours: 520, avgLaborRate: 61.20, budgetLaborRate: 58.00,
+      craftCount: 234, staffCount: 40,
+      weeklySpend:  [2850,3100,2940,3280,3050,3190,2980,3210],
+      weeklyBudget: [2900,2900,3000,3000,3100,3100,3000,3000],
+      sCurvePlanned:[3,10,22,38,56,72,85,95,100],
+      sCurveActual: [2,9,20,35,53,61,null,null,null],
+      sCurveFcst:   [2,9,20,35,53,61,76,90,100],
+      sCurveLabels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep'],
+      laborBudget:  [3400,1820,780,1140,630,970,390],
+      laborActual:  [3580,1940,810,1320,420,930,380],
+      laborLabels:  ['Panel Install','Electrical','Civil','Substation','Commissioning','Equipment','QA/Safety'],
+      categoryData: [55600000,36200000,5800000,11400000,9000000],
+      productActual:[4.0,4.2,4.5,4.3,4.7,4.6,4.8,4.5],
+      productBudget: 4.6,
+      weeklyTable: [
+        {code:'1-4004-01',desc:'Racking Materials',     wkBud:380000, wkAct:362000, jtdPct:97.2},
+        {code:'1-4004',   desc:'Materials to Furnish',  wkBud:590000, wkAct:624000, jtdPct:61.8},
+        {code:'1-4005',   desc:'Labor',                 wkBud:345000, wkAct:371000, jtdPct:62.4},
+        {code:'1-4004-02',desc:'Inverter Materials',    wkBud:175000, wkAct:188000, jtdPct:100.0},
+        {code:'1-4004-03',desc:'Substation Materials',  wkBud:810000, wkAct:892000, jtdPct:58.1},
+        {code:'1-4008',   desc:'Civil Works',           wkBud:236000, wkAct:248000, jtdPct:94.6},
+        {code:'1-4009',   desc:'Commissioning',         wkBud:270000, wkAct:42000,  jtdPct:23.0},
+        {code:'1-4006',   desc:'Equipment',             wkBud:204000, wkAct:199000, jtdPct:68.4},
+      ],
+      budgetGauges: [
+        {label:'Panel Installation',  pct:62, act:18200000,bud:29300000},
+        {label:'Electrical / Wiring', pct:59, act:8100000, bud:13700000},
+        {label:'Substation',          pct:111,act:8210000, bud:7400000},
+        {label:'Civil / Grading',     pct:106,act:5610000, bud:5300000},
+        {label:'Commissioning',       pct:23, act:680000,  bud:2960000},
+        {label:'Equipment / Crane',   pct:98, act:6100000, bud:6240000},
+        {label:'Materials (All)',      pct:67, act:55600000,bud:83000000},
+      ],
+      milestones: [
+        {name:'Site Mobilization',       date:'Oct 10', state:'done'},
+        {name:'Civil & Grading Complete',date:'Jan 15', state:'done'},
+        {name:'Racking Install — 100%',  date:'Mar 30', state:'done'},
+        {name:'Panel Install — 61%',     date:'Jul 20', state:'active'},
+        {name:'Electrical Rough-In',     date:'Aug 5',  state:'active'},
+        {name:'Substation Energize',     date:'Sep 12', state:'risk'},
+        {name:'Substantial Completion',  date:'Nov 30', state:'pending'},
+      ],
+    }
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // JOB 2 · 24-1002 · Westfield Energy – Clanton · 28 MW · $44.8M
+  // Profile: smallest job, mostly under budget, early stage, 34% complete, CPI 1.08
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: '24-1002',
+    name: '24-1002 · Westfield Energy – Clanton · 28 MW DC · $44.8M',
+    subtitle: 'Job 24-1002 · Westfield Energy – Clanton · 28 MW DC · EPC Contract',
+    reportDate: 'May 24, 2026',
+    rows: [
+      {Code:'1-4000', Description:'Mobilization',              Units:28,  Budget:108000,    Actual:104200,   Forecast:104200,   UnitRateBudget:3857,    UnitRateActual:3721},
+      {Code:'1-4001', Description:'Demobilization',            Units:28,  Budget:108000,    Actual:0,        Forecast:108000,   UnitRateBudget:3857,    UnitRateActual:0},
+      {Code:'1-4004', Description:'Materials to Furnish',      Units:1,   Budget:5020000,   Actual:5380000,  Forecast:5420000,  UnitRateBudget:5020000, UnitRateActual:5380000},
+      {Code:'1-4004-01',Description:'Racking Materials',       Units:1,   Budget:10920000,  Actual:10610000, Forecast:10700000, UnitRateBudget:10920000,UnitRateActual:10610000},
+      {Code:'1-4004-02',Description:'Inverter Materials',      Units:14,  Budget:2618000,   Actual:2590000,  Forecast:2590000,  UnitRateBudget:187000,  UnitRateActual:185000},
+      {Code:'1-4004-03',Description:'Substation Materials',    Units:1,   Budget:2640000,   Actual:2480000,  Forecast:2560000,  UnitRateBudget:2640000, UnitRateActual:2480000},
+      {Code:'1-4004-07',Description:'SCADA Materials',         Units:1,   Budget:860000,    Actual:0,        Forecast:860000,   UnitRateBudget:860000,  UnitRateActual:0},
+      {Code:'1-4005', Description:'Labor',                     Units:28,  Budget:4100000,   Actual:3620000,  Forecast:4200000,  UnitRateBudget:146429,  UnitRateActual:129286},
+      {Code:'1-4006', Description:'Equipment',                 Units:28,  Budget:2260000,   Actual:1980000,  Forecast:2100000,  UnitRateBudget:80714,   UnitRateActual:70714},
+      {Code:'1-4007', Description:'Subcontract',               Units:1,   Budget:4200000,   Actual:3640000,  Forecast:3800000,  UnitRateBudget:4200000, UnitRateActual:3640000},
+      {Code:'1-4008', Description:'Civil Works',               Units:28,  Budget:1890000,   Actual:1750000,  Forecast:1820000,  UnitRateBudget:67500,   UnitRateActual:62500},
+      {Code:'1-4009', Description:'Commissioning',             Units:1,   Budget:1060000,   Actual:0,        Forecast:1100000,  UnitRateBudget:1060000, UnitRateActual:0},
+    ],
+    metrics: {
+      pctComplete: 34.1, pctPlanned: 38.0,
+      cpi: 1.08, spi: 0.90,
+      jtdHours: 98600, budgetHours: 94000,
+      thisWeekSpend: 1140, lastWeekSpend: 980,
+      overBudgetCodes: 2,
+      trir: 0.0, recordables: 0, lostTime: 0, nearMisses: 1,
+      safetyObs: {done:94, goal:110}, toolboxTalks: {done:14, goal:15}, jhaCompliance: 99,
+      headcount: 98, headcountPlanned: 110,
+      totalHours: 3920, otHours: 84, avgLaborRate: 55.80, budgetLaborRate: 57.20,
+      craftCount: 82, staffCount: 16,
+      weeklySpend:  [820,940,1050,1110,980,1060,980,1140],
+      weeklyBudget: [900,950,1000,1050,1050,1100,1000,1020],
+      sCurvePlanned:[2,7,16,28,42,58,72,84,93,100],
+      sCurveActual: [1,6,14,25,34,null,null,null,null,null],
+      sCurveFcst:   [1,6,14,25,34,47,63,78,90,100],
+      sCurveLabels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'],
+      laborBudget:  [1100,620,280,420,200,340,140],
+      laborActual:  [1080,590,310,380,120,310,130],
+      laborLabels:  ['Panel Install','Electrical','Civil','Substation','Commissioning','Equipment','QA/Safety'],
+      categoryData: [19600000,10900000,1980000,3640000,3880000],
+      productActual:[4.4,4.7,4.9,4.8,5.2,5.0,5.3,5.1],
+      productBudget: 4.7,
+      weeklyTable: [
+        {code:'1-4004-01',desc:'Racking Materials',     wkBud:140000, wkAct:132000, jtdPct:97.1},
+        {code:'1-4004',   desc:'Materials to Furnish',  wkBud:210000, wkAct:228000, jtdPct:34.2},
+        {code:'1-4005',   desc:'Labor',                 wkBud:124000, wkAct:112000, jtdPct:32.8},
+        {code:'1-4004-02',desc:'Inverter Materials',    wkBud:62000,  wkAct:61000,  jtdPct:100.0},
+        {code:'1-4004-03',desc:'Substation Materials',  wkBud:285000, wkAct:268000, jtdPct:93.9},
+        {code:'1-4008',   desc:'Civil Works',           wkBud:84000,  wkAct:78000,  jtdPct:92.6},
+        {code:'1-4009',   desc:'Commissioning',         wkBud:0,      wkAct:0,      jtdPct:0.0},
+        {code:'1-4006',   desc:'Equipment',             wkBud:72000,  wkAct:61000,  jtdPct:87.6},
+      ],
+      budgetGauges: [
+        {label:'Panel Installation',  pct:35, act:3820000, bud:10920000},
+        {label:'Electrical / Wiring', pct:31, act:2700000, bud:8700000},
+        {label:'Substation',          pct:94, act:2480000, bud:2640000},
+        {label:'Civil / Grading',     pct:93, act:1750000, bud:1890000},
+        {label:'Commissioning',       pct:0,  act:0,       bud:1060000},
+        {label:'Equipment / Crane',   pct:88, act:1980000, bud:2260000},
+        {label:'Materials (All)',      pct:38, act:18580000,bud:49000000},
+      ],
+      milestones: [
+        {name:'Site Mobilization',     date:'Jan 8',  state:'done'},
+        {name:'Civil & Grading Complete',date:'Mar 21',state:'done'},
+        {name:'Racking Install — 34%', date:'Jun 30', state:'active'},
+        {name:'Panel Install Start',   date:'Jun 15', state:'active'},
+        {name:'Substation Delivery',   date:'Aug 10', state:'pending'},
+        {name:'Commissioning',         date:'Nov 15', state:'pending'},
+        {name:'Substantial Completion',date:'Dec 20', state:'pending'},
+      ],
+    }
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // JOB 3 · 24-2008 · BlueSky – Verbena South · 55 MW · $88.2M
+  // Profile: medium job, several over-budget items, 72% complete, CPI 0.99
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: '24-2008',
+    name: '24-2008 · BlueSky – Verbena South · 55 MW DC · $88.2M',
+    subtitle: 'Job 24-2008 · BlueSky – Verbena South · 55 MW DC · EPC Contract',
+    reportDate: 'May 24, 2026',
+    rows: [
+      {Code:'1-4000', Description:'Mobilization',              Units:55,  Budget:214500,    Actual:228000,   Forecast:228000,   UnitRateBudget:3900,    UnitRateActual:4145},
+      {Code:'1-4001', Description:'Demobilization',            Units:55,  Budget:214500,    Actual:48000,    Forecast:214500,   UnitRateBudget:3900,    UnitRateActual:873},
+      {Code:'1-4004', Description:'Materials to Furnish',      Units:1,   Budget:9240000,   Actual:9740000,  Forecast:9980000,  UnitRateBudget:9240000, UnitRateActual:9740000},
+      {Code:'1-4004-01',Description:'Racking Materials',       Units:1,   Budget:20200000,  Actual:20640000, Forecast:20900000, UnitRateBudget:20200000,UnitRateActual:20640000},
+      {Code:'1-4004-02',Description:'Inverter Materials',      Units:28,  Budget:5376000,   Actual:5712000,  Forecast:5712000,  UnitRateBudget:192000,  UnitRateActual:204000},
+      {Code:'1-4004-03',Description:'Substation Materials',    Units:1,   Budget:5180000,   Actual:5020000,  Forecast:5050000,  UnitRateBudget:5180000, UnitRateActual:5020000},
+      {Code:'1-4004-07',Description:'SCADA Materials',         Units:1,   Budget:1680000,   Actual:1540000,  Forecast:1580000,  UnitRateBudget:1680000, UnitRateActual:1540000},
+      {Code:'1-4005', Description:'Labor',                     Units:55,  Budget:7920000,   Actual:8360000,  Forecast:8700000,  UnitRateBudget:144000,  UnitRateActual:152000},
+      {Code:'1-4006', Description:'Equipment',                 Units:55,  Budget:4400000,   Actual:4260000,  Forecast:4310000,  UnitRateBudget:80000,   UnitRateActual:77455},
+      {Code:'1-4007', Description:'Subcontract',               Units:1,   Budget:8200000,   Actual:7940000,  Forecast:8100000,  UnitRateBudget:8200000, UnitRateActual:7940000},
+      {Code:'1-4008', Description:'Civil Works',               Units:55,  Budget:3740000,   Actual:3910000,  Forecast:3980000,  UnitRateBudget:68000,   UnitRateActual:71091},
+      {Code:'1-4009', Description:'Commissioning',             Units:1,   Budget:2120000,   Actual:1380000,  Forecast:2200000,  UnitRateBudget:2120000, UnitRateActual:1380000},
+    ],
+    metrics: {
+      pctComplete: 72.0, pctPlanned: 74.5,
+      cpi: 0.99, spi: 0.97,
+      jtdHours: 246000, budgetHours: 240000,
+      thisWeekSpend: 2420, lastWeekSpend: 2260,
+      overBudgetCodes: 5,
+      trir: 1.22, recordables: 2, lostTime: 1, nearMisses: 4,
+      safetyObs: {done:214, goal:240}, toolboxTalks: {done:28, goal:30}, jhaCompliance: 96,
+      headcount: 194, headcountPlanned: 200,
+      totalHours: 7760, otHours: 380, avgLaborRate: 59.80, budgetLaborRate: 58.50,
+      craftCount: 162, staffCount: 32,
+      weeklySpend:  [2040,2280,2360,2410,2180,2310,2260,2420],
+      weeklyBudget: [2100,2200,2300,2400,2200,2300,2200,2250],
+      sCurvePlanned:[4,13,28,46,64,78,90,100],
+      sCurveActual: [3,12,26,44,62,72,null,null],
+      sCurveFcst:   [3,12,26,44,62,72,85,100],
+      sCurveLabels: ['Jan','Feb','Mar','Apr','May','Jun','Aug','Oct'],
+      laborBudget:  [2260,1220,530,820,460,700,270],
+      laborActual:  [2390,1310,510,870,380,680,250],
+      laborLabels:  ['Panel Install','Electrical','Civil','Substation','Commissioning','Equipment','QA/Safety'],
+      categoryData: [38600000,24800000,4260000,7940000,6400000],
+      productActual:[4.1,4.3,4.6,4.4,4.9,4.7,5.0,4.8],
+      productBudget: 4.7,
+      weeklyTable: [
+        {code:'1-4004-01',desc:'Racking Materials',     wkBud:280000, wkAct:294000, jtdPct:102.2},
+        {code:'1-4004',   desc:'Materials to Furnish',  wkBud:440000, wkAct:468000, jtdPct:72.8},
+        {code:'1-4005',   desc:'Labor',                 wkBud:240000, wkAct:262000, jtdPct:73.1},
+        {code:'1-4004-02',desc:'Inverter Materials',    wkBud:116000, wkAct:124000, jtdPct:100.0},
+        {code:'1-4004-03',desc:'Substation Materials',  wkBud:566000, wkAct:548000, jtdPct:96.9},
+        {code:'1-4008',   desc:'Civil Works',           wkBud:164000, wkAct:172000, jtdPct:104.5},
+        {code:'1-4009',   desc:'Commissioning',         wkBud:196000, wkAct:162000, jtdPct:65.1},
+        {code:'1-4006',   desc:'Equipment',             wkBud:152000, wkAct:148000, jtdPct:96.8},
+      ],
+      budgetGauges: [
+        {label:'Panel Installation',  pct:74, act:15000000,bud:20200000},
+        {label:'Electrical / Wiring', pct:70, act:7200000, bud:10300000},
+        {label:'Substation',          pct:97, act:5020000, bud:5180000},
+        {label:'Civil / Grading',     pct:105,act:3910000, bud:3740000},
+        {label:'Commissioning',       pct:65, act:1380000, bud:2120000},
+        {label:'Equipment / Crane',   pct:97, act:4260000, bud:4400000},
+        {label:'Materials (All)',      pct:80, act:36652000,bud:45780000},
+      ],
+      milestones: [
+        {name:'Site Mobilization',       date:'Sep 5',  state:'done'},
+        {name:'Civil & Grading Complete',date:'Dec 12', state:'done'},
+        {name:'Racking Install — 100%',  date:'Mar 14', state:'done'},
+        {name:'Panel Install — 72%',     date:'Jul 31', state:'active'},
+        {name:'Substation Energize',     date:'Aug 22', state:'pending'},
+        {name:'Commissioning',           date:'Oct 1',  state:'pending'},
+        {name:'Substantial Completion',  date:'Nov 15', state:'pending'},
+      ],
+    }
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // JOB 4 · 24-3015 · ClearPath – Chilton County · 92 MW · $147.3M
+  // Profile: largest job, early stages, mostly under-spent but on-track, 22% complete, CPI 1.04
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: '24-3015',
+    name: '24-3015 · ClearPath – Chilton County · 92 MW DC · $147.3M',
+    subtitle: 'Job 24-3015 · ClearPath – Chilton County · 92 MW DC · EPC Contract',
+    reportDate: 'May 24, 2026',
+    rows: [
+      {Code:'1-4000', Description:'Mobilization',              Units:92,  Budget:362000,    Actual:348000,   Forecast:348000,   UnitRateBudget:3935,    UnitRateActual:3783},
+      {Code:'1-4001', Description:'Demobilization',            Units:92,  Budget:362000,    Actual:0,        Forecast:362000,   UnitRateBudget:3935,    UnitRateActual:0},
+      {Code:'1-4004', Description:'Materials to Furnish',      Units:1,   Budget:18600000,  Actual:19840000, Forecast:20100000, UnitRateBudget:18600000,UnitRateActual:19840000},
+      {Code:'1-4004-01',Description:'Racking Materials',       Units:1,   Budget:36200000,  Actual:35400000, Forecast:36500000, UnitRateBudget:36200000,UnitRateActual:35400000},
+      {Code:'1-4004-02',Description:'Inverter Materials',      Units:50,  Budget:9800000,   Actual:9620000,  Forecast:9750000,  UnitRateBudget:196000,  UnitRateActual:192400},
+      {Code:'1-4004-03',Description:'Substation Materials',    Units:3,   Budget:11100000,  Actual:11640000, Forecast:11820000, UnitRateBudget:3700000, UnitRateActual:3880000},
+      {Code:'1-4004-07',Description:'SCADA Materials',         Units:1,   Budget:3160000,   Actual:0,        Forecast:3200000,  UnitRateBudget:3160000, UnitRateActual:0},
+      {Code:'1-4005', Description:'Labor',                     Units:92,  Budget:13480000,  Actual:12100000, Forecast:13800000, UnitRateBudget:146522,  UnitRateActual:131522},
+      {Code:'1-4006', Description:'Equipment',                 Units:92,  Budget:7360000,   Actual:6820000,  Forecast:7000000,  UnitRateBudget:80000,   UnitRateActual:74130},
+      {Code:'1-4007', Description:'Subcontract',               Units:1,   Budget:14200000,  Actual:9840000,  Forecast:14400000, UnitRateBudget:14200000,UnitRateActual:9840000},
+      {Code:'1-4008', Description:'Civil Works',               Units:92,  Budget:6280000,   Actual:6510000,  Forecast:6640000,  UnitRateBudget:68261,   UnitRateActual:70761},
+      {Code:'1-4009', Description:'Commissioning',             Units:1,   Budget:3520000,   Actual:0,        Forecast:3600000,  UnitRateBudget:3520000, UnitRateActual:0},
+    ],
+    metrics: {
+      pctComplete: 22.4, pctPlanned: 25.0,
+      cpi: 1.04, spi: 0.90,
+      jtdHours: 168400, budgetHours: 162000,
+      thisWeekSpend: 3860, lastWeekSpend: 3640,
+      overBudgetCodes: 3,
+      trir: 0.0, recordables: 0, lostTime: 0, nearMisses: 2,
+      safetyObs: {done:148, goal:180}, toolboxTalks: {done:18, goal:20}, jhaCompliance: 98,
+      headcount: 318, headcountPlanned: 340,
+      totalHours: 12720, otHours: 640, avgLaborRate: 57.40, budgetLaborRate: 59.00,
+      craftCount: 278, staffCount: 40,
+      weeklySpend:  [2840,3180,3420,3680,3500,3720,3640,3860],
+      weeklyBudget: [2800,3000,3200,3600,3600,3800,3600,3800],
+      sCurvePlanned:[1,4,10,18,28,40,55,70,83,93,100],
+      sCurveActual: [1,4,9,16,22,null,null,null,null,null,null],
+      sCurveFcst:   [1,4,9,16,22,33,48,64,80,92,100],
+      sCurveLabels: ['Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Nov'],
+      laborBudget:  [4000,2140,920,1420,820,1200,480],
+      laborActual:  [3980,2060,980,1380,560,1180,460],
+      laborLabels:  ['Panel Install','Electrical','Civil','Substation','Commissioning','Equipment','QA/Safety'],
+      categoryData: [64460000,35860000,6820000,9840000,12720000],
+      productActual:[4.5,4.8,5.0,4.9,5.3,5.1,5.4,5.2],
+      productBudget: 4.9,
+      weeklyTable: [
+        {code:'1-4004-01',desc:'Racking Materials',     wkBud:480000, wkAct:462000, jtdPct:97.8},
+        {code:'1-4004',   desc:'Materials to Furnish',  wkBud:760000, wkAct:812000, jtdPct:22.6},
+        {code:'1-4005',   desc:'Labor',                 wkBud:408000, wkAct:380000, jtdPct:21.8},
+        {code:'1-4004-02',desc:'Inverter Materials',    wkBud:220000, wkAct:216000, jtdPct:98.2},
+        {code:'1-4004-03',desc:'Substation Materials',  wkBud:940000, wkAct:982000, jtdPct:52.0},
+        {code:'1-4008',   desc:'Civil Works',           wkBud:272000, wkAct:284000, jtdPct:103.7},
+        {code:'1-4009',   desc:'Commissioning',         wkBud:0,      wkAct:0,      jtdPct:0.0},
+        {code:'1-4006',   desc:'Equipment',             wkBud:248000, wkAct:232000, jtdPct:92.7},
+      ],
+      budgetGauges: [
+        {label:'Panel Installation',  pct:22, act:7900000, bud:36200000},
+        {label:'Electrical / Wiring', pct:20, act:6200000, bud:31000000},
+        {label:'Substation',          pct:105,act:11640000,bud:11100000},
+        {label:'Civil / Grading',     pct:104,act:6510000, bud:6280000},
+        {label:'Commissioning',       pct:0,  act:0,       bud:3520000},
+        {label:'Equipment / Crane',   pct:93, act:6820000, bud:7360000},
+        {label:'Materials (All)',      pct:27, act:64460000,bud:238000000},
+      ],
+      milestones: [
+        {name:'Site Mobilization',       date:'Dec 1',  state:'done'},
+        {name:'Civil — Phase 1 Complete',date:'Mar 28', state:'done'},
+        {name:'Racking Install — 22%',   date:'Jul 15', state:'active'},
+        {name:'Substation Delivery',     date:'Jun 28', state:'active'},
+        {name:'Panel Install Start',     date:'Jul 20', state:'pending'},
+        {name:'Commissioning',           date:'Mar 2027',state:'pending'},
+        {name:'Substantial Completion',  date:'May 2027',state:'pending'},
+      ],
+    }
+  },
+
+]; // end ALL_JOBS
+
+
+// ═══════════════════════════════════════════════════════════════
+// STATE & FORMATTERS
+// ═══════════════════════════════════════════════════════════════
+let currentJob = null;
+let CHARTS = {};
+
+// Sort state per table
+let exec_sortKey = 'Variance', exec_sortDir = -1;
+let bud_sortKey  = 'Budget',   bud_sortDir  = -1;
+
+const fmt$  = n => n.toLocaleString('en-US', {style:'currency', currency:'USD', maximumFractionDigits:0});
+const fmtK  = n => '$' + (Math.abs(n) >= 1e6 ? (n/1e6).toFixed(1)+'M' : (n/1e3).toFixed(0)+'K');
+const fmtPct = n => (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
+const fmtRate = n => n.toLocaleString('en-US', {style:'currency', currency:'USD', maximumFractionDigits:2});
+
+const CC = {  // chart color constants
   text:'#ddeeff', muted:'#7a9ab8', grid:'#1e3048',
   accent:'#3b9eff', warn:'#e7a23b', good:'#2ecc71', bad:'#e74c3c', purple:'#9b59b6'
 };
 
-// ─────────────────────────────────────────────
-// ENRICHED ROW DATA (shared across tabs)
-// ─────────────────────────────────────────────
-const rows = COST_DATA.rows.map(r => ({
-  ...r,
-  VariancePct:     r.Budget ? (r.Variance / r.Budget) * 100 : 0,
-  UnitRateVariance: r.UnitRateBudget - r.UnitRateActual,
-  UnitRateDelta:    r.UnitRateBudget - r.UnitRateActual,
-  status:           r.Variance >= 0 ? 'under' : 'over',
-}));
+/** Enrich raw row array with derived fields */
+function enrichRows(rawRows) {
+  return rawRows.map(r => ({
+    ...r,
+    'Cost Code':       r.Code,
+    Variance:          r.Budget - r.Actual,
+    VariancePct:       r.Budget ? ((r.Budget - r.Actual) / r.Budget) * 100 : 0,
+    UnitRateDelta:     r.UnitRateBudget - r.UnitRateActual,
+    UnitRateVariance:  r.UnitRateBudget - r.UnitRateActual,
+    status:            (r.Budget - r.Actual) >= 0 ? 'under' : 'over',
+  }));
+}
 
-// ─────────────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════════
+// JOB SELECTOR — populate dropdown + initial load
+// ═══════════════════════════════════════════════════════════════
+(function buildDropdown() {
+  const sel = document.getElementById('jobSelector');
+  ALL_JOBS.forEach((job, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = job.name;
+    sel.appendChild(opt);
+  });
+})();
+
+/** Main entry: select a job by index, refresh everything */
+function selectJob(idx) {
+  idx = Number(idx);
+  currentJob = ALL_JOBS[idx];
+
+  // Update header
+  document.getElementById('hdr-subtitle').textContent = currentJob.subtitle;
+  document.getElementById('hdr-date').textContent = currentJob.reportDate;
+  document.getElementById('footer-left').textContent =
+    `Power Cost Report Dashboard · Job ${currentJob.id}`;
+  document.getElementById('footer-right').textContent =
+    `Report Date: ${currentJob.reportDate} · Self-contained file — no server required`;
+
+  // Destroy all existing charts
+  Object.values(CHARTS).forEach(c => { if (c) c.destroy(); });
+  CHARTS = {};
+
+  // Rebuild every tab
+  renderExecTab();
+  renderBudgetTab();
+  renderMetricsTab();
+}
+
+// ═══════════════════════════════════════════════════════════════
 // TAB SWITCHING
-// ─────────────────────────────────────────────
-const TAB_IDS = ['executive','budget','metrics'];
-const tabInited = {executive:false, budget:false, metrics:false};
+// ═══════════════════════════════════════════════════════════════
+const TAB_IDS = ['executive', 'budget', 'metrics'];
 
 function switchTab(name, btn) {
   TAB_IDS.forEach(id => {
-    document.getElementById('tab-'+id).style.display = (id === name) ? '' : 'none';
+    document.getElementById('tab-' + id).style.display = (id === name) ? '' : 'none';
   });
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-
-  if (!tabInited[name]) {
-    tabInited[name] = true;
-    if (name === 'executive') initExec();
-    if (name === 'budget')    initBudget();
-    if (name === 'metrics')   initMetrics();
-  }
 }
 
-// ─────────────────────────────────────────────────────────────────
-// TAB 1 — EXECUTIVE
-// ─────────────────────────────────────────────────────────────────
-let exec_sortKey = 'Variance', exec_sortDir = -1;
-let exec_barChart, exec_donutChart;
 
-function initExec() {
-  renderExecKPIs();
-  renderExecCharts();
-  renderExecTable();
+// ═══════════════════════════════════════════════════════════════
+// TAB 1 — EXECUTIVE DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+function renderExecTab() {
+  const rows = enrichRows(currentJob.rows);
 
-  document.getElementById('exec-search').addEventListener('input', e => {
-    renderExecTable(e.target.value.toLowerCase());
-  });
+  renderExecKPIs(rows);
+  renderExecCharts(rows);
+  renderExecTable(rows);
+
+  // Re-bind controls (removing old listeners by cloning nodes)
+  const searchEl = document.getElementById('exec-search');
+  const newSearch = searchEl.cloneNode(true);
+  searchEl.parentNode.replaceChild(newSearch, searchEl);
+  newSearch.value = '';
+  newSearch.addEventListener('input', e => renderExecTable(rows, e.target.value.toLowerCase()));
+
   document.querySelectorAll('#exec-dataTable th[data-key]').forEach(th => {
-    th.addEventListener('click', () => {
+    th.classList.remove('sorted');
+    th.onclick = () => {
       const key = th.dataset.key;
       exec_sortDir = (exec_sortKey === key) ? -exec_sortDir : -1;
       exec_sortKey = key;
       document.querySelectorAll('#exec-dataTable th').forEach(t => t.classList.remove('sorted'));
       th.classList.add('sorted');
-      renderExecTable(document.getElementById('exec-search').value.toLowerCase());
-    });
+      renderExecTable(rows, document.getElementById('exec-search').value.toLowerCase());
+    };
   });
 }
 
-function renderExecKPIs() {
-  const totalBudget   = rows.reduce((s,r) => s+r.Budget, 0);
-  const totalActual   = rows.reduce((s,r) => s+r.Actual, 0);
-  const totalForecast = rows.reduce((s,r) => s+r.Forecast, 0);
+function renderExecKPIs(rows) {
+  const totalBudget   = rows.reduce((s, r) => s + r.Budget,   0);
+  const totalActual   = rows.reduce((s, r) => s + r.Actual,   0);
+  const totalForecast = rows.reduce((s, r) => s + r.Forecast, 0);
   const variance      = totalBudget - totalActual;
-  const variancePct   = totalBudget ? (variance/totalBudget)*100 : 0;
+  const variancePct   = totalBudget ? (variance / totalBudget) * 100 : 0;
 
   const kpis = [
-    {label:'Total Budget (Original ECAC)', value:fmt$(totalBudget), cls:''},
-    {label:'Total Actual (JTD Charges)',   value:fmt$(totalActual), cls:''},
-    {label:'Total Forecast (Projected ECAC)', value:fmt$(totalForecast), cls:''},
-    {label:'Budget Variance', value:fmt$(variance), cls:variance>=0?'good':'bad'},
-    {label:'Variance %',      value:fmtPct(variancePct), cls:variancePct>=0?'good':'bad'},
+    {label:'Total Budget (Original ECAC)',    value:fmt$(totalBudget),  cls:''},
+    {label:'Total Actual (JTD Charges)',      value:fmt$(totalActual),  cls:''},
+    {label:'Total Forecast (Projected ECAC)', value:fmt$(totalForecast),cls:''},
+    {label:'Budget Variance',  value:fmt$(variance),        cls:variance >= 0 ? 'good' : 'bad'},
+    {label:'Variance %',       value:fmtPct(variancePct),  cls:variancePct >= 0 ? 'good' : 'bad'},
   ];
+
   document.getElementById('exec-kpis').innerHTML = kpis.map(k =>
-    `<div class="kpi"><div class="label">${k.label}</div><div class="value ${k.cls}">${k.value}</div></div>`
+    `<div class="kpi">
+       <div class="label">${k.label}</div>
+       <div class="value ${k.cls}">${k.value}</div>
+     </div>`
   ).join('');
 }
 
-function renderExecCharts() {
-  const top = [...rows].sort((a,b) => b.Budget-a.Budget).slice(0,12);
-  if (exec_barChart) exec_barChart.destroy();
-  exec_barChart = new Chart(document.getElementById('exec-barChart'), {
-    type:'bar',
-    data:{
+function renderExecCharts(rows) {
+  const top = [...rows].sort((a, b) => b.Budget - a.Budget).slice(0, 10);
+
+  CHARTS['exec-bar'] = new Chart(document.getElementById('exec-barChart'), {
+    type: 'bar',
+    data: {
       labels: top.map(r => r['Cost Code']),
-      datasets:[
-        {label:'Budget', data:top.map(r=>r.Budget), backgroundColor:'#3b9eff', borderRadius:3},
-        {label:'Actual', data:top.map(r=>r.Actual), backgroundColor:'#e7a23b', borderRadius:3},
+      datasets: [
+        {label:'Budget', data:top.map(r => r.Budget), backgroundColor:'#3b9eff', borderRadius:3},
+        {label:'Actual', data:top.map(r => r.Actual), backgroundColor:'#e7a23b', borderRadius:3},
       ]
     },
-    options:{
-      responsive:true,
-      plugins:{legend:{labels:{color:chartColors.text,boxWidth:12}}},
-      scales:{
-        x:{ticks:{color:chartColors.muted,font:{size:10}}, grid:{color:chartColors.grid}},
-        y:{ticks:{color:chartColors.muted, callback:v=>'$'+(v>=1e6?(v/1e6).toFixed(1)+'M':(v/1e3).toFixed(0)+'K')}, grid:{color:chartColors.grid}}
+    options: {
+      responsive: true,
+      plugins: {legend: {labels: {color: CC.text, boxWidth:12}}},
+      scales: {
+        x: {ticks:{color:CC.muted, font:{size:10}}, grid:{color:CC.grid}},
+        y: {ticks:{color:CC.muted, callback: v => fmtK(v)}, grid:{color:CC.grid}},
       }
     }
   });
 
-  const totalBudget   = rows.reduce((s,r) => s+r.Budget, 0);
-  const totalActual   = rows.reduce((s,r) => s+r.Actual, 0);
-  const totalForecast = rows.reduce((s,r) => s+r.Forecast, 0);
-  if (exec_donutChart) exec_donutChart.destroy();
-  exec_donutChart = new Chart(document.getElementById('exec-donutChart'), {
-    type:'doughnut',
-    data:{
-      labels:['Budget','Actual','Forecast'],
-      datasets:[{data:[totalBudget,totalActual,totalForecast], backgroundColor:['#3b9eff','#e7a23b','#7a5cff'], hoverOffset:6}]
+  const totalBudget   = rows.reduce((s, r) => s + r.Budget,   0);
+  const totalActual   = rows.reduce((s, r) => s + r.Actual,   0);
+  const totalForecast = rows.reduce((s, r) => s + r.Forecast, 0);
+
+  CHARTS['exec-donut'] = new Chart(document.getElementById('exec-donutChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Budget', 'Actual', 'Forecast'],
+      datasets: [{
+        data: [totalBudget, totalActual, totalForecast],
+        backgroundColor: ['#3b9eff', '#e7a23b', '#7a5cff'],
+        hoverOffset: 6,
+      }]
     },
-    options:{
-      responsive:true,
-      plugins:{
-        legend:{position:'bottom', labels:{color:chartColors.text,boxWidth:12}},
-        tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${fmt$(ctx.raw)}`}}
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {position:'bottom', labels:{color:CC.text, boxWidth:12}},
+        tooltip: {callbacks: {label: ctx => `${ctx.label}: ${fmt$(ctx.raw)}`}},
       }
     }
   });
 }
 
-function renderExecTable(filter='') {
+function renderExecTable(rows, filter = '') {
   let data = rows.filter(r =>
-    !filter || r['Cost Code'].toLowerCase().includes(filter) || r.Description.toLowerCase().includes(filter)
+    !filter ||
+    r['Cost Code'].toLowerCase().includes(filter) ||
+    r.Description.toLowerCase().includes(filter)
   );
-  data = [...data].sort((a,b) => {
-    const av=a[exec_sortKey], bv=b[exec_sortKey];
+  data = [...data].sort((a, b) => {
+    const av = a[exec_sortKey], bv = b[exec_sortKey];
     if (typeof av === 'string') return exec_sortDir * av.localeCompare(bv);
-    return exec_sortDir * (av-bv);
+    return exec_sortDir * (av - bv);
   });
+
   document.querySelector('#exec-dataTable tbody').innerHTML = data.map(r => `
     <tr>
       <td>${r['Cost Code']}</td>
@@ -724,62 +1032,82 @@ function renderExecTable(filter='') {
       <td>${r.Units.toLocaleString()}</td>
       <td>${fmt$(r.Budget)}</td>
       <td>${fmt$(r.Actual)}</td>
-      <td class="${r.Variance>=0?'pos':'neg'}">${fmt$(r.Variance)}</td>
-      <td class="${r.VariancePct>=0?'pos':'neg'}">${fmtPct(r.VariancePct)}</td>
+      <td class="${r.Variance >= 0 ? 'pos' : 'neg'}">${fmt$(r.Variance)}</td>
+      <td class="${r.VariancePct >= 0 ? 'pos' : 'neg'}">${fmtPct(r.VariancePct)}</td>
       <td>${fmtRate(r.UnitRateBudget)}</td>
       <td>${fmtRate(r.UnitRateActual)}</td>
-      <td class="${r.UnitRateVariance>=0?'pos':'neg'}">${fmtRate(r.UnitRateVariance)}</td>
+      <td class="${r.UnitRateVariance >= 0 ? 'pos' : 'neg'}">${fmtRate(r.UnitRateVariance)}</td>
     </tr>`).join('');
 }
 
-// Auto-init executive tab (visible on load)
-tabInited['executive'] = true;
-initExec();
 
+// ═══════════════════════════════════════════════════════════════
+// TAB 2 — BUDGETS, ACTUALS & UNIT RATES
+// ═══════════════════════════════════════════════════════════════
+function renderBudgetTab() {
+  const rows = enrichRows(currentJob.rows);
 
-// ─────────────────────────────────────────────────────────────────
-// TAB 2 — BUDGET, ACTUALS & UNIT RATES
-// ─────────────────────────────────────────────────────────────────
-let bud_sortKey = 'Budget', bud_sortDir = -1;
-let bud_barChart, bud_rateChart, bud_varianceChart;
+  renderBudKPIs(rows);
+  renderBudCharts(rows);
+  renderBudProgressBars(rows);
+  renderBudRateGrid(rows);
+  renderBudTable(rows);
 
-function initBudget() {
-  renderBudKPIs();
-  renderBudCharts();
-  renderBudProgressBars();
-  renderBudRateGrid();
-  renderBudTable();
+  // Re-bind controls
+  const searchEl = document.getElementById('bud-search');
+  const newSearch = searchEl.cloneNode(true);
+  searchEl.parentNode.replaceChild(newSearch, searchEl);
+  newSearch.value = '';
 
-  document.getElementById('bud-search').addEventListener('input', () => renderBudTable());
-  document.getElementById('bud-filterStatus').addEventListener('change', () => renderBudTable());
+  const filterEl = document.getElementById('bud-filterStatus');
+  const newFilter = filterEl.cloneNode(true);
+  filterEl.parentNode.replaceChild(newFilter, filterEl);
+  newFilter.value = 'all';
+
+  const getFiltered = () => {
+    const search = document.getElementById('bud-search').value.toLowerCase();
+    const status = document.getElementById('bud-filterStatus').value;
+    return rows.filter(r => {
+      const matchSearch = !search ||
+        r['Cost Code'].toLowerCase().includes(search) ||
+        r.Description.toLowerCase().includes(search);
+      const matchStatus = status === 'all' || r.status === status;
+      return matchSearch && matchStatus;
+    });
+  };
+
+  newSearch.addEventListener('input',  () => renderBudTable(getFiltered()));
+  newFilter.addEventListener('change', () => renderBudTable(getFiltered()));
+
   document.querySelectorAll('#bud-dataTable th[data-key]').forEach(th => {
-    th.addEventListener('click', () => {
+    th.classList.remove('sorted');
+    th.onclick = () => {
       const key = th.dataset.key;
       bud_sortDir = (bud_sortKey === key) ? -bud_sortDir : -1;
       bud_sortKey = key;
       document.querySelectorAll('#bud-dataTable th').forEach(t => t.classList.remove('sorted'));
       th.classList.add('sorted');
-      renderBudTable();
-    });
+      renderBudTable(getFiltered());
+    };
   });
 }
 
-function renderBudKPIs() {
-  const totalBudget   = rows.reduce((s,r) => s+r.Budget, 0);
-  const totalActual   = rows.reduce((s,r) => s+r.Actual, 0);
-  const totalForecast = rows.reduce((s,r) => s+r.Forecast, 0);
+function renderBudKPIs(rows) {
+  const totalBudget   = rows.reduce((s, r) => s + r.Budget,   0);
+  const totalActual   = rows.reduce((s, r) => s + r.Actual,   0);
+  const totalForecast = rows.reduce((s, r) => s + r.Forecast, 0);
   const totalVariance = totalBudget - totalActual;
-  const varPct        = totalBudget ? (totalVariance/totalBudget)*100 : 0;
-  const consumed      = totalBudget ? (totalActual/totalBudget)*100 : 0;
+  const varPct        = totalBudget ? (totalVariance / totalBudget) * 100 : 0;
+  const consumed      = totalBudget ? (totalActual / totalBudget) * 100 : 0;
   const overCount     = rows.filter(r => r.status === 'over').length;
 
   const kpis = [
-    {label:'Total Budget',     value:fmt$(totalBudget),    sub:'Original ECAC',            cls:'accent', valCls:''},
-    {label:'Total Actual',     value:fmt$(totalActual),    sub:'JTD Charges',               cls:'kpi-warn', valCls:''},
-    {label:'Total Forecast',   value:fmt$(totalForecast),  sub:'Projected ECAC',            cls:'accent', valCls:''},
-    {label:'Budget Variance',  value:fmt$(totalVariance),  sub:fmtPct(varPct)+' of budget', cls:totalVariance>=0?'kpi-good':'kpi-bad', valCls:totalVariance>=0?'good':'bad'},
-    {label:'Budget Consumed',  value:consumed.toFixed(1)+'%', sub:'Actual ÷ Budget',       cls:consumed>100?'kpi-bad':consumed>85?'kpi-warn':'kpi-good', valCls:''},
-    {label:'Over-Budget Codes',value:overCount+' / '+rows.length, sub:'cost codes over budget', cls:overCount>0?'kpi-bad':'kpi-good', valCls:''},
+    {label:'Total Budget',      value:fmt$(totalBudget),           sub:'Original ECAC',            cls:'accent', valCls:''},
+    {label:'Total Actual',      value:fmt$(totalActual),           sub:'JTD Charges',               cls:'kpi-warn', valCls:''},
+    {label:'Total Forecast',    value:fmt$(totalForecast),         sub:'Projected ECAC',            cls:'accent', valCls:''},
+    {label:'Budget Variance',   value:fmt$(totalVariance),         sub:fmtPct(varPct)+' of budget', cls:totalVariance >= 0 ? 'kpi-good' : 'kpi-bad', valCls:totalVariance >= 0 ? 'good' : 'bad'},
+    {label:'Budget Consumed',   value:consumed.toFixed(1)+'%',     sub:'Actual ÷ Budget',           cls:consumed > 100 ? 'kpi-bad' : consumed > 85 ? 'kpi-warn' : 'kpi-good', valCls:''},
+    {label:'Over-Budget Codes', value:overCount+' / '+rows.length, sub:'cost codes over budget',    cls:overCount > 0 ? 'kpi-bad' : 'kpi-good', valCls:''},
   ];
 
   document.getElementById('bud-kpis').innerHTML = kpis.map(k => `
@@ -790,75 +1118,78 @@ function renderBudKPIs() {
     </div>`).join('');
 }
 
-function renderBudCharts() {
-  const top12 = [...rows].sort((a,b) => b.Budget-a.Budget).slice(0,12);
+function renderBudCharts(rows) {
+  const top10 = [...rows].sort((a, b) => b.Budget - a.Budget).slice(0, 10);
 
-  if (bud_barChart) bud_barChart.destroy();
-  bud_barChart = new Chart(document.getElementById('bud-barChart'), {
-    type:'bar',
-    data:{
-      labels: top12.map(r => r['Cost Code']),
-      datasets:[
-        {label:'Budget', data:top12.map(r=>r.Budget), backgroundColor:'#3b9eff', borderRadius:3},
-        {label:'Actual', data:top12.map(r=>r.Actual), backgroundColor:'#e7a23b', borderRadius:3},
+  CHARTS['bud-bar'] = new Chart(document.getElementById('bud-barChart'), {
+    type: 'bar',
+    data: {
+      labels: top10.map(r => r['Cost Code']),
+      datasets: [
+        {label:'Budget', data:top10.map(r => r.Budget), backgroundColor:'#3b9eff', borderRadius:3},
+        {label:'Actual', data:top10.map(r => r.Actual), backgroundColor:'#e7a23b', borderRadius:3},
       ]
     },
-    options:{
-      responsive:true,
-      plugins:{legend:{labels:{color:chartColors.text,boxWidth:12}}},
-      scales:{
-        x:{ticks:{color:chartColors.muted,font:{size:10}}, grid:{color:chartColors.grid}},
-        y:{ticks:{color:chartColors.muted, callback:v=>'$'+(v>=1e6?(v/1e6).toFixed(1)+'M':(v/1e3).toFixed(0)+'K')}, grid:{color:chartColors.grid}}
+    options: {
+      responsive: true,
+      plugins: {legend: {labels: {color:CC.text, boxWidth:12}}},
+      scales: {
+        x: {ticks:{color:CC.muted, font:{size:10}}, grid:{color:CC.grid}},
+        y: {ticks:{color:CC.muted, callback: v => fmtK(v)}, grid:{color:CC.grid}},
       }
     }
   });
 
-  const top10rate = [...rows].sort((a,b) => Math.abs(b.UnitRateDelta)-Math.abs(a.UnitRateDelta)).slice(0,10);
-  if (bud_rateChart) bud_rateChart.destroy();
-  bud_rateChart = new Chart(document.getElementById('bud-rateChart'), {
-    type:'bar',
-    data:{
+  const top10rate = [...rows]
+    .filter(r => r.UnitRateBudget > 0)
+    .sort((a, b) => Math.abs(b.UnitRateDelta) - Math.abs(a.UnitRateDelta))
+    .slice(0, 10);
+
+  CHARTS['bud-rate'] = new Chart(document.getElementById('bud-rateChart'), {
+    type: 'bar',
+    data: {
       labels: top10rate.map(r => r['Cost Code']),
-      datasets:[
-        {label:'Budget Rate', data:top10rate.map(r=>r.UnitRateBudget), backgroundColor:'#3b9eff', borderRadius:3},
-        {label:'Actual Rate', data:top10rate.map(r=>r.UnitRateActual), backgroundColor:'#e74c3c', borderRadius:3},
+      datasets: [
+        {label:'Budget Rate', data:top10rate.map(r => r.UnitRateBudget), backgroundColor:'#3b9eff', borderRadius:3},
+        {label:'Actual Rate', data:top10rate.map(r => r.UnitRateActual), backgroundColor:'#e74c3c', borderRadius:3},
       ]
     },
-    options:{
-      responsive:true,
-      plugins:{legend:{labels:{color:chartColors.text,boxWidth:12}}},
-      scales:{
-        x:{ticks:{color:chartColors.muted,font:{size:10}}, grid:{color:chartColors.grid}},
-        y:{ticks:{color:chartColors.muted, callback:v=>'$'+(v>=1e6?(v/1e6).toFixed(1)+'M':(v/1e3).toFixed(0)+'K')}, grid:{color:chartColors.grid}}
+    options: {
+      responsive: true,
+      plugins: {legend: {labels: {color:CC.text, boxWidth:12}}},
+      scales: {
+        x: {ticks:{color:CC.muted, font:{size:10}}, grid:{color:CC.grid}},
+        y: {ticks:{color:CC.muted, callback: v => fmtK(v)}, grid:{color:CC.grid}},
       }
     }
   });
 
-  const over  = rows.filter(r => r.status==='over').length;
-  const under = rows.filter(r => r.status==='under').length;
-  if (bud_varianceChart) bud_varianceChart.destroy();
-  bud_varianceChart = new Chart(document.getElementById('bud-varianceChart'), {
-    type:'doughnut',
-    data:{
-      labels:['Under Budget','Over Budget'],
-      datasets:[{data:[under, over], backgroundColor:['#2ecc71','#e74c3c'], hoverOffset:6}]
+  const over  = rows.filter(r => r.status === 'over').length;
+  const under = rows.filter(r => r.status === 'under').length;
+
+  CHARTS['bud-variance'] = new Chart(document.getElementById('bud-varianceChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Under Budget', 'Over Budget'],
+      datasets: [{data:[under, over], backgroundColor:['#2ecc71','#e74c3c'], hoverOffset:6}]
     },
-    options:{
-      responsive:true,
-      plugins:{
-        legend:{position:'bottom', labels:{color:chartColors.text,boxWidth:12}},
-        tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.raw} codes`}}
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {position:'bottom', labels:{color:CC.text, boxWidth:12}},
+        tooltip: {callbacks: {label: ctx => `${ctx.label}: ${ctx.raw} codes`}},
       }
     }
   });
 }
 
-function renderBudProgressBars() {
-  const top8 = [...rows].sort((a,b) => b.Budget-a.Budget).slice(0,8);
+function renderBudProgressBars(rows) {
+  const top8 = [...rows].sort((a, b) => b.Budget - a.Budget).slice(0, 8);
   document.getElementById('bud-progressList').innerHTML = top8.map(r => {
-    const pct     = r.Budget ? Math.min((r.Actual/r.Budget)*100, 150) : 0;
-    const display = r.Budget ? ((r.Actual/r.Budget)*100).toFixed(1)+'%' : 'N/A';
-    const cls     = pct > 100 ? 'bad' : pct > 85 ? 'warn' : 'good';
+    const rawPct = r.Budget ? (r.Actual / r.Budget) * 100 : 0;
+    const pct    = Math.min(rawPct, 150);
+    const display = r.Budget ? rawPct.toFixed(1) + '%' : 'N/A';
+    const cls    = pct > 100 ? 'bad' : pct > 85 ? 'warn' : 'good';
     return `
       <div class="progress-item">
         <div class="meta">
@@ -870,18 +1201,18 @@ function renderBudProgressBars() {
   }).join('');
 }
 
-function renderBudRateGrid() {
+function renderBudRateGrid(rows) {
   const top = [...rows]
     .filter(r => r.UnitRateBudget > 0)
-    .sort((a,b) => Math.abs(b.UnitRateDelta)-Math.abs(a.UnitRateDelta))
-    .slice(0,12);
+    .sort((a, b) => Math.abs(b.UnitRateDelta) - Math.abs(a.UnitRateDelta))
+    .slice(0, 12);
 
   document.getElementById('bud-rateGrid').innerHTML = top.map(r => {
     const cls = r.UnitRateDelta >= 0 ? 'pos' : 'neg';
     return `
       <div class="rate-card">
         <div class="rc-code">${r['Cost Code']}</div>
-        <div class="rc-desc" title="${r.Description}">${r.Description.replace(/^\S+-\d+\s*/,'')}</div>
+        <div class="rc-desc" title="${r.Description}">${r.Description}</div>
         <div class="rc-vals">
           <span class="rc-budget" title="Budget Rate">B: ${fmtRate(r.UnitRateBudget)}</span>
           <span class="rc-actual" title="Actual Rate">A: ${fmtRate(r.UnitRateActual)}</span>
@@ -891,20 +1222,9 @@ function renderBudRateGrid() {
   }).join('');
 }
 
-function getBudFilteredRows() {
-  const search = document.getElementById('bud-search').value.toLowerCase();
-  const status = document.getElementById('bud-filterStatus').value;
-  return rows.filter(r => {
-    const matchSearch = !search ||
-      r['Cost Code'].toLowerCase().includes(search) ||
-      r.Description.toLowerCase().includes(search);
-    const matchStatus = status === 'all' || r.status === status;
-    return matchSearch && matchStatus;
-  });
-}
-
-function renderBudTable() {
-  let data = getBudFilteredRows().sort((a,b) => {
+function renderBudTable(rows) {
+  // rows may be a filtered subset passed in from event handler
+  const data = [...rows].sort((a, b) => {
     const av = a[bud_sortKey], bv = b[bud_sortKey];
     if (typeof av === 'string') return bud_sortDir * av.localeCompare(bv);
     return bud_sortDir * (av - bv);
@@ -921,129 +1241,298 @@ function renderBudTable() {
         <td>${r.Units.toLocaleString()}</td>
         <td>${fmt$(r.Budget)}</td>
         <td>${fmt$(r.Actual)}</td>
-        <td class="${r.Variance>=0?'pos':'neg'}">${fmt$(r.Variance)}</td>
-        <td class="${r.VariancePct>=0?'pos':'neg'}">${fmtPct(r.VariancePct)}</td>
+        <td class="${r.Variance >= 0 ? 'pos' : 'neg'}">${fmt$(r.Variance)}</td>
+        <td class="${r.VariancePct >= 0 ? 'pos' : 'neg'}">${fmtPct(r.VariancePct)}</td>
         <td>${fmt$(r.Forecast)}</td>
         <td>${fmtRate(r.UnitRateBudget)}</td>
         <td>${fmtRate(r.UnitRateActual)}</td>
-        <td class="${r.UnitRateDelta>=0?'pos':'neg'}">${fmtRate(r.UnitRateDelta)}</td>
+        <td class="${r.UnitRateDelta >= 0 ? 'pos' : 'neg'}">${fmtRate(r.UnitRateDelta)}</td>
         <td>${tag}</td>
       </tr>`;
   }).join('');
 }
 
 
-// ─────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
 // TAB 3 — PC METRICS
-// ─────────────────────────────────────────────────────────────────
-function initMetrics() {
-  const C = v => ({color:v});
-  const gc = chartColors.grid;
-  const tc = chartColors.muted;
-  const lc = chartColors.text;
+// ═══════════════════════════════════════════════════════════════
+function renderMetricsTab() {
+  const m   = currentJob.metrics;
+  const rows = enrichRows(currentJob.rows);
+  const totalBudget   = rows.reduce((s, r) => s + r.Budget, 0);
+  const totalActual   = rows.reduce((s, r) => s + r.Actual, 0);
+
+  renderMetKPIs(m, totalBudget, totalActual);
+  renderMetCharts(m, totalActual);
+  renderMetWeeklyTable(m);
+  renderMetGauges(m, totalBudget, totalActual);
+  renderMetMilestones(m);
+  renderMetCrewGrid(m);
+  renderMetBudgetGauges(m);
+  renderMetSafety(m);
+}
+
+function renderMetKPIs(m, totalBudget, totalActual) {
+  const eac = totalActual > 0 ? totalActual / m.cpi : totalBudget;
+  const remaining = totalBudget - totalActual;
+
+  const cards = [
+    {color:'blue',  label:'JTD Cost (Actual)',      value:fmtK(totalActual),          sub:`of ${fmtK(totalBudget)} budget`,       trend:m.pctComplete.toFixed(1)+'%', trendCls:'flat'},
+    {color:'warn',  label:'This Week Spend',         value:fmtK(m.thisWeekSpend*1000), sub:`vs ${fmtK(m.lastWeekSpend*1000)} last week`, trend: m.thisWeekSpend > m.lastWeekSpend ? '+'+((m.thisWeekSpend/m.lastWeekSpend-1)*100).toFixed(1)+'%' : ((m.thisWeekSpend/m.lastWeekSpend-1)*100).toFixed(1)+'%', trendCls:m.thisWeekSpend > m.lastWeekSpend ? 'dn' : 'up'},
+    {color:'green', label:'Cost Perf. Index (CPI)',  value:m.cpi.toFixed(2),           sub:'Earned Value ÷ Actual',    trend: m.cpi >= 1 ? '✓ On Track' : '⚠ Over', trendCls: m.cpi >= 1 ? 'up' : 'dn'},
+    {color:'warn',  label:'Schedule Perf. Index',    value:m.spi.toFixed(2),           sub:'Earned Value ÷ Planned',   trend: m.spi >= 1 ? '✓ On Track' : '⚠ Delay', trendCls: m.spi >= 1 ? 'up' : 'dn'},
+    {color:'blue',  label:'% Complete (Physical)',   value:m.pctComplete.toFixed(1)+'%', sub:`vs ${m.pctPlanned.toFixed(1)}% planned`, trend: (m.pctComplete - m.pctPlanned).toFixed(1)+'%', trendCls: m.pctComplete >= m.pctPlanned ? 'up' : 'dn'},
+    {color:'green', label:'JTD Man-Hours',           value:m.jtdHours.toLocaleString(), sub:`vs ${m.budgetHours.toLocaleString()} budgeted`, trend: m.jtdHours <= m.budgetHours ? 'Under' : '+'+((m.jtdHours/m.budgetHours-1)*100).toFixed(1)+'%', trendCls: m.jtdHours <= m.budgetHours ? 'up' : 'dn'},
+    {color:'red',   label:'Budget Overruns',         value:m.overBudgetCodes,          sub:'cost codes over budget',   trend:'/ 12 codes', trendCls: m.overBudgetCodes > 4 ? 'dn' : 'flat'},
+    {color:'green', label:'TRIR (Safety)',            value:m.trir.toFixed(2),          sub:`${m.recordables} recordables JTD`, trend: m.trir === 0 ? 'Clean' : 'Review', trendCls: m.trir === 0 ? 'up' : 'dn'},
+  ];
+
+  document.getElementById('met-kpiGrid').innerHTML = cards.map(c => `
+    <div class="kpi-card ${c.color}">
+      <div class="kpi-label">${c.label}</div>
+      <div class="kpi-value ${c.color}">${c.value}</div>
+      <div class="kpi-sub">${c.sub}</div>
+      <div class="kpi-trend ${c.trendCls}">${c.trend}</div>
+    </div>`).join('');
+}
+
+function renderMetCharts(m, totalActual) {
+  const gc = CC.grid, tc = CC.muted, lc = CC.text;
 
   // Weekly Spend vs Budget
-  new Chart(document.getElementById('met-weeklyChart'), {
-    type:'bar',
-    data:{
-      labels:['Wk 14','Wk 15','Wk 16','Wk 17','Wk 18','Wk 19','Wk 20','Wk 21'],
-      datasets:[
-        {label:'Budget',   data:[1620,1750,1690,1820,1700,1680,1710,1710], backgroundColor:'rgba(59,158,255,.25)', borderColor:'#3b9eff', borderWidth:1.5, borderRadius:3},
-        {label:'Actual',   data:[1580,1810,1720,1790,1650,1740,1705,1840], backgroundColor:'rgba(231,162,59,.7)',  borderColor:'#e7a23b', borderWidth:1,   borderRadius:3},
-        {label:'Forecast', data:[1620,1750,1690,1820,1700,1680,1710,1900], type:'line', borderColor:'#9b59b6', borderWidth:2, pointRadius:3, fill:false, tension:.3},
+  CHARTS['met-weekly'] = new Chart(document.getElementById('met-weeklyChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Wk 14','Wk 15','Wk 16','Wk 17','Wk 18','Wk 19','Wk 20','Wk 21'],
+      datasets: [
+        {label:'Budget ($K)',   data:m.weeklyBudget, backgroundColor:'rgba(59,158,255,.25)', borderColor:'#3b9eff', borderWidth:1.5, borderRadius:3},
+        {label:'Actual ($K)',   data:m.weeklySpend,  backgroundColor:'rgba(231,162,59,.7)',  borderColor:'#e7a23b', borderWidth:1,   borderRadius:3},
+        {label:'Forecast ($K)', data:m.weeklyBudget.map((v,i) => m.weeklySpend[i] || v), type:'line', borderColor:'#9b59b6', borderWidth:2, pointRadius:3, fill:false, tension:.3},
       ]
     },
-    options:{
-      responsive:true,
-      plugins:{legend:{labels:C(lc)}},
-      scales:{
-        x:{ticks:C(tc), grid:{color:gc}},
-        y:{ticks:{color:tc, callback:v=>'$'+(v/1000).toFixed(0)+'K'}, grid:{color:gc}}
+    options: {
+      responsive: true,
+      plugins: {legend: {labels: {color:lc}}},
+      scales: {
+        x: {ticks:{color:tc}, grid:{color:gc}},
+        y: {ticks:{color:tc, callback: v => '$'+v+'K'}, grid:{color:gc}},
       }
     }
   });
 
   // S-Curve
-  new Chart(document.getElementById('met-sCurveChart'), {
-    type:'line',
-    data:{
-      labels:['Jan','Feb','Mar','Apr','May','Jun','Jul'],
-      datasets:[
-        {label:'Planned % Complete', data:[5,18,38,62,82,96,100],          borderColor:'#3b9eff', borderWidth:2,   fill:false, tension:.4, pointRadius:3},
-        {label:'Actual % Complete',  data:[4,17,36,60,87,null,null],        borderColor:'#2ecc71', borderWidth:2.5, fill:false, tension:.4, pointRadius:4},
-        {label:'Forecast',           data:[4,17,36,60,87,97,100],           borderColor:'#9b59b6', borderWidth:2,   borderDash:[5,4], fill:false, tension:.4, pointRadius:2},
+  CHARTS['met-scurve'] = new Chart(document.getElementById('met-sCurveChart'), {
+    type: 'line',
+    data: {
+      labels: m.sCurveLabels,
+      datasets: [
+        {label:'Planned % Complete', data:m.sCurvePlanned, borderColor:'#3b9eff', borderWidth:2,   fill:false, tension:.4, pointRadius:3},
+        {label:'Actual % Complete',  data:m.sCurveActual,  borderColor:'#2ecc71', borderWidth:2.5, fill:false, tension:.4, pointRadius:4},
+        {label:'Forecast',           data:m.sCurveFcst,    borderColor:'#9b59b6', borderWidth:2, borderDash:[5,4], fill:false, tension:.4, pointRadius:2},
       ]
     },
-    options:{
-      responsive:true,
-      plugins:{legend:{labels:C(lc)}},
-      scales:{
-        x:{ticks:C(tc), grid:{color:gc}},
-        y:{ticks:{color:tc, callback:v=>v+'%'}, grid:{color:gc}, min:0, max:100}
+    options: {
+      responsive: true,
+      plugins: {legend: {labels: {color:lc}}},
+      scales: {
+        x: {ticks:{color:tc}, grid:{color:gc}},
+        y: {ticks:{color:tc, callback: v => v+'%'}, grid:{color:gc}, min:0, max:100},
       }
     }
   });
 
   // Labor by Trade (horizontal bar)
-  new Chart(document.getElementById('met-laborChart'), {
-    type:'bar',
-    data:{
-      labels:['Panel Install','Electrical','Civil','Substation','Commissioning','Equipment','QA/Safety'],
-      datasets:[
-        {label:'Budget Hrs', data:[1840,980,420,610,340,520,210], backgroundColor:'rgba(59,158,255,.3)', borderColor:'#3b9eff', borderWidth:1.5, borderRadius:3},
-        {label:'Actual Hrs', data:[1920,940,380,640,310,510,220], backgroundColor:'rgba(46,204,113,.6)', borderColor:'#2ecc71', borderWidth:1,   borderRadius:3},
+  CHARTS['met-labor'] = new Chart(document.getElementById('met-laborChart'), {
+    type: 'bar',
+    data: {
+      labels: m.laborLabels,
+      datasets: [
+        {label:'Budget Hrs', data:m.laborBudget, backgroundColor:'rgba(59,158,255,.3)',  borderColor:'#3b9eff', borderWidth:1.5, borderRadius:3},
+        {label:'Actual Hrs', data:m.laborActual, backgroundColor:'rgba(46,204,113,.6)',  borderColor:'#2ecc71', borderWidth:1,   borderRadius:3},
       ]
     },
-    options:{
-      responsive:true, indexAxis:'y',
-      plugins:{legend:{labels:C(lc)}},
-      scales:{
-        x:{ticks:C(tc), grid:{color:gc}},
-        y:{ticks:C(tc), grid:{color:gc}}
+    options: {
+      responsive: true, indexAxis: 'y',
+      plugins: {legend: {labels: {color:lc}}},
+      scales: {
+        x: {ticks:{color:tc}, grid:{color:gc}},
+        y: {ticks:{color:tc}, grid:{color:gc}},
       }
     }
   });
 
   // Cost by Category donut
-  new Chart(document.getElementById('met-categoryChart'), {
-    type:'doughnut',
-    data:{
-      labels:['Materials','Labor','Equipment','Subcontract','Indirect'],
-      datasets:[{
-        data:[29700000,18400000,3100000,6200000,5000000],
-        backgroundColor:['#3b9eff','#2ecc71','#e7a23b','#9b59b6','#e74c3c'],
-        hoverOffset:8,
+  CHARTS['met-category'] = new Chart(document.getElementById('met-categoryChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Materials','Labor','Equipment','Subcontract','Indirect'],
+      datasets: [{
+        data: m.categoryData,
+        backgroundColor: ['#3b9eff','#2ecc71','#e7a23b','#9b59b6','#e74c3c'],
+        hoverOffset: 8,
       }]
     },
-    options:{
-      responsive:true,
-      plugins:{
-        legend:{position:'bottom', labels:{color:lc, boxWidth:11, font:{size:11}}},
-        tooltip:{callbacks:{label:ctx=>`${ctx.label}: $${(ctx.raw/1e6).toFixed(1)}M`}}
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {position:'bottom', labels:{color:lc, boxWidth:11, font:{size:11}}},
+        tooltip: {callbacks: {label: ctx => `${ctx.label}: $${(ctx.raw/1e6).toFixed(1)}M`}},
       }
     }
   });
 
   // Productivity line chart
-  new Chart(document.getElementById('met-productivityChart'), {
-    type:'line',
-    data:{
-      labels:['Wk 14','Wk 15','Wk 16','Wk 17','Wk 18','Wk 19','Wk 20','Wk 21'],
-      datasets:[
-        {label:'Panels/Hr (Actual)', data:[4.2,4.5,4.8,4.6,5.1,4.9,5.2,5.0], borderColor:'#2ecc71', borderWidth:2.5, fill:true, backgroundColor:'rgba(46,204,113,.08)', tension:.4, pointRadius:4},
-        {label:'Panels/Hr (Budget)', data:[4.8,4.8,4.8,4.8,4.8,4.8,4.8,4.8], borderColor:'#3b9eff', borderWidth:1.5, borderDash:[5,4], fill:false, pointRadius:0},
+  CHARTS['met-productivity'] = new Chart(document.getElementById('met-productivityChart'), {
+    type: 'line',
+    data: {
+      labels: ['Wk 14','Wk 15','Wk 16','Wk 17','Wk 18','Wk 19','Wk 20','Wk 21'],
+      datasets: [
+        {label:'Panels/Hr (Actual)', data:m.productActual, borderColor:'#2ecc71', borderWidth:2.5, fill:true, backgroundColor:'rgba(46,204,113,.08)', tension:.4, pointRadius:4},
+        {label:'Panels/Hr (Budget)', data:Array(8).fill(m.productBudget), borderColor:'#3b9eff', borderWidth:1.5, borderDash:[5,4], fill:false, pointRadius:0},
       ]
     },
-    options:{
-      responsive:true,
-      plugins:{legend:{labels:C(lc)}},
-      scales:{
-        x:{ticks:C(tc), grid:{color:gc}},
-        y:{ticks:C(tc), grid:{color:gc}, min:3, max:6}
+    options: {
+      responsive: true,
+      plugins: {legend: {labels: {color:lc}}},
+      scales: {
+        x: {ticks:{color:tc}, grid:{color:gc}},
+        y: {ticks:{color:tc}, grid:{color:gc}, min:3, max:6},
       }
     }
   });
 }
+
+function renderMetWeeklyTable(m) {
+  document.getElementById('met-weeklyTableBody').innerHTML = m.weeklyTable.map(row => {
+    const v = row.wkBud - row.wkAct;
+    return `<tr>
+      <td>${row.code}</td>
+      <td>${row.desc}</td>
+      <td>${fmt$(row.wkBud)}</td>
+      <td>${fmt$(row.wkAct)}</td>
+      <td class="${v >= 0 ? 'pos' : 'neg'}">${v >= 0 ? '+' : ''}${fmt$(v)}</td>
+      <td>${row.jtdPct.toFixed(1)}%</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderMetGauges(m, totalBudget, totalActual) {
+  const eac = totalActual > 0 && m.cpi > 0 ? totalBudget / m.cpi : totalBudget;
+  const remaining = totalBudget - totalActual;
+
+  // Helper: compute ring dashoffset for a value (clamp 0-1.5)
+  const ringOffset = val => {
+    const circ = 2 * Math.PI * 44; // r=44
+    const pct  = Math.min(Math.max(val / 1.5, 0), 1);
+    return circ * (1 - pct);
+  };
+
+  const cpiColor = m.cpi >= 1 ? '#2ecc71' : '#e74c3c';
+  const spiColor = m.spi >= 1 ? '#2ecc71' : '#f39c12';
+
+  document.getElementById('met-gaugeBox').innerHTML = `
+    <div class="cpi-box">
+      <div class="cpi-ring">
+        <svg width="110" height="110" viewBox="0 0 110 110">
+          <circle class="ring-bg" cx="55" cy="55" r="44"/>
+          <circle class="ring-val" cx="55" cy="55" r="44" stroke="${cpiColor}"
+            stroke-dasharray="${(2*Math.PI*44).toFixed(1)}"
+            stroke-dashoffset="${ringOffset(m.cpi).toFixed(1)}"/>
+        </svg>
+        <div class="cpi-center">
+          <div class="cpi-num" style="color:${cpiColor}">${m.cpi.toFixed(2)}</div>
+          <div class="cpi-lbl">CPI</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;">Cost Efficiency</div>
+    </div>
+    <div class="cpi-box">
+      <div class="cpi-ring">
+        <svg width="110" height="110" viewBox="0 0 110 110">
+          <circle class="ring-bg" cx="55" cy="55" r="44"/>
+          <circle class="ring-val" cx="55" cy="55" r="44" stroke="${spiColor}"
+            stroke-dasharray="${(2*Math.PI*44).toFixed(1)}"
+            stroke-dashoffset="${ringOffset(m.spi).toFixed(1)}"/>
+        </svg>
+        <div class="cpi-center">
+          <div class="cpi-num" style="color:${spiColor}">${m.spi.toFixed(2)}</div>
+          <div class="cpi-lbl">SPI</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;">Schedule Efficiency</div>
+    </div>`;
+
+  document.getElementById('met-eacRow').innerHTML = `
+    <div class="cpi-item"><div class="ci-num" style="color:var(--accent)">${fmtK(eac)}</div><div class="ci-lbl">EAC (At Complete)</div></div>
+    <div class="cpi-item"><div class="ci-num" style="color:var(--good)">${fmtK(remaining)}</div><div class="ci-lbl">Remaining Budget</div></div>`;
+}
+
+function renderMetMilestones(m) {
+  const stateLabel = {done:'Done', active:'In Progress', risk:'At Risk', pending:'Pending'};
+  document.getElementById('met-milestones').innerHTML = m.milestones.map(ms => `
+    <div class="milestone">
+      <div class="dot ${ms.state}"></div>
+      <div class="ms-name">${ms.name}</div>
+      <div class="ms-date">${ms.date}</div>
+      <div class="ms-status ${ms.state}">${stateLabel[ms.state]}</div>
+    </div>`).join('');
+}
+
+function renderMetCrewGrid(m) {
+  const craftPct = Math.round((m.craftCount / m.headcount) * 100);
+  const staffPct = 100 - craftPct;
+  document.getElementById('met-crewGrid').innerHTML = `
+    <div class="crew-card"><div class="cr-title">Peak Headcount</div><div class="cr-val">${m.headcount}</div><div class="cr-sub">vs ${m.headcountPlanned} planned</div></div>
+    <div class="crew-card"><div class="cr-title">Total Hours Worked</div><div class="cr-val">${m.totalHours.toLocaleString()}</div><div class="cr-sub">${(m.totalHours/m.headcount).toFixed(0)} hr avg/person</div></div>
+    <div class="crew-card"><div class="cr-title">OT Hours</div><div class="cr-val">${m.otHours.toLocaleString()}</div><div class="cr-sub">${((m.otHours/m.totalHours)*100).toFixed(1)}% of total hrs</div></div>
+    <div class="crew-card"><div class="cr-title">Avg Labor Rate</div><div class="cr-val">$${m.avgLaborRate.toFixed(2)}</div><div class="cr-sub">vs $${m.budgetLaborRate.toFixed(2)} budgeted</div></div>
+    <div class="crew-card"><div class="cr-title">Craft (Field)</div><div class="cr-val">${m.craftCount}</div><div class="cr-sub">${craftPct}% of crew</div></div>
+    <div class="crew-card"><div class="cr-title">Staff (Non-Craft)</div><div class="cr-val">${m.staffCount}</div><div class="cr-sub">${staffPct}% of crew</div></div>`;
+}
+
+function renderMetBudgetGauges(m) {
+  document.getElementById('met-budgetGauges').innerHTML = m.budgetGauges.map(g => {
+    const pct = Math.min(g.pct, 100);
+    const cls = g.pct > 100 ? 'red' : g.pct > 90 ? 'warn' : 'blue';
+    return `
+      <div class="gauge-item">
+        <div class="g-top">
+          <span class="g-label">${g.label}</span>
+          <span class="g-val">${g.pct}% · ${fmtK(g.act)} / ${fmtK(g.bud)}</span>
+        </div>
+        <div class="gauge-bg"><div class="gauge-fill ${cls}" style="width:${pct}%"></div></div>
+      </div>`;
+  }).join('');
+}
+
+function renderMetSafety(m) {
+  const obs = m.safetyObs;
+  const tt  = m.toolboxTalks;
+
+  document.getElementById('met-safetyRow').innerHTML = `
+    <div class="safety-stat"><div class="ss-num" style="color:${m.recordables === 0 ? 'var(--good)' : 'var(--bad)'}">${m.recordables}</div><div class="ss-lbl">Recordables</div></div>
+    <div class="safety-stat"><div class="ss-num" style="color:${m.lostTime === 0 ? 'var(--good)' : 'var(--bad)'}">${m.lostTime}</div><div class="ss-lbl">Lost Time</div></div>
+    <div class="safety-stat"><div class="ss-num" style="color:var(--warn)">${m.nearMisses}</div><div class="ss-lbl">Near Misses</div></div>`;
+
+  const obsPct = Math.round((obs.done / obs.goal) * 100);
+  const ttPct  = Math.round((tt.done / tt.goal) * 100);
+  document.getElementById('met-safetyGauges').innerHTML = `
+    <div class="gauge-item"><div class="g-top"><span class="g-label">TRIR</span><span class="g-val" style="color:${m.trir < 1 ? 'var(--good)' : 'var(--bad)'}">${m.trir.toFixed(2)} (Goal: &lt;1.0)</span></div><div class="gauge-bg"><div class="gauge-fill ${m.trir < 1 ? 'green' : 'red'}" style="width:${m.trir < 1 ? 100 : 60}%"></div></div></div>
+    <div class="gauge-item"><div class="g-top"><span class="g-label">Safety Obs. Completed</span><span class="g-val">${obsPct}% (${obs.done}/${obs.goal})</span></div><div class="gauge-bg"><div class="gauge-fill ${obsPct >= 90 ? 'green' : 'warn'}" style="width:${obsPct}%"></div></div></div>
+    <div class="gauge-item"><div class="g-top"><span class="g-label">Toolbox Talks</span><span class="g-val">${ttPct}% (${tt.done}/${tt.goal})</span></div><div class="gauge-bg"><div class="gauge-fill ${ttPct >= 95 ? 'green' : 'warn'}" style="width:${ttPct}%"></div></div></div>
+    <div class="gauge-item"><div class="g-top"><span class="g-label">JHA Compliance</span><span class="g-val">${m.jhaCompliance}%</span></div><div class="gauge-bg"><div class="gauge-fill ${m.jhaCompliance >= 95 ? 'green' : 'warn'}" style="width:${m.jhaCompliance}%"></div></div></div>`;
+
+  document.getElementById('met-safetyFooter').innerHTML = `
+    <strong style="color:var(--text);">Man-Hours Without Incident:</strong><br>
+    <span style="font-size:20px;font-weight:800;color:${m.recordables===0?'var(--good)':'var(--warn)'};">${m.jtdHours.toLocaleString()}</span> hrs — ${m.recordables} recordable incident${m.recordables !== 1 ? 's' : ''}`;
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// BOOTSTRAP — load Job 0 on page ready
+// ═══════════════════════════════════════════════════════════════
+selectJob(0);
+
 </script>
 </body>
 </html>
