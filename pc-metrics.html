@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PC Metrics Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0c1520;--card:#152030;--card2:#1a2840;--accent:#3b9eff;
+    --good:#2ecc71;--bad:#e74c3c;--warn:#f39c12;--purple:#9b59b6;
+    --muted:#7a9ab8;--text:#ddeeff;--border:#1e3048;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+  /* NAV */
+  nav{background:#0a1622;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;flex-wrap:wrap;gap:8px;}
+  .nav-links{display:flex;}
+  nav a{display:inline-block;padding:14px 18px;color:var(--muted);text-decoration:none;font-size:13px;font-weight:600;border-bottom:3px solid transparent;}
+  nav a:hover{color:var(--text);}
+  nav a.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .nav-badge{background:#1e3048;border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:12px;color:var(--muted);white-space:nowrap;}
+  .nav-badge span{color:var(--warn);font-weight:700;}
+
+  /* HEADER */
+  .page-header{padding:20px 28px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;}
+  .page-header h1{font-size:20px;font-weight:700;letter-spacing:-.3px;}
+  .page-header .sub{color:var(--muted);font-size:12px;margin-top:5px;}
+  .period-select{background:var(--card2);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:7px;font-size:13px;cursor:pointer;}
+
+  /* SECTION LABEL */
+  .section-label{padding:16px 28px 6px;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+
+  /* KPI GRID */
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;padding:6px 28px 18px;}
+  .kpi-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;position:relative;overflow:hidden;}
+  .kpi-card::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;border-radius:10px 0 0 10px;}
+  .kpi-card.blue::before{background:var(--accent);}
+  .kpi-card.green::before{background:var(--good);}
+  .kpi-card.red::before{background:var(--bad);}
+  .kpi-card.warn::before{background:var(--warn);}
+  .kpi-card.purple::before{background:var(--purple);}
+  .kpi-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);}
+  .kpi-value{font-size:26px;font-weight:800;margin:6px 0 2px;line-height:1;}
+  .kpi-value.blue{color:var(--accent);}
+  .kpi-value.green{color:var(--good);}
+  .kpi-value.red{color:var(--bad);}
+  .kpi-value.warn{color:var(--warn);}
+  .kpi-sub{font-size:11px;color:var(--muted);}
+  .kpi-trend{position:absolute;top:14px;right:14px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;}
+  .kpi-trend.up{background:rgba(46,204,113,.15);color:var(--good);}
+  .kpi-trend.dn{background:rgba(231,76,60,.15);color:var(--bad);}
+  .kpi-trend.flat{background:rgba(243,156,18,.12);color:var(--warn);}
+
+  /* MAIN GRID */
+  .main-grid{display:grid;grid-template-columns:2fr 1fr;gap:14px;padding:0 28px;margin-bottom:14px;}
+  .main-grid.three{grid-template-columns:1fr 1fr 1fr;}
+  @media(max-width:960px){.main-grid,.main-grid.three{grid-template-columns:1fr;}}
+
+  /* PANELS */
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px;}
+  .panel-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
+  .panel-title .badge{background:var(--card2);border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:10px;color:var(--muted);font-weight:600;}
+
+  /* WEEKLY TABLE */
+  .wtable{width:100%;border-collapse:collapse;font-size:12px;}
+  .wtable th,.wtable td{padding:7px 10px;border-bottom:1px solid var(--border);text-align:right;}
+  .wtable th:first-child,.wtable td:first-child{text-align:left;}
+  .wtable th{color:var(--muted);font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.05em;}
+  .wtable tbody tr:hover{background:#1a2e44;}
+  .pos{color:var(--good);}
+  .neg{color:var(--bad);}
+  .neutral{color:var(--warn);}
+
+  /* GAUGE BARS */
+  .gauge-list{display:flex;flex-direction:column;gap:11px;}
+  .gauge-item .g-top{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;}
+  .gauge-item .g-label{color:var(--text);font-weight:600;}
+  .gauge-item .g-val{color:var(--muted);}
+  .gauge-bg{background:#1e3048;border-radius:5px;height:9px;overflow:hidden;}
+  .gauge-fill{height:100%;border-radius:5px;}
+  .gauge-fill.blue{background:linear-gradient(90deg,#1a6fc4,var(--accent));}
+  .gauge-fill.green{background:linear-gradient(90deg,#1a8a4a,var(--good));}
+  .gauge-fill.red{background:linear-gradient(90deg,#8a1a1a,var(--bad));}
+  .gauge-fill.warn{background:linear-gradient(90deg,#a07010,var(--warn));}
+
+  /* MILESTONE LIST */
+  .milestone-list{display:flex;flex-direction:column;gap:8px;}
+  .milestone{display:flex;align-items:center;gap:10px;font-size:12px;padding:8px 10px;background:var(--card2);border-radius:7px;border:1px solid var(--border);}
+  .milestone .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .milestone .dot.done{background:var(--good);}
+  .milestone .dot.active{background:var(--accent);box-shadow:0 0 6px var(--accent);}
+  .milestone .dot.pending{background:var(--border);}
+  .milestone .dot.risk{background:var(--bad);}
+  .milestone .ms-name{flex:1;font-weight:600;}
+  .milestone .ms-date{color:var(--muted);white-space:nowrap;}
+  .milestone .ms-status{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;}
+  .milestone .ms-status.done{background:rgba(46,204,113,.15);color:var(--good);}
+  .milestone .ms-status.active{background:rgba(59,158,255,.15);color:var(--accent);}
+  .milestone .ms-status.risk{background:rgba(231,76,60,.15);color:var(--bad);}
+  .milestone .ms-status.pending{background:rgba(30,48,72,.6);color:var(--muted);}
+
+  /* COST PERFORMANCE INDEX */
+  .cpi-box{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:16px 0;}
+  .cpi-ring{position:relative;width:110px;height:110px;}
+  .cpi-ring svg{transform:rotate(-90deg);}
+  .cpi-ring .ring-bg{fill:none;stroke:#1e3048;stroke-width:10;}
+  .cpi-ring .ring-val{fill:none;stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset .6s;}
+  .cpi-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .cpi-center .cpi-num{font-size:22px;font-weight:800;}
+  .cpi-center .cpi-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+  .cpi-row{display:flex;gap:18px;justify-content:center;margin-top:6px;}
+  .cpi-item{text-align:center;}
+  .cpi-item .ci-num{font-size:16px;font-weight:700;}
+  .cpi-item .ci-lbl{font-size:10px;color:var(--muted);}
+
+  /* CREW CARDS */
+  .crew-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+  .crew-card{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:11px 13px;}
+  .crew-card .cr-title{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px;}
+  .crew-card .cr-val{font-size:20px;font-weight:800;color:var(--text);}
+  .crew-card .cr-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+
+  /* SAFETY */
+  .safety-row{display:flex;gap:10px;justify-content:space-around;padding:6px 0;}
+  .safety-stat{text-align:center;}
+  .safety-stat .ss-num{font-size:30px;font-weight:800;}
+  .safety-stat .ss-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}
+
+  /* FOOTER */
+  footer{padding:16px 28px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-links">
+    <a href="index.html">Executive Dashboard</a>
+    <a href="budget-dashboard.html">Budgets, Actuals &amp; Unit Rates</a>
+    <a href="pc-metrics.html" class="active">PC Metrics</a>
+  </div>
+  <div class="nav-badge">Week Ending: <span>May 24, 2026</span></div>
+</nav>
+
+<div class="page-header">
+  <div>
+    <h1>PC Metrics — Project Cost &amp; Performance</h1>
+    <div class="sub">Job 23-4003 · PGR – East Atmore Solar · 42 MW DC · EPC Contract</div>
+  </div>
+  <select class="period-select" id="period">
+    <option>Week 21 — May 24, 2026</option>
+    <option>Week 20 — May 17, 2026</option>
+    <option>Week 19 — May 10, 2026</option>
+  </select>
+</div>
+
+<!-- ── KPIs ── -->
+<div class="section-label">Project Performance Indicators</div>
+<div class="kpi-grid">
+  <div class="kpi-card blue">
+    <div class="kpi-label">JTD Cost (Actual)</div>
+    <div class="kpi-value blue">$62.4M</div>
+    <div class="kpi-sub">of $68.1M budget</div>
+    <div class="kpi-trend flat">91.6%</div>
+  </div>
+  <div class="kpi-card warn">
+    <div class="kpi-label">This Week Spend</div>
+    <div class="kpi-value warn">$1.84M</div>
+    <div class="kpi-sub">vs $1.71M last week</div>
+    <div class="kpi-trend dn">+7.6%</div>
+  </div>
+  <div class="kpi-card green">
+    <div class="kpi-label">Cost Perf. Index (CPI)</div>
+    <div class="kpi-value green">1.06</div>
+    <div class="kpi-sub">Earned Value ÷ Actual</div>
+    <div class="kpi-trend up">+0.02</div>
+  </div>
+  <div class="kpi-card warn">
+    <div class="kpi-label">Schedule Perf. Index</div>
+    <div class="kpi-value warn">0.94</div>
+    <div class="kpi-sub">Earned Value ÷ Planned</div>
+    <div class="kpi-trend dn">-0.03</div>
+  </div>
+  <div class="kpi-card blue">
+    <div class="kpi-label">% Complete (Physical)</div>
+    <div class="kpi-value blue">87.3%</div>
+    <div class="kpi-sub">vs 89.1% planned</div>
+    <div class="kpi-trend dn">-1.8%</div>
+  </div>
+  <div class="kpi-card green">
+    <div class="kpi-label">JTD Man-Hours</div>
+    <div class="kpi-value green">184,220</div>
+    <div class="kpi-sub">vs 179,400 budgeted</div>
+    <div class="kpi-trend dn">+2.7%</div>
+  </div>
+  <div class="kpi-card red">
+    <div class="kpi-label">Budget Overruns</div>
+    <div class="kpi-value red">4</div>
+    <div class="kpi-sub">cost codes over budget</div>
+    <div class="kpi-trend dn">same as last week</div>
+  </div>
+  <div class="kpi-card green">
+    <div class="kpi-label">TRIR (Safety)</div>
+    <div class="kpi-value green">0.0</div>
+    <div class="kpi-sub">0 recordables JTD</div>
+    <div class="kpi-trend up">Clean</div>
+  </div>
+</div>
+
+<!-- ── CHARTS ROW 1 ── -->
+<div class="section-label">Weekly Cost &amp; Labor Trends</div>
+<div class="main-grid" style="padding:0 28px 14px;">
+  <div class="panel">
+    <div class="panel-title">Weekly Spend vs Budget <span class="badge">Last 8 Weeks</span></div>
+    <canvas id="weeklySpendChart" height="190"></canvas>
+  </div>
+  <div class="panel">
+    <div class="panel-title">S-Curve — Planned vs Actual vs Forecast</div>
+    <canvas id="sCurveChart" height="190"></canvas>
+  </div>
+</div>
+
+<!-- ── CHARTS ROW 2 ── -->
+<div class="main-grid three" style="padding:0 28px 14px;">
+  <div class="panel">
+    <div class="panel-title">Labor Hours — This Week</div>
+    <canvas id="laborChart" height="200"></canvas>
+  </div>
+  <div class="panel">
+    <div class="panel-title">Cost by Category (JTD)</div>
+    <canvas id="categoryChart" height="200"></canvas>
+  </div>
+  <div class="panel">
+    <div class="panel-title">Productivity Rate — Units/Hour</div>
+    <canvas id="productivityChart" height="200"></canvas>
+  </div>
+</div>
+
+<!-- ── WEEKLY DETAIL + MILESTONES ── -->
+<div class="main-grid" style="padding:0 28px 14px;">
+  <div class="panel">
+    <div class="panel-title">Weekly Cost Code Summary <span class="badge">This Week</span></div>
+    <table class="wtable">
+      <thead>
+        <tr>
+          <th>Cost Code</th>
+          <th>Description</th>
+          <th>Wk Budget</th>
+          <th>Wk Actual</th>
+          <th>Variance</th>
+          <th>JTD %</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1-4004-01</td><td>Racking Materials</td><td>$210,000</td><td>$198,450</td><td class="pos">+$11,550</td><td>96.8%</td></tr>
+        <tr><td>1-4010</td><td>Solar Panel Install</td><td>$320,000</td><td>$341,200</td><td class="neg">-$21,200</td><td>88.4%</td></tr>
+        <tr><td>1-4020</td><td>Electrical Wiring</td><td>$185,000</td><td>$177,340</td><td class="pos">+$7,660</td><td>82.1%</td></tr>
+        <tr><td>1-4004-02</td><td>Inverter Materials</td><td>$95,000</td><td>$108,900</td><td class="neg">-$13,900</td><td>100.0%</td></tr>
+        <tr><td>1-4004-03</td><td>Substation Materials</td><td>$440,000</td><td>$462,300</td><td class="neg">-$22,300</td><td>94.3%</td></tr>
+        <tr><td>1-4030</td><td>Civil / Grading</td><td>$128,000</td><td>$119,800</td><td class="pos">+$8,200</td><td>99.2%</td></tr>
+        <tr><td>1-4050</td><td>Commissioning</td><td>$145,000</td><td>$148,600</td><td class="neg">-$3,600</td><td>74.1%</td></tr>
+        <tr><td>1-4060</td><td>QA / Inspection</td><td>$68,000</td><td>$64,210</td><td class="pos">+$3,790</td><td>85.6%</td></tr>
+        <tr><td>1-4070</td><td>Equipment / Crane</td><td>$110,000</td><td>$124,500</td><td class="neg">-$14,500</td><td>91.0%</td></tr>
+        <tr><td>1-4080</td><td>Safety &amp; Compliance</td><td>$38,000</td><td>$35,900</td><td class="pos">+$2,100</td><td>78.3%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:14px;">
+    <div class="panel">
+      <div class="panel-title">CPI / SPI Gauges</div>
+      <div style="display:flex;justify-content:space-around;align-items:center;padding:8px 0;">
+        <div class="cpi-box">
+          <div class="cpi-ring">
+            <svg width="110" height="110" viewBox="0 0 110 110">
+              <circle class="ring-bg" cx="55" cy="55" r="44"/>
+              <circle class="ring-val" cx="55" cy="55" r="44"
+                stroke="#2ecc71"
+                stroke-dasharray="276.5"
+                stroke-dashoffset="27.7"/>
+            </svg>
+            <div class="cpi-center">
+              <div class="cpi-num" style="color:#2ecc71">1.06</div>
+              <div class="cpi-lbl">CPI</div>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;">Cost Efficiency</div>
+        </div>
+        <div class="cpi-box">
+          <div class="cpi-ring">
+            <svg width="110" height="110" viewBox="0 0 110 110">
+              <circle class="ring-bg" cx="55" cy="55" r="44"/>
+              <circle class="ring-val" cx="55" cy="55" r="44"
+                stroke="#f39c12"
+                stroke-dasharray="276.5"
+                stroke-dashoffset="44.2"/>
+            </svg>
+            <div class="cpi-center">
+              <div class="cpi-num" style="color:#f39c12">0.94</div>
+              <div class="cpi-lbl">SPI</div>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;">Schedule Efficiency</div>
+        </div>
+      </div>
+      <div class="cpi-row">
+        <div class="cpi-item"><div class="ci-num" style="color:var(--accent)">$66.2M</div><div class="ci-lbl">EAC (At Complete)</div></div>
+        <div class="cpi-item"><div class="ci-num" style="color:var(--good)">$1.9M</div><div class="ci-lbl">Remaining Budget</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Project Milestones</div>
+      <div class="milestone-list">
+        <div class="milestone"><div class="dot done"></div><div class="ms-name">Site Mobilization</div><div class="ms-date">Jan 15</div><div class="ms-status done">Done</div></div>
+        <div class="milestone"><div class="dot done"></div><div class="ms-name">Civil &amp; Grading Complete</div><div class="ms-date">Mar 8</div><div class="ms-status done">Done</div></div>
+        <div class="milestone"><div class="dot done"></div><div class="ms-name">Racking Install — 100%</div><div class="ms-date">Apr 22</div><div class="ms-status done">Done</div></div>
+        <div class="milestone"><div class="dot active"></div><div class="ms-name">Panel Install — 87%</div><div class="ms-date">Jun 7</div><div class="ms-status active">In Progress</div></div>
+        <div class="milestone"><div class="dot risk"></div><div class="ms-name">Substation Energize</div><div class="ms-date">Jun 20</div><div class="ms-status risk">At Risk</div></div>
+        <div class="milestone"><div class="dot pending"></div><div class="ms-name">Commissioning</div><div class="ms-date">Jul 10</div><div class="ms-status pending">Pending</div></div>
+        <div class="milestone"><div class="dot pending"></div><div class="ms-name">Substantial Completion</div><div class="ms-date">Jul 31</div><div class="ms-status pending">Pending</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── CREW + BUDGET CONSUMPTION + SAFETY ── -->
+<div class="main-grid three" style="padding:0 28px 14px;">
+  <div class="panel">
+    <div class="panel-title">Crew &amp; Labor — This Week</div>
+    <div class="crew-grid">
+      <div class="crew-card"><div class="cr-title">Peak Headcount</div><div class="cr-val">148</div><div class="cr-sub">vs 155 planned</div></div>
+      <div class="crew-card"><div class="cr-title">Total Hours Worked</div><div class="cr-val">5,920</div><div class="cr-sub">40 hr avg/person</div></div>
+      <div class="crew-card"><div class="cr-title">OT Hours</div><div class="cr-val">210</div><div class="cr-sub">3.5% of total hrs</div></div>
+      <div class="crew-card"><div class="cr-title">Avg Labor Rate</div><div class="cr-val">$58.40</div><div class="cr-sub">vs $55.20 budgeted</div></div>
+      <div class="crew-card"><div class="cr-title">Craft (Field)</div><div class="cr-val">124</div><div class="cr-sub">84% of crew</div></div>
+      <div class="crew-card"><div class="cr-title">Staff (Non-Craft)</div><div class="cr-val">24</div><div class="cr-sub">16% of crew</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Budget Consumption by Trade</div>
+    <div class="gauge-list" style="margin-top:4px;">
+      <div class="gauge-item">
+        <div class="g-top"><span class="g-label">Panel Installation</span><span class="g-val">88% · $8.1M / $9.2M</span></div>
+        <div class="gauge-bg"><div class="gauge-fill blue" style="width:88%"></div></div>
+      </div>
+      <div class="gauge-item">
+        <div class="g-top"><span class="g-label">Electrical / Wiring</span><span class="g-val">82% · $4.4M / $5.4M</span></div>
+        <div class="gauge-bg"><div class="gauge-fill green" style="width:82%"></div></div>
+      </div>
+      <div class="gauge-item">
+        <div class="g-top"><span class="g-label">Substation</span><span class="g-val">102% · $5.0M / $4.9M</span></div>
+        <div class="gauge-bg"><div class="gauge-fill red" style="width:100%"></div></div>
+      </div>
+      <div class="gauge-item">
+        <div class="g-top"><span class="g-label">Civil / Grading</span><span class="g-val">99% · $2.8M / $2.83M</span></div>
+        <div class="gauge-bg"><div class="gauge-fill warn" style="width:99%"></div></div>
+      </div>
+      <div class="gauge-item">
+        <div class="g-top"><span class="g-label">Commissioning</span><span class="g-val">74% · $1.2M / $1.6M</span></div>
+        <div class="gauge-bg"><div class="gauge-fill blue" style="width:74%"></div></div>
+      </div>
+      <div class="gauge-item">
+        <div class="g-top"><span class="g-label">Equipment / Crane</span><span class="g-val">91% · $3.1M / $3.4M</span></div>
+        <div class="gauge-bg"><div class="gauge-fill warn" style="width:91%"></div></div>
+      </div>
+      <div class="gauge-item">
+        <div class="g-top"><span class="g-label">Materials (All)</span><span class="g-val">95% · $29.7M / $31.2M</span></div>
+        <div class="gauge-bg"><div class="gauge-fill blue" style="width:95%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Safety Summary — JTD</div>
+    <div class="safety-row" style="margin-bottom:14px;">
+      <div class="safety-stat"><div class="ss-num" style="color:var(--good)">0</div><div class="ss-lbl">Recordables</div></div>
+      <div class="safety-stat"><div class="ss-num" style="color:var(--good)">0</div><div class="ss-lbl">Lost Time</div></div>
+      <div class="safety-stat"><div class="ss-num" style="color:var(--warn)">3</div><div class="ss-lbl">Near Misses</div></div>
+    </div>
+    <div class="gauge-list">
+      <div class="gauge-item">
+        <div class="g-top"><span class="g-label">TRIR</span><span class="g-val" style="color:var(--good)">0.0 (Goal: &lt;1.0)</span></div>
+        <div class="gauge-bg"><div class="gauge-fill green" style="width:100%"></div></div>
+      </div>
+      <div class="gauge-item">
+        <div class="g-top"><span class="g-label">Safety Obs. Completed</span><span class="g-val">94% (188/200)</span></div>
+        <div class="gauge-bg"><div class="gauge-fill green" style="width:94%"></div></div>
+      </div>
+      <div class="gauge-item">
+        <div class="g-top"><span class="g-label">Toolbox Talks</span><span class="g-val">100% (21/21)</span></div>
+        <div class="gauge-bg"><div class="gauge-fill green" style="width:100%"></div></div>
+      </div>
+      <div class="gauge-item">
+        <div class="g-top"><span class="g-label">JHA Compliance</span><span class="g-val">97%</span></div>
+        <div class="gauge-bg"><div class="gauge-fill green" style="width:97%"></div></div>
+      </div>
+    </div>
+    <div style="margin-top:14px;font-size:11px;color:var(--muted);line-height:1.6;">
+      <strong style="color:var(--text);">Man-Hours Without Incident:</strong><br>
+      <span style="font-size:20px;font-weight:800;color:var(--good);">184,220</span> hrs — 0 recordable incidents
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span>PC Metrics Dashboard · Job 23-4003 PGR – East Atmore</span>
+  <span>Generated: May 24, 2026 · Data refreshes weekly</span>
+</footer>
+
+<script>
+const C = v => ({color:v});
+const gridColor = '#1e3048';
+const tickColor = '#7a9ab8';
+const legendColor = '#ddeeff';
+
+// ── Weekly Spend vs Budget
+new Chart(document.getElementById('weeklySpendChart'),{
+  type:'bar',
+  data:{
+    labels:['Wk 14','Wk 15','Wk 16','Wk 17','Wk 18','Wk 19','Wk 20','Wk 21'],
+    datasets:[
+      {label:'Budget',    data:[1620,1750,1690,1820,1700,1680,1710,1710], backgroundColor:'rgba(59,158,255,.25)', borderColor:'#3b9eff', borderWidth:1.5, borderRadius:3},
+      {label:'Actual',    data:[1580,1810,1720,1790,1650,1740,1705,1840], backgroundColor:'rgba(231,162,59,.7)',   borderColor:'#e7a23b', borderWidth:1,   borderRadius:3},
+      {label:'Forecast',  data:[1620,1750,1690,1820,1700,1680,1710,1900], type:'line', borderColor:'#9b59b6', borderWidth:2, pointRadius:3, fill:false, tension:.3},
+    ]
+  },
+  options:{
+    responsive:true,
+    plugins:{legend:{labels:C(legendColor)}},
+    scales:{
+      x:{ticks:C(tickColor), grid:{color:gridColor}},
+      y:{ticks:{color:tickColor, callback:v=>'$'+(v/1000).toFixed(0)+'K'}, grid:{color:gridColor}}
+    }
+  }
+});
+
+// ── S-Curve
+const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul'];
+new Chart(document.getElementById('sCurveChart'),{
+  type:'line',
+  data:{
+    labels: months,
+    datasets:[
+      {label:'Planned % Complete', data:[5,18,38,62,82,96,100], borderColor:'#3b9eff', borderWidth:2, fill:false, tension:.4, pointRadius:3},
+      {label:'Actual % Complete',  data:[4,17,36,60,87,null,null], borderColor:'#2ecc71', borderWidth:2.5, fill:false, tension:.4, pointRadius:4},
+      {label:'Forecast',           data:[4,17,36,60,87,97,100], borderColor:'#9b59b6', borderWidth:2, borderDash:[5,4], fill:false, tension:.4, pointRadius:2},
+    ]
+  },
+  options:{
+    responsive:true,
+    plugins:{legend:{labels:C(legendColor)}},
+    scales:{
+      x:{ticks:C(tickColor), grid:{color:gridColor}},
+      y:{ticks:{color:tickColor, callback:v=>v+'%'}, grid:{color:gridColor}, min:0, max:100}
+    }
+  }
+});
+
+// ── Labor by Trade
+new Chart(document.getElementById('laborChart'),{
+  type:'bar',
+  data:{
+    labels:['Panel\nInstall','Electrical','Civil','Substation','Commissioning','Equipment','QA/Safety'],
+    datasets:[
+      {label:'Budget Hrs', data:[1840,980,420,610,340,520,210], backgroundColor:'rgba(59,158,255,.3)', borderColor:'#3b9eff', borderWidth:1.5, borderRadius:3},
+      {label:'Actual Hrs', data:[1920,940,380,640,310,510,220], backgroundColor:'rgba(46,204,113,.6)', borderColor:'#2ecc71', borderWidth:1, borderRadius:3},
+    ]
+  },
+  options:{
+    responsive:true, indexAxis:'y',
+    plugins:{legend:{labels:C(legendColor)}},
+    scales:{
+      x:{ticks:C(tickColor), grid:{color:gridColor}},
+      y:{ticks:C(tickColor), grid:{color:gridColor}}
+    }
+  }
+});
+
+// ── Cost by Category donut
+new Chart(document.getElementById('categoryChart'),{
+  type:'doughnut',
+  data:{
+    labels:['Materials','Labor','Equipment','Subcontract','Indirect'],
+    datasets:[{
+      data:[29700000,18400000,3100000,6200000,5000000],
+      backgroundColor:['#3b9eff','#2ecc71','#e7a23b','#9b59b6','#e74c3c'],
+      hoverOffset:8,
+    }]
+  },
+  options:{
+    responsive:true,
+    plugins:{
+      legend:{position:'bottom', labels:{color:legendColor, boxWidth:11, font:{size:11}}},
+      tooltip:{callbacks:{label:ctx=>`${ctx.label}: $${(ctx.raw/1e6).toFixed(1)}M`}}
+    }
+  }
+});
+
+// ── Productivity (units/hour) — line
+new Chart(document.getElementById('productivityChart'),{
+  type:'line',
+  data:{
+    labels:['Wk 14','Wk 15','Wk 16','Wk 17','Wk 18','Wk 19','Wk 20','Wk 21'],
+    datasets:[
+      {label:'Panels/Hr (Actual)', data:[4.2,4.5,4.8,4.6,5.1,4.9,5.2,5.0], borderColor:'#2ecc71', borderWidth:2.5, fill:true, backgroundColor:'rgba(46,204,113,.08)', tension:.4, pointRadius:4},
+      {label:'Panels/Hr (Budget)', data:[4.8,4.8,4.8,4.8,4.8,4.8,4.8,4.8], borderColor:'#3b9eff', borderWidth:1.5, borderDash:[5,4], fill:false, pointRadius:0},
+    ]
+  },
+  options:{
+    responsive:true,
+    plugins:{legend:{labels:C(legendColor)}},
+    scales:{
+      x:{ticks:C(tickColor), grid:{color:gridColor}},
+      y:{ticks:C(tickColor), grid:{color:gridColor}, min:3, max:6}
+    }
+  }
+});
+</script>
+</body>
+</html>
