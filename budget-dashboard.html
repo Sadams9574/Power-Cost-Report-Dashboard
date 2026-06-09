@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project Budgets, Actuals & Unit Rates</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root{--bg:#0f1720;--card:#1b2530;--accent:#3b9eff;--good:#2ecc71;--bad:#e74c3c;--warn:#e7a23b;--muted:#8aa0b4;--text:#e7eef5;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
+
+  /* Nav */
+  nav{background:#111e2a;border-bottom:1px solid #2a3744;display:flex;gap:0;padding:0 28px;}
+  nav a{display:inline-block;padding:13px 20px;color:var(--muted);text-decoration:none;font-size:13px;font-weight:600;border-bottom:3px solid transparent;transition:color .15s;}
+  nav a:hover{color:var(--text);}
+  nav a.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+  header{padding:18px 28px 14px;border-bottom:1px solid #2a3744;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+  header h1{margin:0;font-size:21px;}
+  header .sub{color:var(--muted);font-size:13px;margin-top:3px;}
+
+  /* Controls */
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  input[type=search]{background:#0f1720;border:1px solid #2a3744;color:var(--text);padding:8px 12px;border-radius:6px;width:250px;font-size:13px;}
+  select{background:#0f1720;border:1px solid #2a3744;color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;cursor:pointer;}
+
+  /* KPIs */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;padding:18px 28px;}
+  .kpi{background:var(--card);border-radius:10px;padding:16px 18px;border-left:4px solid transparent;}
+  .kpi.accent{border-left-color:var(--accent);}
+  .kpi.good{border-left-color:var(--good);}
+  .kpi.bad{border-left-color:var(--bad);}
+  .kpi.warn{border-left-color:var(--warn);}
+  .kpi .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;}
+  .kpi .value{font-size:24px;font-weight:700;margin-top:5px;}
+  .kpi .value.good{color:var(--good);}
+  .kpi .value.bad{color:var(--bad);}
+  .kpi .sub{font-size:11px;color:var(--muted);margin-top:4px;}
+
+  /* Charts */
+  .charts-row{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;padding:0 28px;}
+  @media(max-width:900px){.charts-row{grid-template-columns:1fr;}}
+  .panel{background:var(--card);border-radius:10px;padding:18px;margin-bottom:16px;}
+  .panel h2{margin:0 0 14px;font-size:13px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;}
+
+  /* Progress bars (budget consumed) */
+  .progress-list{display:flex;flex-direction:column;gap:10px;}
+  .progress-item .meta{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;}
+  .progress-item .code{font-weight:600;color:var(--text);}
+  .progress-item .pct{color:var(--muted);}
+  .bar-bg{background:#2a3744;border-radius:4px;height:8px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:4px;transition:width .3s;}
+  .bar-fill.good{background:var(--good);}
+  .bar-fill.warn{background:var(--warn);}
+  .bar-fill.bad{background:var(--bad);}
+
+  /* Table */
+  .container{padding:0 28px 48px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{padding:8px 10px;text-align:right;border-bottom:1px solid #1e2d3a;white-space:nowrap;}
+  th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left;}
+  th{color:var(--muted);font-weight:700;cursor:pointer;position:sticky;top:0;background:var(--card);font-size:12px;text-transform:uppercase;letter-spacing:.04em;user-select:none;}
+  th:hover{color:var(--text);}
+  th.sorted{color:var(--accent);}
+  tbody tr:hover{background:#1f2f3d;}
+  .table-wrap{max-height:560px;overflow:auto;}
+  .neg{color:var(--bad);}
+  .pos{color:var(--good);}
+  .tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;}
+  .tag.over{background:rgba(231,76,60,.18);color:#e74c3c;}
+  .tag.under{background:rgba(46,204,113,.15);color:#2ecc71;}
+  .tag.close{background:rgba(231,162,59,.15);color:#e7a23b;}
+
+  /* Unit rate spotlight */
+  .rate-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;}
+  .rate-card{background:#182533;border-radius:8px;padding:12px 14px;border:1px solid #2a3744;}
+  .rate-card .rc-code{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:4px;}
+  .rate-card .rc-desc{font-size:12px;color:var(--text);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rate-card .rc-vals{display:flex;justify-content:space-between;font-size:12px;}
+  .rate-card .rc-budget{color:var(--accent);}
+  .rate-card .rc-actual{color:var(--warn);}
+  .rate-card .rc-delta{font-weight:700;}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html">Executive Dashboard</a>
+  <a href="budget-dashboard.html" class="active">Project Budgets, Actuals &amp; Unit Rates</a>
+</nav>
+
+<header>
+  <div>
+    <h1>Project Budgets, Actuals &amp; Unit Rates</h1>
+    <div class="sub" id="jobMeta">Loading…</div>
+  </div>
+  <div class="controls">
+    <select id="filterStatus">
+      <option value="all">All Cost Codes</option>
+      <option value="over">Over Budget</option>
+      <option value="under">Under Budget</option>
+    </select>
+    <input type="search" id="search" placeholder="Search cost code or description…">
+  </div>
+</header>
+
+<div class="kpis" id="kpis"></div>
+
+<div class="charts-row">
+  <div class="panel">
+    <h2>Budget vs Actual — Top Cost Codes by Budget</h2>
+    <canvas id="barChart" height="220"></canvas>
+  </div>
+  <div class="panel" style="overflow:auto;">
+    <h2>Budget Consumption by Cost Code</h2>
+    <div class="progress-list" id="progressList"></div>
+  </div>
+</div>
+
+<div class="charts-row" style="margin-top:0;">
+  <div class="panel">
+    <h2>Unit Rate — Budget vs Actual (Top 10 by Variance)</h2>
+    <canvas id="rateChart" height="220"></canvas>
+  </div>
+  <div class="panel">
+    <h2>Variance Distribution</h2>
+    <canvas id="varianceChart" height="220"></canvas>
+  </div>
+</div>
+
+<div class="container">
+  <div class="panel">
+    <h2>Unit Rate Spotlight — Budget vs Actual</h2>
+    <div class="rate-grid" id="rateGrid"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Full Cost Code Detail</h2>
+    <div class="table-wrap">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th data-key="Cost Code">Cost Code</th>
+            <th data-key="Description">Description</th>
+            <th data-key="Units">Units</th>
+            <th data-key="Budget">Budget ($)</th>
+            <th data-key="Actual">Actual ($)</th>
+            <th data-key="Variance">Variance ($)</th>
+            <th data-key="VariancePct">Var %</th>
+            <th data-key="Forecast">Forecast ($)</th>
+            <th data-key="UnitRateBudget">Unit Rate Budget</th>
+            <th data-key="UnitRateActual">Unit Rate Actual</th>
+            <th data-key="UnitRateDelta">Rate Delta</th>
+            <th data-key="status">Status</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const fmt$ = n => n.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});
+const fmtPct = n => (n>=0?'+':'')+n.toFixed(1)+'%';
+const fmtRate = n => n.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2});
+
+let allRows = [];
+let sortKey = 'Budget', sortDir = -1;
+
+fetch('data/cost_data.json').then(r=>r.json()).then(data=>{
+  document.getElementById('jobMeta').textContent =
+    `Job ${data.job} — Report Date ${data.reportDate} — ${data.rows.length} cost codes`;
+
+  allRows = data.rows.map(r => ({
+    ...r,
+    VariancePct: r.Budget ? (r.Variance / r.Budget) * 100 : 0,
+    UnitRateDelta: r.UnitRateBudget - r.UnitRateActual,
+    status: r.Variance >= 0 ? 'under' : 'over',
+  }));
+
+  renderKPIs();
+  renderCharts();
+  renderProgressBars();
+  renderRateGrid();
+  renderTable();
+
+  document.getElementById('search').addEventListener('input', () => renderTable());
+  document.getElementById('filterStatus').addEventListener('change', () => renderTable());
+  document.querySelectorAll('#dataTable th[data-key]').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.key;
+      sortDir = (sortKey === key) ? -sortDir : -1;
+      sortKey = key;
+      document.querySelectorAll('#dataTable th').forEach(t => t.classList.remove('sorted'));
+      th.classList.add('sorted');
+      renderTable();
+    });
+  });
+});
+
+function renderKPIs() {
+  const totalBudget  = allRows.reduce((s,r) => s+r.Budget, 0);
+  const totalActual  = allRows.reduce((s,r) => s+r.Actual, 0);
+  const totalForecast= allRows.reduce((s,r) => s+r.Forecast, 0);
+  const totalVariance= totalBudget - totalActual;
+  const varPct       = totalBudget ? (totalVariance/totalBudget)*100 : 0;
+  const consumed     = totalBudget ? (totalActual/totalBudget)*100 : 0;
+  const overCount    = allRows.filter(r => r.status === 'over').length;
+
+  const kpis = [
+    {label:'Total Budget',    value:fmt$(totalBudget),   sub:'Original ECAC',         cls:'accent'},
+    {label:'Total Actual',    value:fmt$(totalActual),   sub:'JTD Charges',            cls:'warn'},
+    {label:'Total Forecast',  value:fmt$(totalForecast), sub:'Projected ECAC',         cls:'accent'},
+    {label:'Budget Variance', value:fmt$(totalVariance), sub:fmtPct(varPct)+' of budget', cls:totalVariance>=0?'good':'bad', valCls:totalVariance>=0?'good':'bad'},
+    {label:'Budget Consumed', value:consumed.toFixed(1)+'%', sub:'Actual ÷ Budget',   cls:consumed>100?'bad':consumed>85?'warn':'good'},
+    {label:'Over-Budget Codes',value:overCount+' / '+allRows.length, sub:'cost codes over budget', cls:overCount>0?'bad':'good'},
+  ];
+
+  document.getElementById('kpis').innerHTML = kpis.map(k => `
+    <div class="kpi ${k.cls}">
+      <div class="label">${k.label}</div>
+      <div class="value ${k.valCls||''}">${k.value}</div>
+      <div class="sub">${k.sub}</div>
+    </div>`).join('');
+}
+
+let barChart, rateChart, varianceChart;
+function renderCharts() {
+  const top12 = [...allRows].sort((a,b) => b.Budget-a.Budget).slice(0,12);
+
+  // Bar — Budget vs Actual
+  if (barChart) barChart.destroy();
+  barChart = new Chart(document.getElementById('barChart'), {
+    type: 'bar',
+    data: {
+      labels: top12.map(r => r['Cost Code']),
+      datasets: [
+        {label:'Budget', data:top12.map(r=>r.Budget), backgroundColor:'#3b9eff', borderRadius:3},
+        {label:'Actual', data:top12.map(r=>r.Actual), backgroundColor:'#e7a23b', borderRadius:3},
+      ]
+    },
+    options: {
+      responsive:true,
+      plugins:{legend:{labels:{color:'#e7eef5',boxWidth:12}}},
+      scales:{
+        x:{ticks:{color:'#8aa0b4',font:{size:10}}, grid:{color:'#1e2d3a'}},
+        y:{ticks:{color:'#8aa0b4', callback:v=>'$'+(v>=1e6?(v/1e6).toFixed(1)+'M':(v/1e3).toFixed(0)+'K')}, grid:{color:'#1e2d3a'}}
+      }
+    }
+  });
+
+  // Unit Rate chart — top 10 by rate delta
+  const top10rate = [...allRows].sort((a,b) => Math.abs(b.UnitRateDelta)-Math.abs(a.UnitRateDelta)).slice(0,10);
+  if (rateChart) rateChart.destroy();
+  rateChart = new Chart(document.getElementById('rateChart'), {
+    type: 'bar',
+    data: {
+      labels: top10rate.map(r => r['Cost Code']),
+      datasets: [
+        {label:'Budget Rate', data:top10rate.map(r=>r.UnitRateBudget), backgroundColor:'#3b9eff', borderRadius:3},
+        {label:'Actual Rate', data:top10rate.map(r=>r.UnitRateActual), backgroundColor:'#e74c3c', borderRadius:3},
+      ]
+    },
+    options: {
+      responsive:true,
+      plugins:{legend:{labels:{color:'#e7eef5',boxWidth:12}}},
+      scales:{
+        x:{ticks:{color:'#8aa0b4',font:{size:10}}, grid:{color:'#1e2d3a'}},
+        y:{ticks:{color:'#8aa0b4', callback:v=>'$'+(v>=1e6?(v/1e6).toFixed(1)+'M':(v/1e3).toFixed(0)+'K')}, grid:{color:'#1e2d3a'}}
+      }
+    }
+  });
+
+  // Variance distribution — over vs under
+  const over  = allRows.filter(r=>r.status==='over').length;
+  const under = allRows.filter(r=>r.status==='under').length;
+  if (varianceChart) varianceChart.destroy();
+  varianceChart = new Chart(document.getElementById('varianceChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Under Budget','Over Budget'],
+      datasets: [{
+        data: [under, over],
+        backgroundColor: ['#2ecc71','#e74c3c'],
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {position:'bottom', labels:{color:'#e7eef5',boxWidth:12}},
+        tooltip: {callbacks:{label:ctx=>`${ctx.label}: ${ctx.raw} codes`}}
+      }
+    }
+  });
+}
+
+function renderProgressBars() {
+  const top8 = [...allRows].sort((a,b) => b.Budget-a.Budget).slice(0,8);
+  document.getElementById('progressList').innerHTML = top8.map(r => {
+    const pct = r.Budget ? Math.min((r.Actual/r.Budget)*100, 150) : 0;
+    const display = r.Budget ? ((r.Actual/r.Budget)*100).toFixed(1)+'%' : 'N/A';
+    const cls = pct > 100 ? 'bad' : pct > 85 ? 'warn' : 'good';
+    return `
+      <div class="progress-item">
+        <div class="meta">
+          <span class="code">${r['Cost Code']}</span>
+          <span class="pct">${display} consumed — ${fmt$(r.Actual)} / ${fmt$(r.Budget)}</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill ${cls}" style="width:${Math.min(pct,100)}%"></div></div>
+      </div>`;
+  }).join('');
+}
+
+function renderRateGrid() {
+  // Show top 12 by absolute unit rate delta
+  const top = [...allRows]
+    .filter(r => r.UnitRateBudget > 0)
+    .sort((a,b) => Math.abs(b.UnitRateDelta)-Math.abs(a.UnitRateDelta))
+    .slice(0,12);
+
+  document.getElementById('rateGrid').innerHTML = top.map(r => {
+    const cls = r.UnitRateDelta >= 0 ? 'pos' : 'neg';
+    return `
+      <div class="rate-card">
+        <div class="rc-code">${r['Cost Code']}</div>
+        <div class="rc-desc" title="${r.Description}">${r.Description.replace(/^\S+-\d+\s*/,'')}</div>
+        <div class="rc-vals">
+          <span class="rc-budget" title="Budget Rate">B: ${fmtRate(r.UnitRateBudget)}</span>
+          <span class="rc-actual" title="Actual Rate">A: ${fmtRate(r.UnitRateActual)}</span>
+          <span class="rc-delta ${cls}" title="Rate Delta">Δ ${fmtRate(Math.abs(r.UnitRateDelta))}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function getFilteredRows() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const status = document.getElementById('filterStatus').value;
+  return allRows.filter(r => {
+    const matchSearch = !search ||
+      r['Cost Code'].toLowerCase().includes(search) ||
+      r.Description.toLowerCase().includes(search);
+    const matchStatus = status === 'all' || r.status === status;
+    return matchSearch && matchStatus;
+  });
+}
+
+function renderTable() {
+  let data = getFilteredRows().sort((a,b) => {
+    const av = a[sortKey], bv = b[sortKey];
+    if (typeof av === 'string') return sortDir * av.localeCompare(bv);
+    return sortDir * (av - bv);
+  });
+
+  const tbody = document.querySelector('#dataTable tbody');
+  tbody.innerHTML = data.map(r => {
+    const tag = r.status === 'over'
+      ? `<span class="tag over">Over</span>`
+      : `<span class="tag under">Under</span>`;
+    return `
+      <tr>
+        <td>${r['Cost Code']}</td>
+        <td>${r.Description}</td>
+        <td>${r.Units.toLocaleString()}</td>
+        <td>${fmt$(r.Budget)}</td>
+        <td>${fmt$(r.Actual)}</td>
+        <td class="${r.Variance>=0?'pos':'neg'}">${fmt$(r.Variance)}</td>
+        <td class="${r.VariancePct>=0?'pos':'neg'}">${fmtPct(r.VariancePct)}</td>
+        <td>${fmt$(r.Forecast)}</td>
+        <td>${fmtRate(r.UnitRateBudget)}</td>
+        <td>${fmtRate(r.UnitRateActual)}</td>
+        <td class="${r.UnitRateDelta>=0?'pos':'neg'}">${fmtRate(r.UnitRateDelta)}</td>
+        <td>${tag}</td>
+      </tr>`;
+  }).join('');
+}
+</script>
+</body>
+</html>

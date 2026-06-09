@@ -9,6 +9,10 @@
   :root{--bg:#0f1720;--card:#1b2530;--accent:#3b9eff;--good:#2ecc71;--bad:#e74c3c;--muted:#8aa0b4;--text:#e7eef5;}
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  nav{background:#111e2a;border-bottom:1px solid #2a3744;display:flex;gap:0;padding:0 28px;}
+  nav a{display:inline-block;padding:13px 20px;color:var(--muted);text-decoration:none;font-size:13px;font-weight:600;border-bottom:3px solid transparent;transition:color .15s;}
+  nav a:hover{color:var(--text);}
+  nav a.active{color:var(--accent);border-bottom-color:var(--accent);}
   header{padding:20px 28px;border-bottom:1px solid #2a3744;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
   header h1{margin:0;font-size:22px;}
   header .sub{color:var(--muted);font-size:13px;}
@@ -35,6 +39,10 @@
 </style>
 </head>
 <body>
+<nav>
+  <a href="index.html" class="active">Executive Dashboard</a>
+  <a href="budget-dashboard.html">Project Budgets, Actuals &amp; Unit Rates</a>
+</nav>
 <header>
   <div>
     <h1>Power Cost Report — Executive Dashboard</h1>
