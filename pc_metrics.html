@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PC Metrics Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1621;
+    --surface: #162030;
+    --surface2: #1e2d40;
+    --border: #243650;
+    --accent: #3b9eff;
+    --accent2: #a78bfa;
+    --good: #22c55e;
+    --bad: #ef4444;
+    --warn: #f59e0b;
+    --text: #e2eaf4;
+    --muted: #7a94b0;
+    --font: 'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, #0f1f35 0%, #1a3050 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  header h1 { font-size: 20px; font-weight: 700; color: var(--text); }
+  header p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .header-badge {
+    margin-left: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* ── Layout ── */
+  .main { padding: 20px 24px; }
+  section { margin-bottom: 28px; }
+  .section-title {
+    font-size: 11px; font-weight: 700; letter-spacing: 1.2px;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 14px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* ── Project Tabs ── */
+  .tab-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+  .tab-btn {
+    padding: 7px 16px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--muted); cursor: pointer;
+    font-size: 12px; font-weight: 600; transition: all .15s;
+  }
+  .tab-btn:hover { border-color: var(--accent); color: var(--text); }
+  .tab-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tab-btn.all-btn { background: var(--surface2); color: var(--text); }
+  .tab-btn.all-btn.active { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+
+  /* ── KPI Cards ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+  .kpi-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px;
+    transition: border-color .15s;
+  }
+  .kpi-card:hover { border-color: var(--accent); }
+  .kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px; }
+  .kpi-value { font-size: 22px; font-weight: 700; }
+  .kpi-sub { font-size: 11px; color: var(--muted); margin-top: 4px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .kpi-sub span { display: flex; align-items: center; gap: 3px; }
+  .good { color: var(--good); }
+  .bad  { color: var(--bad);  }
+  .warn { color: var(--warn); }
+  .neutral { color: var(--muted); }
+
+  /* ── Charts row ── */
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .charts-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px;
+  }
+  .chart-card h3 { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px; }
+  .chart-wrap { position: relative; height: 220px; }
+  .chart-wrap.tall { height: 300px; }
+
+  /* ── Comparison Table ── */
+  .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th {
+    background: var(--surface2); color: var(--muted);
+    padding: 9px 12px; text-align: right; font-weight: 600;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 1;
+  }
+  thead th:first-child { text-align: left; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+  tbody td { padding: 8px 12px; text-align: right; }
+  tbody td:first-child { text-align: left; color: var(--muted); font-weight: 600; }
+  .section-row td { background: var(--surface2); color: var(--accent); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+  .pct-bar-cell { min-width: 130px; }
+  .pct-bar { display: flex; align-items: center; gap: 6px; }
+  .pct-bar-bg { flex: 1; background: var(--border); border-radius: 3px; height: 6px; overflow: hidden; }
+  .pct-bar-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+
+  @media (max-width: 900px) {
+    .charts-row, .charts-row-3 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>⚡ PC Metrics Dashboard</h1>
+    <p>Multi-Project Performance Comparison · PGR Solar Portfolio</p>
+  </div>
+  <div class="header-badge" id="reportDate">Loading…</div>
+</header>
+
+<div class="main">
+
+  <!-- Project Selector -->
+  <div class="tab-bar" id="tabBar"></div>
+
+  <!-- Overview KPIs -->
+  <section>
+    <div class="section-title">📊 Project Overview</div>
+    <div class="kpi-grid" id="kpiGrid"></div>
+  </section>
+
+  <!-- Division Cost & Hours Charts -->
+  <section>
+    <div class="section-title">🏗 Division Summary</div>
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>Cost by Division — Budget vs Actual</h3>
+        <div class="chart-wrap"><canvas id="divisionCostChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Hours by Division — Budget vs Actual</h3>
+        <div class="chart-wrap"><canvas id="divisionHoursChart"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Performance Indices -->
+  <section>
+    <div class="section-title">📈 Performance Indices (CPI &amp; Production Factor)</div>
+    <div class="charts-row-3">
+      <div class="chart-card">
+        <h3>CPI Comparison (all projects)</h3>
+        <div class="chart-wrap tall"><canvas id="cpiChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Production Factor (all projects)</h3>
+        <div class="chart-wrap tall"><canvas id="pfChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Cost &amp; Revenue per Watt ($)</h3>
+        <div class="chart-wrap tall"><canvas id="wattChart"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Profitability -->
+  <section>
+    <div class="section-title">💰 Profitability &amp; WIP</div>
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>Profit ($) — Budget vs Actual</h3>
+        <div class="chart-wrap"><canvas id="profitChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Margin % — Budget vs Actual</h3>
+        <div class="chart-wrap"><canvas id="marginChart"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cost Breakdown -->
+  <section>
+    <div class="section-title">🔍 Cost Breakdown — Actual</div>
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3 id="costBreakdownTitle">Cost Breakdown</h3>
+        <div class="chart-wrap tall"><canvas id="costBreakdownChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Hours per Watt Comparison</h3>
+        <div class="chart-wrap tall"><canvas id="hoursPerWattChart"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Full Comparison Table -->
+  <section>
+    <div class="section-title">📋 Full Metrics Comparison Table</div>
+    <div class="table-wrap">
+      <table id="metricsTable">
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<script>
+const PROJECTS_COLORS = ['#3b9eff','#22c55e','#f59e0b','#a78bfa','#fb923c'];
+const BUDGET_ALPHA = 'rgba(59,158,255,0.3)';
+
+let allData = null;
+let activeProject = 'ALL';
+let charts = {};
+
+// ── Chart helpers ─────────────────────────────────────────────────────────────
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+function makeChart(id, config) {
+  destroyChart(id);
+  charts[id] = new Chart(document.getElementById(id), config);
+  return charts[id];
+}
+
+const gridOpts = {
+  color: 'rgba(36,54,80,0.8)',
+};
+const baseScaleOpts = {
+  grid: gridOpts,
+  ticks: { color: '#7a94b0', font: { size: 10 } },
+};
+const tooltipOpts = {
+  backgroundColor: '#1e2d40',
+  borderColor: '#243650',
+  borderWidth: 1,
+  titleColor: '#e2eaf4',
+  bodyColor: '#7a94b0',
+  padding: 10,
+};
+
+// ── Formatters ────────────────────────────────────────────────────────────────
+function fmtM(v) {
+  if (v == null) return '—';
+  const a = Math.abs(v);
+  if (a >= 1e6) return (v < 0 ? '-' : '') + '$' + (a/1e6).toFixed(2) + 'M';
+  if (a >= 1e3) return (v < 0 ? '-' : '') + '$' + (a/1e3).toFixed(0) + 'K';
+  return '$' + v.toFixed(0);
+}
+function fmtPct(v) { return v == null ? '—' : (v*100).toFixed(1) + '%'; }
+function fmtNum(v, d=1) { return v == null ? '—' : v.toFixed(d); }
+function sign(v) { return v > 0 ? '+' : ''; }
+function varClass(v, higher_is_good=true) {
+  if (v == null) return 'neutral';
+  return (higher_is_good ? v >= 0 : v <= 0) ? 'good' : 'bad';
+}
+
+// ── Build UI ──────────────────────────────────────────────────────────────────
+async function init() {
+  const resp = await fetch('data/pc_metrics.json');
+  allData = await resp.json();
+
+  document.getElementById('reportDate').textContent = 'PGR Solar Portfolio';
+
+  buildTabs();
+  render('ALL');
+}
+
+function buildTabs() {
+  const bar = document.getElementById('tabBar');
+  bar.innerHTML = '';
+  const allBtn = document.createElement('button');
+  allBtn.className = 'tab-btn all-btn active';
+  allBtn.textContent = 'All Projects';
+  allBtn.onclick = () => render('ALL');
+  bar.appendChild(allBtn);
+
+  allData.projects.forEach((p, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn';
+    btn.textContent = `${p.id} · ${p.name}`;
+    btn.style.borderColor = PROJECTS_COLORS[i];
+    btn.onclick = () => render(p.id);
+    bar.appendChild(btn);
+  });
+}
+
+function updateTabs(projectId) {
+  activeProject = projectId;
+  document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+    if (i === 0) btn.classList.toggle('active', projectId === 'ALL');
+    else btn.classList.toggle('active', allData.projects[i-1].id === projectId);
+  });
+}
+
+function render(projectId) {
+  updateTabs(projectId);
+  const projects = projectId === 'ALL' ? allData.projects : allData.projects.filter(p => p.id === projectId);
+
+  renderKPIs(projects, projectId);
+  renderDivisionCost(projects);
+  renderDivisionHours(projects);
+  renderCPI(projects);
+  renderPF(projects);
+  renderWatt(projects);
+  renderProfit(projects);
+  renderMargin(projects);
+  renderCostBreakdown(projects, projectId);
+  renderHoursPerWatt(projects);
+  renderTable(projects);
+}
+
+// ── KPIs ──────────────────────────────────────────────────────────────────────
+function renderKPIs(projects, mode) {
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = '';
+
+  if (mode === 'ALL') {
+    // Summary across all projects
+    const totals = {
+      budget: sum(projects, p => p.metrics.cost_total.budget),
+      actual: sum(projects, p => p.metrics.cost_total.actual),
+      revenue: sum(projects, p => p.metrics.revenue.actual),
+      profit: sum(projects, p => p.metrics.profit.actual),
+      mw: sum(projects, p => p.metrics.mw_size.actual || p.metrics.mw_size.budget),
+    };
+    totals.var = totals.budget - totals.actual;
+    totals.margin = totals.revenue ? totals.profit / totals.revenue : null;
+
+    const cards = [
+      { label: 'Total MW (Portfolio)', value: fmtNum(totals.mw, 1) + ' MW', sub: `${projects.length} active projects` },
+      { label: 'Total Budget Cost', value: fmtM(totals.budget), sub: `Actual: ${fmtM(totals.actual)}` },
+      { label: 'Cost Variance', value: fmtM(totals.var), cls: varClass(totals.var), sub: `${fmtPct(totals.budget ? totals.var/totals.budget : null)} of budget` },
+      { label: 'Total Revenue', value: fmtM(totals.revenue), sub: 'EAC' },
+      { label: 'Total Profit', value: fmtM(totals.profit), cls: varClass(totals.profit), sub: `Margin: ${fmtPct(totals.margin)}` },
+    ];
+    cards.forEach(c => grid.appendChild(makeKPI(c)));
+  } else {
+    const p = projects[0];
+    const m = p.metrics;
+    const mw = m.mw_size.actual || m.mw_size.budget;
+    const var_pct = m.cost_total.budget ? m.cost_total.var / m.cost_total.budget : null;
+
+    const cards = [
+      { label: 'MW Size', value: fmtNum(mw, 1) + ' MW', sub: p.id },
+      { label: 'Total Cost (Budget)', value: fmtM(m.cost_total.budget), sub: `Actual: ${fmtM(m.cost_total.actual)}` },
+      { label: 'Cost Variance', value: fmtM(m.cost_total.var), cls: varClass(m.cost_total.var), sub: fmtPct(var_pct) + ' of budget' },
+      { label: 'Revenue (EAC)', value: fmtM(m.revenue.actual), sub: `Budget: ${fmtM(m.revenue.budget)}` },
+      { label: 'Profit', value: fmtM(m.profit.actual), cls: varClass(m.profit.actual), sub: `Margin: ${fmtPct(m.margin_on_rev_pct.actual)}` },
+      { label: '% Complete (WIP)', value: fmtPct(m.pct_complete_wip.actual), cls: 'neutral', sub: `Cash: ${fmtM(m.current_cash.actual)}` },
+      { label: 'CPI Total', value: fmtNum(m.cpi_total.actual, 3), cls: varClass(m.cpi_total.actual ? m.cpi_total.actual - 1 : null), sub: `PV: ${fmtNum(m.cpi_pv.actual,3)} · Civil: ${fmtNum(m.cpi_civil.actual,3)}` },
+      { label: 'Cost per Watt', value: '$' + fmtNum(m.cost_per_watt.actual, 4), cls: varClass(m.cost_per_watt.var), sub: `Budget: $${fmtNum(m.cost_per_watt.budget,4)}` },
+    ];
+    cards.forEach(c => grid.appendChild(makeKPI(c)));
+  }
+}
+
+function makeKPI({ label, value, sub, cls }) {
+  const el = document.createElement('div');
+  el.className = 'kpi-card';
+  el.innerHTML = `<div class="kpi-label">${label}</div>
+    <div class="kpi-value ${cls||''}">${value}</div>
+    <div class="kpi-sub"><span>${sub||''}</span></div>`;
+  return el;
+}
+
+function sum(arr, fn) { return arr.reduce((a, x) => a + (fn(x) || 0), 0); }
+
+// ── Division Cost Chart ────────────────────────────────────────────────────────
+function renderDivisionCost(projects) {
+  const labels = projects.map(p => p.name);
+  makeChart('divisionCostChart', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'PV Budget', data: projects.map(p => p.metrics.cost_pv.budget), backgroundColor: 'rgba(59,158,255,0.3)', stack: 'budget' },
+        { label: 'Civil Budget', data: projects.map(p => p.metrics.cost_civil.budget), backgroundColor: 'rgba(167,139,250,0.3)', stack: 'budget' },
+        { label: 'Other Budget', data: projects.map(p => p.metrics.cost_other.budget), backgroundColor: 'rgba(245,158,11,0.3)', stack: 'budget' },
+        { label: 'PV Actual', data: projects.map(p => p.metrics.cost_pv.actual), backgroundColor: 'rgba(59,158,255,0.85)', stack: 'actual' },
+        { label: 'Civil Actual', data: projects.map(p => p.metrics.cost_civil.actual), backgroundColor: 'rgba(167,139,250,0.85)', stack: 'actual' },
+        { label: 'Other Actual', data: projects.map(p => p.metrics.cost_other.actual), backgroundColor: 'rgba(245,158,11,0.85)', stack: 'actual' },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#7a94b0', font: { size: 10 } } }, tooltip: tooltipOpts },
+      scales: {
+        x: { ...baseScaleOpts, stacked: true },
+        y: { ...baseScaleOpts, stacked: true, ticks: { ...baseScaleOpts.ticks, callback: v => '$' + (v/1e6).toFixed(1) + 'M' } }
+      }
+    }
+  });
+}
+
+// ── Division Hours Chart ───────────────────────────────────────────────────────
+function renderDivisionHours(projects) {
+  const labels = projects.map(p => p.name);
+  makeChart('divisionHoursChart', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'PV Budget', data: projects.map(p => p.metrics.pv_hours.budget), backgroundColor: 'rgba(59,158,255,0.3)', stack: 'budget' },
+        { label: 'Civil Budget', data: projects.map(p => p.metrics.civil_hours.budget), backgroundColor: 'rgba(167,139,250,0.3)', stack: 'budget' },
+        { label: 'PV Actual', data: projects.map(p => p.metrics.pv_hours.actual), backgroundColor: 'rgba(59,158,255,0.85)', stack: 'actual' },
+        { label: 'Civil Actual', data: projects.map(p => p.metrics.civil_hours.actual), backgroundColor: 'rgba(167,139,250,0.85)', stack: 'actual' },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#7a94b0', font: { size: 10 } } }, tooltip: tooltipOpts },
+      scales: {
+        x: { ...baseScaleOpts, stacked: true },
+        y: { ...baseScaleOpts, stacked: true, ticks: { ...baseScaleOpts.ticks, callback: v => (v/1000).toFixed(0)+'K' } }
+      }
+    }
+  });
+}
+
+// ── CPI Chart ─────────────────────────────────────────────────────────────────
+function renderCPI(projects) {
+  makeChart('cpiChart', {
+    type: 'bar',
+    data: {
+      labels: projects.map(p => p.name),
+      datasets: [
+        { label: 'CPI – PV', data: projects.map(p => p.metrics.cpi_pv.actual), backgroundColor: 'rgba(59,158,255,0.8)' },
+        { label: 'CPI – Civil', data: projects.map(p => p.metrics.cpi_civil.actual), backgroundColor: 'rgba(167,139,250,0.8)' },
+        { label: 'CPI – Total', data: projects.map(p => p.metrics.cpi_total.actual), backgroundColor: 'rgba(34,197,94,0.8)' },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#7a94b0', font: { size: 10 } } }, tooltip: tooltipOpts,
+        annotation: {}
+      },
+      scales: {
+        x: baseScaleOpts,
+        y: { ...baseScaleOpts, min: 0.5, ticks: { ...baseScaleOpts.ticks, callback: v => v.toFixed(2) } }
+      }
+    }
+  });
+}
+
+// ── PF Chart ──────────────────────────────────────────────────────────────────
+function renderPF(projects) {
+  makeChart('pfChart', {
+    type: 'bar',
+    data: {
+      labels: projects.map(p => p.name),
+      datasets: [
+        { label: 'PF – PV', data: projects.map(p => p.metrics.pf_pv.actual), backgroundColor: 'rgba(59,158,255,0.8)' },
+        { label: 'PF – Civil', data: projects.map(p => p.metrics.pf_civil.actual), backgroundColor: 'rgba(167,139,250,0.8)' },
+        { label: 'PF – Total', data: projects.map(p => p.metrics.pf_total.actual), backgroundColor: 'rgba(34,197,94,0.8)' },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#7a94b0', font: { size: 10 } } }, tooltip: tooltipOpts },
+      scales: {
+        x: baseScaleOpts,
+        y: { ...baseScaleOpts, min: 0.4, ticks: { ...baseScaleOpts.ticks, callback: v => v.toFixed(2) } }
+      }
+    }
+  });
+}
+
+// ── Cost & Revenue per Watt ────────────────────────────────────────────────────
+function renderWatt(projects) {
+  const labels = projects.map(p => p.name);
+  makeChart('wattChart', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Cost/W Budget', data: projects.map(p => p.metrics.cost_per_watt.budget), backgroundColor: 'rgba(239,68,68,0.35)' },
+        { label: 'Cost/W Actual', data: projects.map(p => p.metrics.cost_per_watt.actual), backgroundColor: 'rgba(239,68,68,0.85)' },
+        { label: 'Rev/W Budget', data: projects.map(p => p.metrics.revenue_per_watt.budget), backgroundColor: 'rgba(34,197,94,0.35)' },
+        { label: 'Rev/W Actual', data: projects.map(p => p.metrics.revenue_per_watt.actual), backgroundColor: 'rgba(34,197,94,0.85)' },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#7a94b0', font: { size: 10 } } }, tooltip: tooltipOpts },
+      scales: {
+        x: baseScaleOpts,
+        y: { ...baseScaleOpts, ticks: { ...baseScaleOpts.ticks, callback: v => '$' + v.toFixed(3) } }
+      }
+    }
+  });
+}
+
+// ── Profit Chart ──────────────────────────────────────────────────────────────
+function renderProfit(projects) {
+  makeChart('profitChart', {
+    type: 'bar',
+    data: {
+      labels: projects.map(p => p.name),
+      datasets: [
+        { label: 'Budget', data: projects.map(p => p.metrics.profit.budget), backgroundColor: 'rgba(59,158,255,0.4)' },
+        { label: 'Actual', data: projects.map(p => p.metrics.profit.actual), backgroundColor: projects.map(p => p.metrics.profit.actual >= 0 ? 'rgba(34,197,94,0.85)' : 'rgba(239,68,68,0.85)') },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#7a94b0', font: { size: 10 } } }, tooltip: tooltipOpts },
+      scales: {
+        x: baseScaleOpts,
+        y: { ...baseScaleOpts, ticks: { ...baseScaleOpts.ticks, callback: v => '$' + (v/1e6).toFixed(1) + 'M' } }
+      }
+    }
+  });
+}
+
+// ── Margin Chart ──────────────────────────────────────────────────────────────
+function renderMargin(projects) {
+  makeChart('marginChart', {
+    type: 'bar',
+    data: {
+      labels: projects.map(p => p.name),
+      datasets: [
+        { label: 'Margin on Rev % (Budget)', data: projects.map(p => p.metrics.margin_on_rev_pct.budget ? p.metrics.margin_on_rev_pct.budget*100 : null), backgroundColor: 'rgba(59,158,255,0.35)' },
+        { label: 'Margin on Rev % (Actual)', data: projects.map(p => p.metrics.margin_on_rev_pct.actual ? p.metrics.margin_on_rev_pct.actual*100 : null), backgroundColor: 'rgba(59,158,255,0.85)' },
+        { label: 'Margin on Cost % (Budget)', data: projects.map(p => p.metrics.margin_on_cost_pct.budget ? p.metrics.margin_on_cost_pct.budget*100 : null), backgroundColor: 'rgba(167,139,250,0.35)' },
+        { label: 'Margin on Cost % (Actual)', data: projects.map(p => p.metrics.margin_on_cost_pct.actual ? p.metrics.margin_on_cost_pct.actual*100 : null), backgroundColor: 'rgba(167,139,250,0.85)' },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#7a94b0', font: { size: 10 } } }, tooltip: tooltipOpts },
+      scales: {
+        x: baseScaleOpts,
+        y: { ...baseScaleOpts, ticks: { ...baseScaleOpts.ticks, callback: v => v.toFixed(1) + '%' } }
+      }
+    }
+  });
+}
+
+// ── Cost Breakdown ────────────────────────────────────────────────────────────
+function renderCostBreakdown(projects, mode) {
+  document.getElementById('costBreakdownTitle').textContent =
+    mode === 'ALL' ? 'Portfolio Cost Breakdown — Actual' : projects[0].name + ' — Cost Breakdown';
+
+  if (mode !== 'ALL' && projects.length === 1) {
+    const m = projects[0].metrics;
+    const labels = ['Labor', 'Materials', 'Racking', 'Inverters', 'Equipment', 'Engineering', 'FOG', 'Supplies', 'Weather'];
+    const vals = [
+      m.labor.actual, m.materials.actual, m.racking_materials.actual,
+      m.inverters.actual, m.equip.actual, m.engineering.actual,
+      m.fog.actual, m.supplies.actual, m.weather.actual,
+    ].map(v => v || 0);
+    makeChart('costBreakdownChart', {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{ data: vals, backgroundColor: ['#3b9eff','#22c55e','#a78bfa','#f59e0b','#fb923c','#e879f9','#38bdf8','#4ade80','#fbbf24'], borderWidth: 1, borderColor: '#162030' }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { color: '#7a94b0', font: { size: 10 }, boxWidth: 12 } },
+          tooltip: { ...tooltipOpts, callbacks: { label: ctx => ` ${ctx.label}: ${fmtM(ctx.raw)}` } }
+        }
+      }
+    });
+  } else {
+    // Stacked bar across projects
+    const costKeys = ['labor','materials','racking_materials','inverters','equip','engineering','fog','supplies','weather'];
+    const costLabels = ['Labor','Materials','Racking','Inverters','Equipment','Engineering','FOG','Supplies','Weather'];
+    const colors = ['#3b9eff','#22c55e','#a78bfa','#f59e0b','#fb923c','#e879f9','#38bdf8','#4ade80','#fbbf24'];
+    makeChart('costBreakdownChart', {
+      type: 'bar',
+      data: {
+        labels: projects.map(p => p.name),
+        datasets: costKeys.map((k, i) => ({
+          label: costLabels[i],
+          data: projects.map(p => p.metrics[k] ? p.metrics[k].actual || 0 : 0),
+          backgroundColor: colors[i],
+          stack: 'cost',
+        }))
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#7a94b0', font: { size: 10 } } }, tooltip: tooltipOpts },
+        scales: {
+          x: { ...baseScaleOpts, stacked: true },
+          y: { ...baseScaleOpts, stacked: true, ticks: { ...baseScaleOpts.ticks, callback: v => '$' + (v/1e6).toFixed(0) + 'M' } }
+        }
+      }
+    });
+  }
+}
+
+// ── Hours per Watt ────────────────────────────────────────────────────────────
+function renderHoursPerWatt(projects) {
+  makeChart('hoursPerWattChart', {
+    type: 'bar',
+    data: {
+      labels: projects.map(p => p.name),
+      datasets: [
+        { label: 'PV Hrs/W Budget', data: projects.map(p => p.metrics.pv_hours_per_watt.budget), backgroundColor: 'rgba(59,158,255,0.35)' },
+        { label: 'PV Hrs/W Actual', data: projects.map(p => p.metrics.pv_hours_per_watt.actual), backgroundColor: 'rgba(59,158,255,0.85)' },
+        { label: 'Civil Hrs/W Budget', data: projects.map(p => p.metrics.civil_hours_per_watt.budget), backgroundColor: 'rgba(167,139,250,0.35)' },
+        { label: 'Civil Hrs/W Actual', data: projects.map(p => p.metrics.civil_hours_per_watt.actual), backgroundColor: 'rgba(167,139,250,0.85)' },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#7a94b0', font: { size: 10 } } }, tooltip: tooltipOpts },
+      scales: {
+        x: baseScaleOpts,
+        y: { ...baseScaleOpts, ticks: { ...baseScaleOpts.ticks, callback: v => v.toFixed(0) } }
+      }
+    }
+  });
+}
+
+// ── Full Metrics Table ─────────────────────────────────────────────────────────
+const TABLE_ROWS = [
+  { section: '— GENERAL —' },
+  { key: 'mw_size', label: 'MW Size', fmt: v => fmtNum(v,1) + ' MW', higher: true },
+  { key: 'pct_complete_wip', label: '% Complete (WIP)', fmt: fmtPct, higher: true, actualOnly: true },
+  { section: '— HOURS —' },
+  { key: 'pv_hours', label: 'PV Hours', fmt: v => fmtNum(v,0), higher: false },
+  { key: 'civil_hours', label: 'Civil Hours', fmt: v => fmtNum(v,0), higher: false },
+  { key: 'total_hours', label: 'Total Hours', fmt: v => fmtNum(v,0), higher: false },
+  { key: 'pv_hours_per_watt', label: 'PV Hrs / Watt', fmt: v => fmtNum(v,1), higher: false },
+  { key: 'civil_hours_per_watt', label: 'Civil Hrs / Watt', fmt: v => fmtNum(v,1), higher: false },
+  { key: 'total_hours_per_watt', label: 'Total Hrs / Watt', fmt: v => fmtNum(v,1), higher: false },
+  { section: '— PERFORMANCE —' },
+  { key: 'cpi_pv', label: 'CPI – PV', fmt: v => fmtNum(v,3), higher: true, actualOnly: true },
+  { key: 'cpi_civil', label: 'CPI – Civil', fmt: v => fmtNum(v,3), higher: true, actualOnly: true },
+  { key: 'cpi_total', label: 'CPI – Total', fmt: v => fmtNum(v,3), higher: true, actualOnly: true },
+  { key: 'pf_pv', label: 'PF – PV', fmt: v => fmtNum(v,3), higher: true, actualOnly: true },
+  { key: 'pf_civil', label: 'PF – Civil', fmt: v => fmtNum(v,3), higher: true, actualOnly: true },
+  { key: 'pf_total', label: 'PF – Total', fmt: v => fmtNum(v,3), higher: true, actualOnly: true },
+  { section: '— COSTS —' },
+  { key: 'cost_total', label: 'Total Cost', fmt: fmtM, higher: false },
+  { key: 'cost_pv', label: 'Cost – PV', fmt: fmtM, higher: false },
+  { key: 'cost_civil', label: 'Cost – Civil', fmt: fmtM, higher: false },
+  { key: 'cost_per_watt', label: 'Cost per Watt', fmt: v => '$' + fmtNum(v,4), higher: false },
+  { key: 'cost_pile_eac', label: 'Cost/Pile EAC', fmt: v => '$' + fmtNum(v,2), higher: false },
+  { key: 'total_cost_pile', label: 'Total Cost/Pile', fmt: v => '$' + fmtNum(v,2), higher: false },
+  { section: '— REVENUE & PROFIT —' },
+  { key: 'revenue', label: 'Revenue', fmt: fmtM, higher: true },
+  { key: 'revenue_per_watt', label: 'Revenue per Watt', fmt: v => '$' + fmtNum(v,4), higher: true },
+  { key: 'profit', label: 'Profit ($)', fmt: fmtM, higher: true },
+  { key: 'margin_on_rev_pct', label: 'Margin on Revenue %', fmt: fmtPct, higher: true },
+  { key: 'margin_on_cost_pct', label: 'Margin on Cost %', fmt: fmtPct, higher: true },
+  { key: 'earned_margin_wip', label: 'Earned Margin (WIP)', fmt: fmtM, higher: true, actualOnly: true },
+  { key: 'current_cash', label: 'Current Cash Position', fmt: fmtM, higher: true, actualOnly: true },
+  { section: '— COST BREAKDOWN —' },
+  { key: 'labor', label: 'Labor', fmt: fmtM, higher: false },
+  { key: 'materials', label: 'Materials', fmt: fmtM, higher: false },
+  { key: 'racking_materials', label: 'Racking Materials', fmt: fmtM, higher: false },
+  { key: 'inverters', label: 'Inverters', fmt: fmtM, higher: false },
+  { key: 'equip', label: 'Equipment', fmt: fmtM, higher: false },
+  { key: 'engineering', label: 'Engineering', fmt: fmtM, higher: false },
+  { key: 'fog', label: 'FOG', fmt: fmtM, higher: false },
+  { key: 'supplies', label: 'Supplies', fmt: fmtM, higher: false },
+  { key: 'weather', label: 'Weather', fmt: fmtM, higher: false },
+];
+
+function renderTable(projects) {
+  const head = document.getElementById('tableHead');
+  const body = document.getElementById('tableBody');
+
+  // Header
+  let th = '<tr><th>Metric</th>';
+  projects.forEach(p => {
+    th += `<th colspan="3" style="text-align:center;color:var(--text)">${p.name}</th>`;
+  });
+  th += '</tr><tr><th></th>';
+  projects.forEach(() => {
+    th += '<th>Budget</th><th>Actual</th><th>Var</th>';
+  });
+  th += '</tr>';
+  head.innerHTML = th;
+
+  // Body
+  let rows = '';
+  TABLE_ROWS.forEach(row => {
+    if (row.section) {
+      rows += `<tr class="section-row"><td colspan="${1 + projects.length * 3}">${row.section}</td></tr>`;
+      return;
+    }
+    rows += '<tr>';
+    rows += `<td>${row.label}</td>`;
+    projects.forEach(p => {
+      const m = p.metrics[row.key];
+      if (!m) { rows += '<td>—</td><td>—</td><td>—</td>'; return; }
+      const budgetVal = row.actualOnly ? '—' : row.fmt(m.budget);
+      const actualVal = row.fmt(m.actual);
+      const varVal = row.actualOnly ? '' : (m.var != null ? fmtM(m.var) : '—');
+      const varCls = row.actualOnly ? '' : varClass(m.var, row.higher);
+      rows += `<td>${budgetVal}</td>`;
+      rows += `<td style="color:var(--text)">${actualVal}</td>`;
+      rows += `<td class="${varCls}">${varVal}</td>`;
+    });
+    rows += '</tr>';
+  });
+  body.innerHTML = rows;
+}
+
+init().catch(console.error);
+</script>
+</body>
+</html>

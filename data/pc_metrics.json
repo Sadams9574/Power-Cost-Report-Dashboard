@@ -1,0 +1,1134 @@
+{
+  "projects": [
+    {
+      "id": "23-4003",
+      "name": "East Atmore",
+      "metrics": {
+        "mw_size": {
+          "budget": 115.0,
+          "actual": 115.0,
+          "var": null
+        },
+        "pv_hours_per_watt": {
+          "budget": 2280.217391304348,
+          "actual": 2252.713043478261,
+          "var": 27.504347826086814
+        },
+        "civil_hours_per_watt": {
+          "budget": 303.30434782608694,
+          "actual": 215.0,
+          "var": 88.30434782608694
+        },
+        "ss_hours_per_watt": {
+          "budget": 0.0,
+          "actual": 0.0,
+          "var": 0.0
+        },
+        "total_hours_per_watt": {
+          "budget": 2583.521739130435,
+          "actual": 2467.7130434782607,
+          "var": 115.80869565217426
+        },
+        "cost_pv": {
+          "budget": 61425232.4026049,
+          "actual": 59756351.54999998,
+          "var": 1668880.8526049182
+        },
+        "cost_civil": {
+          "budget": 7739173.349633576,
+          "actual": 6342719.49,
+          "var": 1396453.8596335761
+        },
+        "cost_other": {
+          "budget": 0.0,
+          "actual": 0.0,
+          "var": 0.0
+        },
+        "cost_total": {
+          "budget": 69164405.75223848,
+          "actual": 66099071.039999984,
+          "var": 3065334.712238498
+        },
+        "pv_hours": {
+          "budget": 262225.0,
+          "actual": 259062.00000000003,
+          "var": 3162.999999999971
+        },
+        "civil_hours": {
+          "budget": 34880.0,
+          "actual": 24725.0,
+          "var": 10155.0
+        },
+        "ss_hours": {
+          "budget": 0.0,
+          "actual": null,
+          "var": 0.0
+        },
+        "total_hours": {
+          "budget": 297105.0,
+          "actual": 283787.0,
+          "var": 13318.0
+        },
+        "cpi_pv": {
+          "budget": 1.0,
+          "actual": 1.0279280914800917,
+          "var": null
+        },
+        "cpi_civil": {
+          "budget": 1.0,
+          "actual": 1.2201664225944786,
+          "var": null
+        },
+        "cpi_total": {
+          "budget": 1.0,
+          "actual": 1.0463748531410297,
+          "var": null
+        },
+        "pf_pv": {
+          "budget": 1.0,
+          "actual": 1.0122094324910638,
+          "var": null
+        },
+        "pf_ss": {
+          "budget": null,
+          "actual": null,
+          "var": null
+        },
+        "pf_civil": {
+          "budget": 1.0,
+          "actual": 1.4107178968655207,
+          "var": null
+        },
+        "pf_total": {
+          "budget": 1.0,
+          "actual": 1.0469295633697104,
+          "var": null
+        },
+        "cost_per_watt": {
+          "budget": 0.6014296152368563,
+          "actual": 0.5747745307826085,
+          "var": 0.0266550844542478
+        },
+        "revenue_per_watt": {
+          "budget": 0.6676340081048977,
+          "actual": 0.6955308689744629,
+          "var": -0.02789686086956522
+        },
+        "revenue": {
+          "budget": 76777910.93206324,
+          "actual": 79986049.93206324,
+          "var": 3208139.0
+        },
+        "cost_pile_eac": {
+          "budget": 60.62,
+          "actual": 56.71955306551219,
+          "var": 3.9004469344878103
+        },
+        "cost_pile_rework": {
+          "budget": null,
+          "actual": 14.39053765836888,
+          "var": -14.39053765836888
+        },
+        "total_cost_pile": {
+          "budget": 60.62,
+          "actual": 71.11009072388107,
+          "var": -10.490090723881075
+        },
+        "materials": {
+          "budget": 31501685.121825714,
+          "actual": 31652756.030000005,
+          "var": -151070.90817429125
+        },
+        "racking_materials": {
+          "budget": 16514108.0,
+          "actual": 15965624.989999998,
+          "var": 548483.0100000016
+        },
+        "inverters": {
+          "budget": 4317100.0,
+          "actual": 4677297.1899999995,
+          "var": -360197.1899999995
+        },
+        "weather": {
+          "budget": 333606.5573770492,
+          "actual": 529620.1300000002,
+          "var": -196013.57262295106
+        },
+        "fog": {
+          "budget": 944195.6144178029,
+          "actual": 458965.98999999993,
+          "var": 485229.62441780296
+        },
+        "supplies": {
+          "budget": 864564.2160879484,
+          "actual": 913890.9199999995,
+          "var": -49326.703912051045
+        },
+        "engineering": {
+          "budget": 1704786.0,
+          "actual": 1869269.9400000002,
+          "var": -164483.94000000018
+        },
+        "labor": {
+          "budget": 14306773.854663054,
+          "actual": 14387689.329999989,
+          "var": -80915.47533693537
+        },
+        "equip": {
+          "budget": 3352943.1943492964,
+          "actual": 3998198.440000006,
+          "var": -645255.2456507096
+        },
+        "fog_pct_equip": {
+          "budget": 0.2816020313165617,
+          "actual": 0.11479319920899154,
+          "var": 0.16680883210757014
+        },
+        "supplies_pct_labor": {
+          "budget": 0.06043041043849017,
+          "actual": 0.06351895005784089,
+          "var": -0.003088539619350718
+        },
+        "profit": {
+          "budget": 7613505.175864749,
+          "actual": 13886978.892063245,
+          "var": 6273473.7161984965
+        },
+        "margin_on_rev_pct": {
+          "budget": 0.09916270296285531,
+          "actual": 0.17361751085168298,
+          "var": 0.07445480788882766
+        },
+        "margin_on_cost_pct": {
+          "budget": 0.1100783719171668,
+          "actual": 0.21009340484769462,
+          "var": 0.10001503293052783
+        },
+        "current_cash": {
+          "budget": null,
+          "actual": 14505379.9,
+          "var": null
+        },
+        "pct_complete_wip": {
+          "budget": null,
+          "actual": 0.9937578500951953,
+          "var": null
+        },
+        "earned_margin_wip": {
+          "budget": null,
+          "actual": 13800294.288094128,
+          "var": null
+        },
+        "remaining_margin_wip": {
+          "budget": null,
+          "actual": 86684.60396911763,
+          "var": null
+        }
+      }
+    },
+    {
+      "id": "24-4001",
+      "name": "Foley",
+      "metrics": {
+        "mw_size": {
+          "budget": 108.0,
+          "actual": 108.0,
+          "var": null
+        },
+        "pv_hours_per_watt": {
+          "budget": 2547.222222222222,
+          "actual": 2221.1082407407407,
+          "var": 326.11398148148146
+        },
+        "civil_hours_per_watt": {
+          "budget": 254.42592592592592,
+          "actual": 260.60592592592593,
+          "var": -6.180000000000007
+        },
+        "ss_hours_per_watt": {
+          "budget": 0.0,
+          "actual": 0.0,
+          "var": 0.0
+        },
+        "total_hours_per_watt": {
+          "budget": 2801.6481481481483,
+          "actual": 2481.7141666666666,
+          "var": 319.9339814814816
+        },
+        "cost_pv": {
+          "budget": 65784591.854008436,
+          "actual": 60221331.24322983,
+          "var": 5563260.610778607
+        },
+        "cost_civil": {
+          "budget": 6514639.669200401,
+          "actual": 6238462.759999992,
+          "var": 276176.9092004085
+        },
+        "cost_other": {
+          "budget": 0.0,
+          "actual": 0.0,
+          "var": 0.0
+        },
+        "cost_total": {
+          "budget": 72299231.52320884,
+          "actual": 66459794.00322982,
+          "var": 5839437.519979022
+        },
+        "pv_hours": {
+          "budget": 275100.0,
+          "actual": 239879.69,
+          "var": 35220.31
+        },
+        "civil_hours": {
+          "budget": 27478.0,
+          "actual": 28145.440000000002,
+          "var": -667.4400000000023
+        },
+        "ss_hours": {
+          "budget": 0.0,
+          "actual": 0.0,
+          "var": null
+        },
+        "total_hours": {
+          "budget": 302578.0,
+          "actual": 268025.13,
+          "var": 34552.869999999995
+        },
+        "cpi_pv": {
+          "budget": 1.0,
+          "actual": 1.0923802329827115,
+          "var": null
+        },
+        "cpi_civil": {
+          "budget": 1.0,
+          "actual": 1.0442700260986104,
+          "var": null
+        },
+        "cpi_total": {
+          "budget": 1.0,
+          "actual": 1.0878642133572554,
+          "var": null
+        },
+        "pf_pv": {
+          "budget": 1.0,
+          "actual": 1.1468248937623688,
+          "var": null
+        },
+        "pf_ss": {
+          "budget": 1.0,
+          "actual": 0.9762860342563484,
+          "var": null
+        },
+        "pf_civil": {
+          "budget": null,
+          "actual": null,
+          "var": null
+        },
+        "pf_total": {
+          "budget": 1.0,
+          "actual": 1.1289165310730378,
+          "var": null
+        },
+        "cost_per_watt": {
+          "budget": 0.6694373289186003,
+          "actual": 0.6153684629928687,
+          "var": 0.05406886592573157
+        },
+        "revenue_per_watt": {
+          "budget": 0.7431841021733196,
+          "actual": 0.7670392193029494,
+          "var": -0.023855117129629733
+        },
+        "revenue": {
+          "budget": 80263883.03471853,
+          "actual": 82840235.68471853,
+          "var": 2576352.650000006
+        },
+        "cost_pile_eac": {
+          "budget": 64.12674380777948,
+          "actual": 30.95486169296992,
+          "var": null
+        },
+        "cost_pile_rework": {
+          "budget": 0.0,
+          "actual": 0.0,
+          "var": null
+        },
+        "total_cost_pile": {
+          "budget": 64.12674380777948,
+          "actual": 30.95486169296992,
+          "var": 33.171882114809556
+        },
+        "materials": {
+          "budget": 35124308.801285006,
+          "actual": 33958479.14999999,
+          "var": 1165829.651285015
+        },
+        "racking_materials": {
+          "budget": 19300000.0,
+          "actual": 13015342.51,
+          "var": 6284657.49
+        },
+        "inverters": {
+          "budget": 4830000.0,
+          "actual": 4388462.3,
+          "var": 441537.7000000002
+        },
+        "weather": {
+          "budget": 1490601.18,
+          "actual": 439777.51999999897,
+          "var": 1050823.660000001
+        },
+        "fog": {
+          "budget": 1141557.7776716633,
+          "actual": 569346.6786953837,
+          "var": 572211.0989762796
+        },
+        "supplies": {
+          "budget": 1443992.9811224309,
+          "actual": 843469.0499999996,
+          "var": 600523.9311224313
+        },
+        "engineering": {
+          "budget": 1539536.0,
+          "actual": 1739214.4,
+          "var": -199678.3999999999
+        },
+        "labor": {
+          "budget": 14513032.375679998,
+          "actual": 13686985.809999999,
+          "var": 826046.5656799991
+        },
+        "equip": {
+          "budget": 4088807.063113084,
+          "actual": 3993203.0900000045,
+          "var": 95603.97311307956
+        },
+        "fog_pct_equip": {
+          "budget": 0.27919091315659156,
+          "actual": 0.12563434383198357,
+          "var": 0.15355656932460798
+        },
+        "supplies_pct_labor": {
+          "budget": 0.09949629710343519,
+          "actual": 0.06162562464145637,
+          "var": 0.03787067246197882
+        },
+        "profit": {
+          "budget": 7963692.5697283745,
+          "actual": 16380441.681488708,
+          "var": 8416749.111760333
+        },
+        "margin_on_rev_pct": {
+          "budget": 0.09923082724598004,
+          "actual": 0.1977353341174812,
+          "var": 0.09850450687150117
+        },
+        "margin_on_cost_pct": {
+          "budget": 0.1101623259847923,
+          "actual": 0.2464714482968853,
+          "var": 0.13630912231209302
+        },
+        "current_cash": {
+          "budget": null,
+          "actual": 13453998.78,
+          "var": null
+        },
+        "pct_complete_wip": {
+          "budget": null,
+          "actual": 0.942138071131503,
+          "var": null
+        },
+        "earned_margin_wip": {
+          "budget": null,
+          "actual": 15432637.730079845,
+          "var": null
+        },
+        "remaining_margin_wip": {
+          "budget": null,
+          "actual": 947803.9514088631,
+          "var": null
+        }
+      }
+    },
+    {
+      "id": "24-4002",
+      "name": "OH-PGR",
+      "metrics": {
+        "mw_size": {
+          "budget": 112.0,
+          "actual": 112.0,
+          "var": null
+        },
+        "pv_hours_per_watt": {
+          "budget": 2452.589285714286,
+          "actual": 2673.081607142857,
+          "var": -220.49232142857136
+        },
+        "civil_hours_per_watt": {
+          "budget": 210.35714285714286,
+          "actual": 445.1205357142857,
+          "var": -234.76339285714286
+        },
+        "ss_hours_per_watt": {
+          "budget": 118.74995959922431,
+          "actual": 78.87053571428571,
+          "var": 39.8794238849386
+        },
+        "total_hours_per_watt": {
+          "budget": 2781.696388170653,
+          "actual": 3197.0726785714287,
+          "var": -415.3762904007758
+        },
+        "cost_pv": {
+          "budget": 56385027.206689425,
+          "actual": 61451781.591425866,
+          "var": -5066754.384736441
+        },
+        "cost_civil": {
+          "budget": 13321398.635344476,
+          "actual": 19223848.21889181,
+          "var": -5902449.583547335
+        },
+        "cost_other": {
+          "budget": 1308574.964660273,
+          "actual": 957138.4099999998,
+          "var": 351436.55466027313
+        },
+        "cost_total": {
+          "budget": 71015000.80669418,
+          "actual": 81632768.22031763,
+          "var": -10617767.413623452
+        },
+        "pv_hours": {
+          "budget": 274690.0,
+          "actual": 299385.14,
+          "var": -24695.140000000014
+        },
+        "civil_hours": {
+          "budget": 23560.0,
+          "actual": 49853.5,
+          "var": -26293.5
+        },
+        "ss_hours": {
+          "budget": 13299.995475113123,
+          "actual": 8833.5,
+          "var": null
+        },
+        "total_hours": {
+          "budget": 311549.9954751131,
+          "actual": 358072.14,
+          "var": -46522.14452488691
+        },
+        "cpi_pv": {
+          "budget": 1.0,
+          "actual": 0.917549105111,
+          "var": null
+        },
+        "cpi_civil": {
+          "budget": 1.0,
+          "actual": 0.6929621209895512,
+          "var": null
+        },
+        "cpi_total": {
+          "budget": 1.0,
+          "actual": 0.8699325326691446,
+          "var": null
+        },
+        "pf_pv": {
+          "budget": 1.0,
+          "actual": 0.9175138084675812,
+          "var": null
+        },
+        "pf_ss": {
+          "budget": 1.0,
+          "actual": 0.47258467309216,
+          "var": null
+        },
+        "pf_civil": {
+          "budget": 1.0,
+          "actual": 1.5056314569664484,
+          "var": null
+        },
+        "pf_total": {
+          "budget": 1.0,
+          "actual": 0.8700760563921927,
+          "var": null
+        },
+        "cost_per_watt": {
+          "budget": 0.6340625072026266,
+          "actual": 0.7288640019671218,
+          "var": -0.09480149476449518
+        },
+        "revenue_per_watt": {
+          "budget": 0.6727920100743761,
+          "actual": 0.703941334449376,
+          "var": -0.031149324374999954
+        },
+        "revenue": {
+          "budget": 75352705.12833011,
+          "actual": 78841429.45833011,
+          "var": 3488724.329999998
+        },
+        "cost_pile_eac": {
+          "budget": 46.00047602341599,
+          "actual": 47.59820308250244,
+          "var": -1.597727059086445
+        },
+        "cost_pile_rework": {
+          "budget": 0.0,
+          "actual": 9.304361075853734,
+          "var": -9.304361075853734
+        },
+        "total_cost_pile": {
+          "budget": 46.00047602341599,
+          "actual": 56.90256415835617,
+          "var": -10.902088134940179
+        },
+        "materials": {
+          "budget": 0.0,
+          "actual": 0.0,
+          "var": 0.0
+        },
+        "racking_materials": {
+          "budget": 14880568.38,
+          "actual": 13126741.1,
+          "var": 1753827.2800000012
+        },
+        "inverters": {
+          "budget": 4256150.0,
+          "actual": 4432159.079999994,
+          "var": -176009.07999999356
+        },
+        "weather": {
+          "budget": 335847.5416666667,
+          "actual": 235228.42166666695,
+          "var": 100619.11999999973
+        },
+        "fog": {
+          "budget": 806972.1710921084,
+          "actual": 895116.2900000002,
+          "var": -88144.1189078918
+        },
+        "supplies": {
+          "budget": 1330561.4513053582,
+          "actual": 1265190.1699999906,
+          "var": 65371.28130536759
+        },
+        "engineering": {
+          "budget": 1686615.0,
+          "actual": 2014501.53,
+          "var": -327886.53
+        },
+        "labor": {
+          "budget": 14750970.387370152,
+          "actual": 18569304.622795515,
+          "var": -3818334.2354253624
+        },
+        "equip": {
+          "budget": 4096176.376368888,
+          "actual": 7325484.334354888,
+          "var": -3229307.9579859995
+        },
+        "fog_pct_equip": {
+          "budget": 0.1970062069952808,
+          "actual": 0.12219209667845501,
+          "var": 0.07481411031682578
+        },
+        "supplies_pct_labor": {
+          "budget": 0.09020162174853194,
+          "actual": 0.06813341671646951,
+          "var": 0.02206820503206243
+        },
+        "profit": {
+          "budget": 4337704.323305845,
+          "actual": -2791338.761987552,
+          "var": -7129043.085293397
+        },
+        "margin_on_rev_pct": {
+          "budget": 0.057565343065635065,
+          "actual": -0.03540446667653143,
+          "var": -0.0929698097421665
+        },
+        "margin_on_cost_pct": {
+          "budget": 0.06108152182442942,
+          "actual": -0.03419385159711898,
+          "var": -0.0952753734215484
+        },
+        "current_cash": {
+          "budget": null,
+          "actual": -3647983.64,
+          "var": null
+        },
+        "pct_complete_wip": {
+          "budget": null,
+          "actual": 0.9323259213088559,
+          "var": null
+        },
+        "earned_margin_wip": {
+          "budget": null,
+          "actual": -2791338.761987552,
+          "var": null
+        },
+        "remaining_margin_wip": {
+          "budget": null,
+          "actual": 0.0,
+          "var": null
+        }
+      }
+    },
+    {
+      "id": "22-4001",
+      "name": "Sunray",
+      "metrics": {
+        "mw_size": {
+          "budget": 272.4,
+          "actual": 272.4,
+          "var": null
+        },
+        "pv_hours_per_watt": {
+          "budget": 1589.0914096916301,
+          "actual": 1595.018355359765,
+          "var": -5.926945668134977
+        },
+        "civil_hours_per_watt": {
+          "budget": 77.34948604992658,
+          "actual": 151.70521292217327,
+          "var": -74.35572687224669
+        },
+        "ss_hours_per_watt": {
+          "budget": 0.0,
+          "actual": 0.0,
+          "var": 0.0
+        },
+        "total_hours_per_watt": {
+          "budget": 1666.4408957415567,
+          "actual": 1746.7235682819385,
+          "var": -80.28267254038178
+        },
+        "cost_pv": {
+          "budget": 113104804.89075752,
+          "actual": 112679872.87791501,
+          "var": 424932.01284250617
+        },
+        "cost_civil": {
+          "budget": 2845027.3323493754,
+          "actual": 3733876.2599999947,
+          "var": -888848.9276506193
+        },
+        "cost_other": {
+          "budget": 0.0,
+          "actual": 0.0,
+          "var": 0.0
+        },
+        "cost_total": {
+          "budget": 115949832.22310689,
+          "actual": 116413749.137915,
+          "var": -463916.9148081094
+        },
+        "pv_hours": {
+          "budget": 432868.5,
+          "actual": 434483.0,
+          "var": -1614.5
+        },
+        "civil_hours": {
+          "budget": 21070.0,
+          "actual": 41324.5,
+          "var": -20254.5
+        },
+        "ss_hours": {
+          "budget": 0.0,
+          "actual": 0.0,
+          "var": null
+        },
+        "total_hours": {
+          "budget": 453938.5,
+          "actual": 475807.5,
+          "var": -21869.0
+        },
+        "cpi_pv": {
+          "budget": 1.0,
+          "actual": 1.0037711438785781,
+          "var": null
+        },
+        "cpi_civil": {
+          "budget": 1.0,
+          "actual": 0.7619500846418996,
+          "var": null
+        },
+        "cpi_total": {
+          "budget": 1.0,
+          "actual": 0.9960149302101893,
+          "var": null
+        },
+        "pf_pv": {
+          "budget": 1.0,
+          "actual": 0.9962840893659821,
+          "var": null
+        },
+        "pf_ss": {
+          "budget": 1.0,
+          "actual": 0.509867028034217,
+          "var": null
+        },
+        "pf_civil": {
+          "budget": 1.0,
+          "actual": null,
+          "var": null
+        },
+        "pf_total": {
+          "budget": 1.0,
+          "actual": 0.9540381351702106,
+          "var": null
+        },
+        "cost_per_watt": {
+          "budget": 0.42566017703049525,
+          "actual": 0.42736324940497433,
+          "var": -0.0017030723744790865
+        },
+        "revenue_per_watt": {
+          "budget": 0.46904894468305197,
+          "actual": 0.4708872723629345,
+          "var": -0.0018383276798825121
+        },
+        "revenue": {
+          "budget": 127768932.53166334,
+          "actual": 128269692.99166334,
+          "var": 500760.45999999344
+        },
+        "cost_pile_eac": {
+          "budget": 47.93002302694299,
+          "actual": 46.66865446385358,
+          "var": null
+        },
+        "cost_pile_rework": {
+          "budget": 0.0,
+          "actual": 0.0,
+          "var": null
+        },
+        "total_cost_pile": {
+          "budget": 47.93002302694299,
+          "actual": 46.66865446385358,
+          "var": 1.2613685630894125
+        },
+        "materials": {
+          "budget": 72448175.10327418,
+          "actual": 70865525.25000001,
+          "var": 1582649.8532741666
+        },
+        "racking_materials": {
+          "budget": 39991231.7557,
+          "actual": 36896747.43,
+          "var": 3094484.3257
+        },
+        "inverters": {
+          "budget": 9252818.28,
+          "actual": 9444552.62,
+          "var": -191734.33999999985
+        },
+        "weather": {
+          "budget": 0.0,
+          "actual": 0.0,
+          "var": 0.0
+        },
+        "fog": {
+          "budget": 1062074.6339308547,
+          "actual": 975670.0300000001,
+          "var": 86404.60393085459
+        },
+        "supplies": {
+          "budget": 1223058.0691688496,
+          "actual": 1604613.2499999986,
+          "var": -381555.180831149
+        },
+        "engineering": {
+          "budget": 1400000.0,
+          "actual": 1541297.48,
+          "var": -141297.47999999998
+        },
+        "labor": {
+          "budget": 19144459.712666668,
+          "actual": 23285771.000000004,
+          "var": -4141311.2873333357
+        },
+        "equip": {
+          "budget": 4003689.5623996994,
+          "actual": 7051513.189999992,
+          "var": -3047823.6276002927
+        },
+        "fog_pct_equip": {
+          "budget": 0.2652739722642924,
+          "actual": 0.13836321420821185,
+          "var": 0.12691075805608054
+        },
+        "supplies_pct_labor": {
+          "budget": 0.06388574488522286,
+          "actual": 0.06890960363734568,
+          "var": -0.0050238587521228145
+        },
+        "profit": {
+          "budget": 11819100.308556467,
+          "actual": 11855943.853748322,
+          "var": 36843.54519185424
+        },
+        "margin_on_rev_pct": {
+          "budget": 0.09250371020848508,
+          "actual": 0.09242981391184024,
+          "var": -7.389629664483754e-05
+        },
+        "margin_on_cost_pct": {
+          "budget": 0.10193287978040831,
+          "actual": 0.10184315805947132,
+          "var": -8.97217209369916e-05
+        },
+        "current_cash": {
+          "budget": null,
+          "actual": 11364966.07,
+          "var": null
+        },
+        "pct_complete_wip": {
+          "budget": null,
+          "actual": 0.9984210272474149,
+          "var": null
+        },
+        "earned_margin_wip": {
+          "budget": null,
+          "actual": 11837223.641447075,
+          "var": null
+        },
+        "remaining_margin_wip": {
+          "budget": null,
+          "actual": 18720.212301246822,
+          "var": null
+        }
+      }
+    },
+    {
+      "id": "24-4004",
+      "name": "DWR Chevron",
+      "metrics": {
+        "mw_size": {
+          "budget": 70.0,
+          "actual": 70.0,
+          "var": null
+        },
+        "pv_hours_per_watt": {
+          "budget": 1821.857142857143,
+          "actual": 2387.163857142857,
+          "var": -565.3067142857142
+        },
+        "civil_hours_per_watt": {
+          "budget": 359.2857142857143,
+          "actual": 204.64857142857142,
+          "var": 154.63714285714286
+        },
+        "ss_hours_per_watt": {
+          "budget": 0.0,
+          "actual": 0.0,
+          "var": 0.0
+        },
+        "total_hours_per_watt": {
+          "budget": 2181.1428571428573,
+          "actual": 2591.8124285714284,
+          "var": -410.6695714285711
+        },
+        "cost_pv": {
+          "budget": 25369174.251599252,
+          "actual": 25839885.546631847,
+          "var": -470711.29503259435
+        },
+        "cost_civil": {
+          "budget": 4835065.91921854,
+          "actual": 5774526.276935066,
+          "var": -939460.3577165259
+        },
+        "cost_other": {
+          "budget": 0.0,
+          "actual": 0.0,
+          "var": 0.0
+        },
+        "cost_total": {
+          "budget": 30204240.170817792,
+          "actual": 31614411.823566914,
+          "var": -1410171.6527491212
+        },
+        "pv_hours": {
+          "budget": 127530.0,
+          "actual": 167101.47,
+          "var": -39571.47
+        },
+        "civil_hours": {
+          "budget": 25150.0,
+          "actual": 14325.4,
+          "var": 10824.6
+        },
+        "ss_hours": {
+          "budget": 0.0,
+          "actual": 0.0,
+          "var": null
+        },
+        "total_hours": {
+          "budget": 152680.0,
+          "actual": 181426.87,
+          "var": -28746.869999999995
+        },
+        "cpi_pv": {
+          "budget": 1.0,
+          "actual": 0.9817835379269336,
+          "var": null
+        },
+        "cpi_civil": {
+          "budget": 1.0,
+          "actual": 0.8373095362871634,
+          "var": null
+        },
+        "cpi_total": {
+          "budget": 1.0,
+          "actual": 0.9553946579610914,
+          "var": null
+        },
+        "pf_pv": {
+          "budget": 1.0,
+          "actual": 0.7631889773321563,
+          "var": null
+        },
+        "pf_ss": {
+          "budget": 1.0,
+          "actual": 1.7556228796403592,
+          "var": null
+        },
+        "pf_civil": {
+          "budget": null,
+          "actual": null,
+          "var": null
+        },
+        "pf_total": {
+          "budget": 1.0,
+          "actual": 0.8415511991140011,
+          "var": null
+        },
+        "cost_per_watt": {
+          "budget": 0.43148914529739707,
+          "actual": 0.45163445462238444,
+          "var": -0.02014530932498737
+        },
+        "revenue_per_watt": {
+          "budget": 0.4788460610571428,
+          "actual": 0.5105962590571428,
+          "var": -0.03175019800000001
+        },
+        "revenue": {
+          "budget": 33519224.273999996,
+          "actual": 35741738.133999996,
+          "var": 2222513.8599999994
+        },
+        "cost_pile_eac": {
+          "budget": 48.455034260990296,
+          "actual": 73.61853960193326,
+          "var": null
+        },
+        "cost_pile_rework": {
+          "budget": 0.0,
+          "actual": 34.382214759603585,
+          "var": null
+        },
+        "total_cost_pile": {
+          "budget": 48.455034260990296,
+          "actual": 108.00075436153685,
+          "var": -59.54572010054655
+        },
+        "materials": {
+          "budget": 11507579.285966227,
+          "actual": 8852516.830000004,
+          "var": 2655062.455966223
+        },
+        "racking_materials": {
+          "budget": 4978058.73785,
+          "actual": 4515550.84,
+          "var": 462507.8978500003
+        },
+        "inverters": {
+          "budget": null,
+          "actual": null,
+          "var": 0.0
+        },
+        "weather": {
+          "budget": 185612.79166666666,
+          "actual": 58844.39,
+          "var": 126768.40166666666
+        },
+        "fog": {
+          "budget": 730527.9357831281,
+          "actual": 370275.94999999995,
+          "var": 360251.9857831282
+        },
+        "supplies": {
+          "budget": 676448.1376639405,
+          "actual": 629845.3799999999,
+          "var": 46602.75766394066
+        },
+        "engineering": {
+          "budget": 705995.2239857798,
+          "actual": 1488998.58,
+          "var": -783003.3560142203
+        },
+        "labor": {
+          "budget": 8073652.493974487,
+          "actual": 9187533.339999996,
+          "var": -1113880.8460255088
+        },
+        "equip": {
+          "budget": 2581967.3069012975,
+          "actual": 3797597.2612216426,
+          "var": -1215629.954320345
+        },
+        "fog_pct_equip": {
+          "budget": 0.2829346188197318,
+          "actual": 0.09750269039347435,
+          "var": 0.18543192842625744
+        },
+        "supplies_pct_labor": {
+          "budget": 0.08378464866660858,
+          "actual": 0.06855435041066203,
+          "var": 0.015230298255946545
+        },
+        "profit": {
+          "budget": 3314984.103182193,
+          "actual": 4127326.3104330674,
+          "var": 812342.2072508745
+        },
+        "margin_on_rev_pct": {
+          "budget": 0.09889799585110162,
+          "actual": 0.11547637372752365,
+          "var": 0.016578377876422024
+        },
+        "margin_on_cost_pct": {
+          "budget": 0.1097522759862375,
+          "actual": 0.1305520511805428,
+          "var": 0.0207997751943053
+        },
+        "current_cash": {
+          "budget": null,
+          "actual": 2339207.37,
+          "var": null
+        },
+        "pct_complete_wip": {
+          "budget": null,
+          "actual": 0.9308636973616703,
+          "var": null
+        },
+        "earned_margin_wip": {
+          "budget": null,
+          "actual": 3841978.229547826,
+          "var": null
+        },
+        "remaining_margin_wip": {
+          "budget": null,
+          "actual": 285348.0808852413,
+          "var": null
+        }
+      }
+    }
+  ]
+}
