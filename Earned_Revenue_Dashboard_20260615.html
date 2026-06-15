@@ -24,6 +24,17 @@ main{padding:20px 24px 60px;max-width:1500px;margin:0 auto;}
 .filters{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px;background:var(--panel);padding:14px;border-radius:10px;box-shadow:var(--shadow);align-items:flex-end;}
 .filters label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px;}
 .filters select{padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;}
+.ms{position:relative;}
+.ms-btn{padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;cursor:pointer;min-width:180px;max-width:320px;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ms-btn::after{content:'▾';font-size:10px;color:var(--muted);flex:none;}
+.ms-panel{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:60;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);padding:6px;min-width:220px;max-width:380px;max-height:280px;overflow-y:auto;}
+.ms-panel.open{display:block;}
+.ms-panel label{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;font-size:13px;cursor:pointer;white-space:nowrap;}
+.ms-panel label:hover{background:var(--bg);}
+.ms-panel input[type="checkbox"]{accent-color:var(--accent);width:14px;height:14px;cursor:pointer;}
+.ms-panel .ms-sep{border-top:1px solid var(--border);margin:4px 0;}
+.ms-panel .ms-actions{display:flex;gap:6px;padding:4px 8px 6px;}
+.ms-panel .ms-actions button{flex:1;font-size:11px;padding:4px 6px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;}
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:22px;}
 .kpi-card{background:var(--panel);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);border-left:4px solid var(--accent);}
 .kpi-card .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
@@ -62,12 +73,10 @@ table.simple th{color:var(--muted);font-size:11px;text-transform:uppercase;backg
     </div>
     <div>
       <label>Project Status</label>
-      <select id="statusFilter">
-        <option value="ALL">Secured + Anticipated + Possible</option>
-        <option value="Secured">Secured Only</option>
-        <option value="Anticipated">Anticipated Only</option>
-        <option value="Possible">Possible Only</option>
-      </select>
+      <div class="ms" id="statusFilterMS">
+        <button type="button" class="ms-btn"></button>
+        <div class="ms-panel"></div>
+      </div>
     </div>
     <div>
       <label>Period Type</label>
@@ -79,9 +88,10 @@ table.simple th{color:var(--muted);font-size:11px;text-transform:uppercase;backg
     </div>
     <div>
       <label>Project</label>
-      <select id="projectFilter">
-        <option value="ALL">All Projects</option>
-      </select>
+      <div class="ms" id="projectFilterMS">
+        <button type="button" class="ms-btn"></button>
+        <div class="ms-panel"></div>
+      </div>
     </div>
     <div>
       <label>Anticipated/Possible Work Projection</label>
@@ -146,11 +156,79 @@ const fmtPct = v => (v*100).toFixed(1) + '%';
 
 const YEARS = [...new Set(ER.months.map(m=>m.label.split(' ')[1]))];
 
+// Generic checkbox-dropdown multi-select. items: [{value,label}]. allLabel shown when everything is checked.
+function initMultiSelect(id, items, allLabel, onChange){
+  const root = document.getElementById(id);
+  const btn = root.querySelector('.ms-btn');
+  const panel = root.querySelector('.ms-panel');
+  const selected = new Set(items.map(it=>it.value));
+
+  panel.innerHTML = `
+    <div class="ms-actions">
+      <button type="button" data-act="all">Select All</button>
+      <button type="button" data-act="none">Clear</button>
+    </div>
+    <div class="ms-sep"></div>
+    ${items.map(it=>`<label><input type="checkbox" value="${it.value}" checked> ${it.label}</label>`).join('')}
+  `;
+
+  function updateBtn(){
+    if(selected.size === items.length) btn.textContent = allLabel;
+    else if(selected.size === 0) btn.textContent = 'None selected';
+    else btn.textContent = items.filter(it=>selected.has(it.value)).map(it=>it.label).join(', ');
+  }
+
+  panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      if(cb.checked) selected.add(cb.value); else selected.delete(cb.value);
+      updateBtn();
+      onChange();
+    });
+  });
+
+  panel.querySelector('[data-act="all"]').addEventListener('click', ()=>{
+    selected.clear();
+    items.forEach(it=>selected.add(it.value));
+    panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=true);
+    updateBtn();
+    onChange();
+  });
+  panel.querySelector('[data-act="none"]').addEventListener('click', ()=>{
+    selected.clear();
+    panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=false);
+    updateBtn();
+    onChange();
+  });
+
+  btn.addEventListener('click', e=>{
+    e.stopPropagation();
+    document.querySelectorAll('.ms-panel.open').forEach(p=>{ if(p!==panel) p.classList.remove('open'); });
+    panel.classList.toggle('open');
+  });
+  document.addEventListener('click', e=>{
+    if(!root.contains(e.target)) panel.classList.remove('open');
+  });
+
+  updateBtn();
+  return { selected };
+}
+
+let statusMS, projectMS;
+
 function populateFilters(){
   const ySel = document.getElementById('yearFilter');
   YEARS.forEach(y=>{ const o=document.createElement('option'); o.value=y; o.textContent=y; ySel.appendChild(o); });
-  const pSel = document.getElementById('projectFilter');
-  ER.projects.forEach(p=>{ const o=document.createElement('option'); o.value=p.code+'|'+p.client; o.textContent=`${p.code} — ${p.client} (${p.status})`; pSel.appendChild(o); });
+
+  statusMS = initMultiSelect('statusFilterMS', [
+    {value:'Secured', label:'Secured'},
+    {value:'Anticipated', label:'Anticipated'},
+    {value:'Possible', label:'Possible'},
+  ], 'Secured + Anticipated + Possible', renderAll);
+
+  projectMS = initMultiSelect('projectFilterMS', ER.projects.map(p=>({
+    value: p.code+'|'+p.client,
+    label: `${p.code} — ${p.client} (${p.status})`,
+  })), 'All Projects', renderAll);
 }
 
 function getFilteredMonthIdx(){
@@ -165,11 +243,11 @@ function getFilteredMonthIdx(){
 }
 
 function getFilteredProjects(){
-  const status = document.getElementById('statusFilter').value;
-  const projKey = document.getElementById('projectFilter').value;
+  const statusSel = statusMS.selected;
+  const projSel = projectMS.selected;
   return ER.projects.filter(p=>{
-    const sOk = status==='ALL' || p.status===status;
-    const pOk = projKey==='ALL' || (p.code+'|'+p.client)===projKey;
+    const sOk = statusSel.has(p.status);
+    const pOk = projSel.has(p.code+'|'+p.client);
     return sOk && pOk;
   });
 }
@@ -396,7 +474,7 @@ function renderAll(){
   renderMonthlyTable();
 }
 
-['yearFilter','statusFilter','periodFilter','projectFilter','curveFilter'].forEach(id=>
+['yearFilter','periodFilter','curveFilter'].forEach(id=>
   document.getElementById(id).addEventListener('change', renderAll));
 
 document.getElementById('darkToggle').addEventListener('click', ()=>{
