@@ -276,10 +276,9 @@ function getEffectiveProjects(){
   const shape = document.getElementById('curveFilter').value;
   return getFilteredProjects().map(p=>{
     if((p.status!=='Anticipated' && p.status!=='Possible') || p.startIdx==null || p.endIdx==null) return p;
-    if(p.status==='Anticipated' && shape==='original') return p;
-    const effShape = (p.status==='Possible' && shape==='original') ? 'even' : shape;
+    if(shape==='original') return p;
     const n = p.endIdx - p.startIdx + 1;
-    const w = curveWeights(n, effShape);
+    const w = curveWeights(n, shape);
     const monthly = new Array(48).fill(0);
     for(let i=0;i<n;i++) monthly[p.startIdx+i] = p.backlog * w[i];
     return {...p, monthly};
