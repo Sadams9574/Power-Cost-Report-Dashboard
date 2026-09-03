@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Earned Revenue Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#f4f6f9; --panel:#ffffff; --text:#1a2233; --muted:#667085; --border:#e3e8ef;
+  --accent:#2563eb; --good:#0f9d58; --bad:#d93025; --shadow:0 1px 3px rgba(0,0,0,.08);
+}
+[data-theme="dark"]{
+  --bg:#0f1420; --panel:#1a2236; --text:#e8edf5; --muted:#9aa6bd; --border:#2c3650;
+  --accent:#5b9aff; --good:#34d399; --bad:#f87171; --shadow:0 1px 3px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;background:var(--panel);box-shadow:var(--shadow);position:sticky;top:0;z-index:50;}
+header h1{font-size:20px;margin:0;font-weight:700;}
+header .sub{font-size:12px;color:var(--muted);}
+.toggle{background:none;border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;cursor:pointer;font-size:13px;}
+main{padding:20px 24px 60px;max-width:1500px;margin:0 auto;}
+.filters{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:18px;background:var(--panel);padding:14px;border-radius:10px;box-shadow:var(--shadow);align-items:flex-end;}
+.filters label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px;}
+.filters select{padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;}
+.ms{position:relative;}
+.ms-btn{padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;cursor:pointer;min-width:180px;max-width:320px;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ms-btn::after{content:'▾';font-size:10px;color:var(--muted);flex:none;}
+.ms-panel{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:60;background:var(--panel);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);padding:6px;min-width:220px;max-width:380px;max-height:280px;overflow-y:auto;}
+.ms-panel.open{display:block;}
+.ms-panel label{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;font-size:13px;cursor:pointer;white-space:nowrap;}
+.ms-panel label:hover{background:var(--bg);}
+.ms-panel input[type="checkbox"]{accent-color:var(--accent);width:14px;height:14px;cursor:pointer;}
+.ms-panel .ms-sep{border-top:1px solid var(--border);margin:4px 0;}
+.ms-panel .ms-actions{display:flex;gap:6px;padding:4px 8px 6px;}
+.ms-panel .ms-actions button{flex:1;font-size:11px;padding:4px 6px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:22px;}
+.kpi-card{background:var(--panel);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);border-left:4px solid var(--accent);}
+.kpi-card .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
+.kpi-card .value{font-size:24px;font-weight:700;}
+.panel{background:var(--panel);border-radius:12px;padding:18px;box-shadow:var(--shadow);margin-bottom:22px;}
+.panel h2{margin-top:0;font-size:16px;}
+.grid-2{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;}
+@media(max-width:1100px){.grid-2{grid-template-columns:1fr;}}
+table.simple{width:100%;border-collapse:collapse;font-size:13px;}
+table.simple th,table.simple td{padding:7px 9px;border-bottom:1px solid var(--border);text-align:right;}
+table.simple th:first-child,table.simple td:first-child{text-align:left;}
+table.simple th{color:var(--muted);font-size:11px;text-transform:uppercase;background:var(--panel);position:sticky;top:0;}
+table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;}
+.badge-secured{background:rgba(37,99,235,.15);color:var(--accent);}
+.badge-anticipated{background:rgba(217,48,37,.15);color:var(--bad);}
+.badge-possible{background:rgba(147,51,234,.15);color:#9333ea;}
+.scroll-y{max-height:480px;overflow-y:auto;}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Earned Revenue Dashboard</h1>
+    <div class="sub">Portfolio Backlog Spread &amp; S-Curve Forecast — Jan 2026 to Dec 2029</div>
+  </div>
+  <button class="toggle" id="darkToggle">🌙 Dark Mode</button>
+</header>
+
+<main>
+  <div class="filters">
+    <div>
+      <label>Year</label>
+      <select id="yearFilter">
+        <option value="ALL">All Years</option>
+      </select>
+    </div>
+    <div>
+      <label>Project Status</label>
+      <div class="ms" id="statusFilterMS">
+        <button type="button" class="ms-btn"></button>
+        <div class="ms-panel"></div>
+      </div>
+    </div>
+    <div>
+      <label>Period Type</label>
+      <select id="periodFilter">
+        <option value="ALL">Actual + Forecast</option>
+        <option value="Actual">Actual Only</option>
+        <option value="Forecast">Forecast Only</option>
+      </select>
+    </div>
+    <div>
+      <label>Project</label>
+      <div class="ms" id="projectFilterMS">
+        <button type="button" class="ms-btn"></button>
+        <div class="ms-panel"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="kpi-grid" id="kpiGrid"></div>
+
+  <div class="panel">
+    <h2>Monthly Earned Revenue (Secured vs Anticipated vs Possible)</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="mainChartCaption">Blue = Secured backlog. Red = Anticipated work. Purple = Possible work. Solid bars are Actuals; faded/hatched bars with the shaded backdrop are Forecast.</p>
+    <canvas id="mainChart" height="100"></canvas>
+    <div style="margin-top:14px;overflow-x:auto;">
+    <table class="simple" id="monthlyTable" style="white-space:nowrap;">
+      <thead><tr id="monthlyTableHead"></tr></thead>
+      <tbody></tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <h2>Cumulative Earned Revenue</h2>
+      <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="cumChartCaption">Solid line = Actual to date. Dashed line + shaded backdrop = Forecast.</p>
+      <canvas id="cumChart" height="160"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Total Contract Value by Project</h2>
+      <canvas id="tcvChart" height="160"></canvas>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Total Earned Revenue by Year</h2>
+    <canvas id="yearChart" height="90"></canvas>
+    <div style="margin-top:14px;overflow-x:auto;">
+    <table class="simple" id="yearTable" style="white-space:nowrap;">
+      <thead><tr id="yearTableHead"></tr></thead>
+      <tbody></tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Project Backlog Summary</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">For Anticipated/Possible projects, use the Projection column to choose how that project's backlog is spread across its months.</p>
+    <div class="scroll-y">
+    <table class="simple" id="projTable">
+      <thead><tr><th>Project</th><th>Client</th><th>Status</th><th>Projection</th><th>Total Contract Value</th><th>Earned to Date</th><th>Backlog</th><th>% Complete</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    </div>
+  </div>
+</main>
+
+<script>
+const ER = {"months":[{"label":"Forecast End Date","type":"Forecast"},{"label":"Backlog Spread","type":"Forecast"},{"label":"Jan 2026","type":"Actual"},{"label":"Feb 2026","type":"Actual"},{"label":"Mar 2026","type":"Actual"},{"label":"Apr 2026","type":"Actual"},{"label":"May 2026","type":"Actual"},{"label":"Jun 2026","type":"Actual"},{"label":"Jul 2026","type":"Actual"},{"label":"Aug 2026","type":"Forecast"},{"label":"Sep 2026","type":"Forecast"},{"label":"Oct 2026","type":"Forecast"},{"label":"Nov 2026","type":"Forecast"},{"label":"Dec 2026","type":"Forecast"},{"label":"Jan 2027","type":"Forecast"},{"label":"Feb 2027","type":"Forecast"},{"label":"Mar 2027","type":"Forecast"},{"label":"Apr 2027","type":"Forecast"},{"label":"May 2027","type":"Forecast"},{"label":"Jun 2027","type":"Forecast"},{"label":"Jul 2027","type":"Forecast"},{"label":"Aug 2027","type":"Forecast"},{"label":"Sep 2027","type":"Forecast"},{"label":"Oct 2027","type":"Forecast"},{"label":"Nov 2027","type":"Forecast"},{"label":"Dec 2027","type":"Forecast"},{"label":"Jan 2028","type":"Forecast"},{"label":"Feb 2028","type":"Forecast"},{"label":"Mar 2028","type":"Forecast"},{"label":"Apr 2028","type":"Forecast"},{"label":"May 2028","type":"Forecast"},{"label":"Jun 2028","type":"Forecast"},{"label":"Jul 2028","type":"Forecast"},{"label":"Aug 2028","type":"Forecast"},{"label":"Sep 2028","type":"Forecast"},{"label":"Oct 2028","type":"Forecast"},{"label":"Nov 2028","type":"Forecast"},{"label":"Dec 2028","type":"Forecast"},{"label":"Jan 2029","type":"Forecast"},{"label":"Feb 2029","type":"Forecast"},{"label":"Mar 2029","type":"Forecast"},{"label":"Apr 2029","type":"Forecast"},{"label":"May 2029","type":"Forecast"},{"label":"Jun 2029","type":"Forecast"},{"label":"Jul 2029","type":"Forecast"},{"label":"Aug 2029","type":"Forecast"},{"label":"Sep 2029","type":"Forecast"},{"label":"Oct 2029","type":"Forecast"}],"projects":[{"code":"22-4001","client":"Arava Power-Sunray","status":"Secured","tcv":128269692.99,"earned":128076796.1962,"backlog":192896.7938,"startIdx":2,"endIdx":13,"monthly":[0,0,4945.9318,15193.5053,495.61,17623.35,3904.31,4750.3315,111.94,30000.01,40724.2038,40724.2,40724.2,40724.18,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"23-4001","client":"Chesapeake","status":"Secured","tcv":36294871.95,"earned":36294871.95,"backlog":0,"startIdx":3,"endIdx":4,"monthly":[0,0,0,-49845.8121,49845.81,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"23-4003","client":"PGR- East Atmore","status":"Secured","tcv":79986049.93,"earned":79371137.9307,"backlog":614911.9993,"startIdx":2,"endIdx":12,"monthly":[0,0,105390.1362,307363.1488,186259.85,226538.16,122181.25,-204525.2997,32020.69,139233.17,139233.1693,139233.17,197212.49,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"24-4001","client":"PGR- Foley","status":"Secured","tcv":82840235.97,"earned":80204093.5321,"backlog":2636142.4379,"startIdx":2,"endIdx":13,"monthly":[0,0,5795.1602,248014.9796,125212.59,285736.88,263902.79,1138540.5499,397577.81,621301.7579,621301.77,565136.54,414201.18,414201.19,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"24-4002","client":"PGR-OH","status":"Secured","tcv":79361642.99,"earned":77068185.0609,"backlog":2293457.9291,"startIdx":2,"endIdx":15,"monthly":[0,0,566003.0303,1074935.8294,-601497.47,495363.36,828214.4,1675167.5629,1212497.06,816260.18,603958.9291,215827.53,215827.53,215827.53,158723.29,67032.94,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"24-4004","client":"Chevron -DWR","status":"Secured","tcv":35802071.73,"earned":34119389.1938,"backlog":1682682.5362,"startIdx":2,"endIdx":13,"monthly":[0,0,912533.5602,567233.22,236435.17,369382.55,123188.85,148722.0602,127927.26,465426.93,393822.7862,286416.57,286416.57,250599.68,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"24-4005","client":"Chevron-GBG","status":"Secured","tcv":24048228.51,"earned":22923738.883,"backlog":1124489.627,"startIdx":2,"endIdx":11,"monthly":[0,0,730681.653,250157.3622,650981.28,436034.54,225970.04,202316.4756,190828.59,384771.66,384771.657,354946.31,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"24-4006","client":"Peregrine-RD","status":"Secured","tcv":3618960.72,"earned":3454710.3317,"backlog":164250.3883,"startIdx":2,"endIdx":10,"monthly":[0,0,908.8483,670104.9433,3269.24,3702.49,29834.57,6480.9434,0,82125.2,82125.1883,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"25-4001","client":"Peregrine-Mallard","status":"Secured","tcv":38753933.64,"earned":36422700.713,"backlog":2331232.927,"startIdx":2,"endIdx":15,"monthly":[0,0,7724580.2406,3802757.5468,2274224.57,1448879.73,1046512.65,5823.5981,308914.52,426293.27,376450.457,280600.44,311972.19,311972.19,311972.19,311972.19,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"25-4002","client":"HEC-Hillsboro","status":"Secured","tcv":166816919,"earned":28614569.8348,"backlog":138202349.1652,"startIdx":2,"endIdx":27,"monthly":[0,0,-61816.5,709253.8552,2281812.35,722241.89,6895738.17,10411300.6687,5371244.3,8688163.43,9675381.2952,9842198.22,12511268.93,13512170.44,13512170.44,13512170.44,13405005.98,13405005.98,13405005.98,4670873.73,3169521.46,2502253.79,2502253.79,834084.6,834084.6,834084.6,834084.6,552566.86,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"25-4003","client":"Enfinity Global","status":"Secured","tcv":306370,"earned":306370,"backlog":0,"startIdx":2,"endIdx":6,"monthly":[0,0,7242.3008,0,0,-1774.97,1774.97,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"25-4004","client":"Enfinity Global","status":"Secured","tcv":355778.4154,"earned":355778.4154,"backlog":0,"startIdx":2,"endIdx":7,"monthly":[0,0,21384.6814,-20769.3692,-577.86,21347.64,-35342.56,35342.5632,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"25-4005","client":"OCI-Sunroper","status":"Secured","tcv":202008270.93,"earned":55488106.1639,"backlog":146520164.7661,"startIdx":2,"endIdx":25,"monthly":[0,0,150943.7089,934948.7223,6019501.39,17635634.16,7450663.8,5955373.2336,16689010.87,10706887.06,10641750.8561,11609182.76,11388664.93,13544046.55,11514471.44,13534554.15,14342587.24,16446342.24,14342587.24,9674318.94,1934863.79,1934863.79,1934863.79,1414057.9,1010041.35,546080.74,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"25-4006","client":"Stellar-Henderson (LNTP)","status":"Secured","tcv":63250392.99,"earned":12328854.0363,"backlog":50921538.9537,"startIdx":2,"endIdx":22,"monthly":[0,0,20883.8915,2940762.4228,1747890.62,1299040.09,305311.98,3943728.3069,1804622.88,802503.93,1265007.86,3795023.58,5522535.3737,7590047.16,7590047.16,7590047.16,6013759.93,3795023.58,3162519.65,1897511.79,632503.93,632503.93,632503.92,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"25-4007","client":"TO MagSpring (LNTP)","status":"Secured","tcv":1609231.12,"earned":1531206.9799,"backlog":78024.1401,"startIdx":2,"endIdx":10,"monthly":[0,0,5910.3169,137724.0432,360403.7,47686.41,70698.52,540248.1685,353011.14,32184.62,45839.5201,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"26-4001","client":"Spring Valley-Urban Grid","status":"Secured","tcv":160459879.09,"earned":2706393.0225,"backlog":157753486.0675,"startIdx":3,"endIdx":27,"monthly":[0,0,0,1624959.2384,31624.09,74057.78,136769.84,654521.4944,184460.58,3206432.36,4809648.5375,7412864.72,8668109.76,9619297.09,12222513.27,13825729.45,14428945.62,14428945.62,14428945.62,14428945.62,14428945.62,11222513.27,4011496.98,4011496.98,2406898.19,2005748.49,1228274.53,957734.34,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"26-4002","client":"Entergy-Cypress Harvest (LNTP)","status":"Secured","tcv":2462762,"earned":706696.9444,"backlog":1756065.0556,"startIdx":5,"endIdx":10,"monthly":[0,0,0,0,0,32331.37,73930.14,538350.5678,62084.87,788083.84,967981.2156,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"26-40XX","client":"Stellar - Colt Creek","status":"Anticipated","tcv":237698458,"earned":0,"backlog":237698458,"startIdx":15,"endIdx":42,"monthly":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,33067.4443,406486.9657,667866.3171,1869328.5876,2251343.9665,2385473.8106,2460179.0403,12781120.9027,9694595.4929,8862756.7911,10866215.2229,12024604.3062,12544729.956,16787437.061,21125450.4547,22702224.7178,24039386.5883,22808015.9682,18723381.1238,13210522.9352,8276999.8768,5169941.4615,3066582.0745,2368745.1057,1790992.6094,441439.9934,224964.612,114604.6137,0,0,0,0,0]},{"code":"26-40XX","client":"Entergy-Cypress Harvest (FNTP)","status":"Anticipated","tcv":219953537.67,"earned":0,"backlog":219953537.67,"startIdx":11,"endIdx":37,"monthly":[0,0,0,0,0,0,0,0,0,0,0,31732.149,403854.9561,659860.613,1935591.1315,2199535.3767,2309512.1455,2375498.2068,15726334.9595,6598606.1301,9458002.1198,10997676.8835,11911225.7688,12139710.3733,19795818.3903,20785609.3098,23035334.0813,23117116.8091,19795818.3903,14310302.0219,8798141.5068,5498838.4418,3079349.5274,2341714.9548,1878516.041,439907.0753,219953.5377,109976.7688,0,0,0,0,0,0,0,0,0,0]},{"code":"26-40XX","client":"TO MagSpring (FNTP)","status":"Anticipated","tcv":241043397.44,"earned":0,"backlog":241043397.44,"startIdx":19,"endIdx":46,"monthly":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,33532.7759,412207.1302,677264.6632,1895634.147,2283025.3215,2419042.6672,2494799.1635,12960979.3493,9831019.7469,8987475.2474,11019126.7401,12193816.9025,12721261.8626,17023673.1762,21422731.9475,23021694.888,24377673.5633,23128974.8536,18986860.2246,13396424.0115,8393475.4466,5242693.8943,3109735.6205,2402078.5526,1816195.8096,447652.0238,228130.3583,116217.3523,0]},{"code":"26-40XX","client":"Cresent City","status":"Anticipated","tcv":139456938,"earned":0,"backlog":139456938,"startIdx":14,"endIdx":47,"monthly":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,15089.3288,133057.6684,232620.5956,313778.1105,920415.7908,1004089.9536,1063359.1523,1098223.3868,1129601.1978,5362010.5352,6031403.8376,3137781.105,4497486.2505,4985585.5335,5374439.3136,5664047.5909,5772697.0028,8199794.5443,9570232.3702,9884010.4808,10953803.6674,10979729.981,10466243.1969,9413343.315,6804860.6639,5057425.648,3660744.6225,2614817.5875,1464297.849,1230456.9662,1040116.1301,893275.3407,209185.407,139456.938]},{"code":"26-40XX","client":"Plainfield","status":"Anticipated","tcv":195464643,"earned":0,"backlog":195464643,"startIdx":9,"endIdx":47,"monthly":[0,0,0,0,0,0,0,0,0,19034.4581,134776.6205,247939.0565,395815.9021,820951.5006,1172787.858,1319386.3402,1358479.2689,1389753.6117,1424937.2475,6467306.8364,8622258.8059,3958159.0208,5101627.1823,5844392.8257,6596931.7013,6982554.4632,7175378.8253,7281977.9172,10683829.1357,12028405.4686,12468200.9154,13517806.0653,13832228.7132,13866750.436,12243416.5759,10777652.1839,8584002.4273,5767390.8523,4544552.9497,3298465.8506,2008399.2068,1666875.9578,1404672.4399,1147405.0094,743291.9052,263877.268,136825.2501,100175.6295]},{"code":"26-40XX","client":"La Salle","status":"Anticipated","tcv":381207688.6297,"earned":0,"backlog":381207688.6297,"startIdx":15,"endIdx":34,"monthly":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,299972.2347,1255492.2264,3888318.424,5222545.3342,5489390.7163,29428639.1271,17668976.368,24263869.3813,27611709.933,35038069.678,47774853.5775,53339792.7208,50921723.0472,37760341.1498,20111014.4614,10349788.7463,5990330.7688,3687358.4381,781475.7617,324026.5353,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"code":"27-40XX","client":"Onieda","status":"Possible","tcv":190409551.61,"earned":0,"backlog":190409551.61,"startIdx":21,"endIdx":47,"monthly":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,26488.8435,325618.4391,534997.6901,1497435.1166,1803450.4674,1910895.8572,1970738.8592,10238381.5219,7765904.7365,7099556.1386,8704436.645,9632370.0772,10049019.3588,13447661.3368,16922648.8993,18185731.8951,19256872.1723,18270476.5111,14998459.1167,10582356.191,6630332.6007,4141407.7475,2456501.0758,1897495.2435,1434683.6852,353617.7387,180209.0399]},{"code":"27-40XX","client":"Colt Creek 2","status":"Possible","tcv":251109843.37,"earned":0,"backlog":251109843.37,"startIdx":21,"endIdx":47,"monthly":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,32604.2925,372471.3418,619542.8317,1551858.832,2139455.8655,2310210.559,2395587.9057,5489182.8626,15116499.3169,6779965.771,9717950.9384,11124166.0613,12030009.7828,12395109.9049,16843660.598,20791895.031,22127411.3178,23687123.0379,23373304.2209,20339897.313,14703614.0615,9669249.8836,6403301.0059,3992646.5096,2742923.9609,2194551.5876,1437430.0303]},{"code":"27-40XX","client":"Hyundai Green","status":"Possible","tcv":219112594,"earned":0,"backlog":219112594,"startIdx":16,"endIdx":42,"monthly":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,31610.8282,402310.9061,657337.782,1928190.8272,2191125.94,2300682.237,2366416.0152,15666208.7984,6573377.82,9421841.542,10955629.7,11865685.8333,12093296.8775,19720133.46,20706140.133,22947263.5797,23028733.6294,19720133.46,14255589.7493,8764503.76,5477814.85,3067576.316,2332761.926,1871333.9506,438225.188,219112.594,109556.297,0,0,0,0,0]}]};
+// The S-Curve Bands export carries two non-month leader columns ("Forecast End Date", "Backlog Spread")
+// as if they were the first two months. Drop them so the timeline starts at the real first month and
+// the Actual/Forecast split (driven by row 3 of that tab) lines up correctly.
+(function stripLeaderColumns(){
+  const drop = ER.months.findIndex(m => /^[A-Z][a-z]{2} \d{4}$/.test(m.label));
+  if(drop <= 0) return;
+  ER.months = ER.months.slice(drop);
+  ER.projects.forEach(p=>{
+    p.monthly = p.monthly.slice(drop);
+    if(p.startIdx!=null) p.startIdx -= drop;
+    if(p.endIdx!=null) p.endIdx -= drop;
+  });
+})();
+
+const fmtMoney = v => '$' + Number(v).toLocaleString(undefined,{maximumFractionDigits:0});
+const fmtMoneyM = v => '$' + (Number(v)/1e6).toFixed(1) + 'M';
+const fmtPct = v => (v*100).toFixed(1) + '%';
+
+const YEARS = [...new Set(ER.months.map(m=>m.label.split(' ')[1]))];
+
+// Last month labeled "Actual" in the S-Curve Bands data (the rest is Forecast).
+const LAST_ACTUAL_LABEL = ER.months.reduce((last,m)=> m.type==='Actual' ? m.label : last, null);
+
+// Generic checkbox-dropdown multi-select. items: [{value,label}]. allLabel shown when everything is checked.
+function initMultiSelect(id, items, allLabel, onChange){
+  const root = document.getElementById(id);
+  const btn = root.querySelector('.ms-btn');
+  const panel = root.querySelector('.ms-panel');
+  const selected = new Set(items.map(it=>it.value));
+
+  panel.innerHTML = `
+    <div class="ms-actions">
+      <button type="button" data-act="all">Select All</button>
+      <button type="button" data-act="none">Clear</button>
+    </div>
+    <div class="ms-sep"></div>
+    ${items.map(it=>`<label><input type="checkbox" value="${it.value}" checked> ${it.label}</label>`).join('')}
+  `;
+
+  function updateBtn(){
+    if(selected.size === items.length) btn.textContent = allLabel;
+    else if(selected.size === 0) btn.textContent = 'None selected';
+    else btn.textContent = items.filter(it=>selected.has(it.value)).map(it=>it.label).join(', ');
+  }
+
+  panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      if(cb.checked) selected.add(cb.value); else selected.delete(cb.value);
+      updateBtn();
+      onChange();
+    });
+  });
+
+  panel.querySelector('[data-act="all"]').addEventListener('click', ()=>{
+    selected.clear();
+    items.forEach(it=>selected.add(it.value));
+    panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=true);
+    updateBtn();
+    onChange();
+  });
+  panel.querySelector('[data-act="none"]').addEventListener('click', ()=>{
+    selected.clear();
+    panel.querySelectorAll('input[type="checkbox"]').forEach(cb=>cb.checked=false);
+    updateBtn();
+    onChange();
+  });
+
+  btn.addEventListener('click', e=>{
+    e.stopPropagation();
+    document.querySelectorAll('.ms-panel.open').forEach(p=>{ if(p!==panel) p.classList.remove('open'); });
+    panel.classList.toggle('open');
+  });
+  document.addEventListener('click', e=>{
+    if(!root.contains(e.target)) panel.classList.remove('open');
+  });
+
+  updateBtn();
+  return { selected };
+}
+
+let statusMS, projectMS;
+
+function populateFilters(){
+  const ySel = document.getElementById('yearFilter');
+  YEARS.forEach(y=>{ const o=document.createElement('option'); o.value=y; o.textContent=y; ySel.appendChild(o); });
+
+  statusMS = initMultiSelect('statusFilterMS', [
+    {value:'Secured', label:'Secured'},
+    {value:'Anticipated', label:'Anticipated'},
+    {value:'Possible', label:'Possible'},
+  ], 'Secured + Anticipated + Possible', renderAll);
+
+  projectMS = initMultiSelect('projectFilterMS', ER.projects.map(p=>({
+    value: p.code+'|'+p.client,
+    label: `${p.code} — ${p.client} (${p.status})`,
+  })), 'All Projects', renderAll);
+}
+
+function getFilteredMonthIdx(){
+  const year = document.getElementById('yearFilter').value;
+  const period = document.getElementById('periodFilter').value;
+  return ER.months.map((m,i)=>i).filter(i=>{
+    const m = ER.months[i];
+    const yOk = year==='ALL' || m.label.endsWith(year);
+    const pOk = period==='ALL' || m.type===period;
+    return yOk && pOk;
+  });
+}
+
+function getFilteredProjects(){
+  const statusSel = statusMS.selected;
+  const projSel = projectMS.selected;
+  return ER.projects.filter(p=>{
+    const sOk = statusSel.has(p.status);
+    const pOk = projSel.has(p.code+'|'+p.client);
+    return sOk && pOk;
+  });
+}
+
+let charts = {};
+
+// Build redistributed monthly arrays for Anticipated projects based on selected curve shape
+function curveWeights(n, shape){
+  const w = [];
+  if(shape==='even'){
+    for(let i=0;i<n;i++) w.push(1/n);
+  } else if(shape==='front'){
+    let sum=0; for(let i=0;i<n;i++){ const x=n-i; w.push(x); sum+=x; }
+    for(let i=0;i<n;i++) w[i]/=sum;
+  } else if(shape==='back'){
+    let sum=0; for(let i=0;i<n;i++){ const x=i+1; w.push(x); sum+=x; }
+    for(let i=0;i<n;i++) w[i]/=sum;
+  } else { // bell (mid-loaded)
+    let sum=0; for(let i=0;i<n;i++){ const x=Math.sin(Math.PI*(i+0.5)/n); w.push(x); sum+=x; }
+    for(let i=0;i<n;i++) w[i]/=sum;
+  }
+  return w;
+}
+
+const projectCurveOverrides = {}; // key -> shape, per-project projection curve (defaults to 'original')
+const projKey = p => p.code+'|'+p.client;
+
+function getEffectiveProjects(){
+  return getFilteredProjects().map(p=>{
+    if((p.status!=='Anticipated' && p.status!=='Possible') || p.startIdx==null || p.endIdx==null) return p;
+    const shape = projectCurveOverrides[projKey(p)] || 'original';
+    if(shape==='original') return p;
+    const n = p.endIdx - p.startIdx + 1;
+    const w = curveWeights(n, shape);
+    const monthly = new Array(ER.months.length).fill(0);
+    for(let i=0;i<n;i++) monthly[p.startIdx+i] = p.backlog * w[i];
+    return {...p, monthly};
+  });
+}
+
+function renderKpis(){
+  const monthIdx = getFilteredMonthIdx();
+  const projects = getEffectiveProjects();
+
+  const earnedInRange = projects.reduce((sum,p)=> sum + monthIdx.reduce((s,i)=>s+p.monthly[i],0), 0);
+  const totalTCV = projects.reduce((s,p)=>s+p.tcv,0);
+  const totalEarned = projects.reduce((s,p)=>s+p.earned,0);
+  const totalBacklog = projects.reduce((s,p)=>s+p.backlog,0);
+  const securedCount = projects.filter(p=>p.status==='Secured').length;
+  const anticipatedCount = projects.filter(p=>p.status==='Anticipated').length;
+  const possibleCount = projects.filter(p=>p.status==='Possible').length;
+  const pctComplete = totalTCV ? totalEarned/totalTCV : 0;
+
+  const cards = [
+    ['Earned Revenue (selected period)', fmtMoney(earnedInRange)],
+    ['Total Contract Value', fmtMoney(totalTCV)],
+    ['Total Earned to Date', fmtMoney(totalEarned)],
+    ['Remaining Backlog', fmtMoney(totalBacklog)],
+    ['Portfolio % Complete', fmtPct(pctComplete)],
+    ['Secured Projects', securedCount],
+    ['Anticipated Projects', anticipatedCount],
+    ['Possible Projects', possibleCount],
+    ['Total Projects', projects.length],
+  ];
+  document.getElementById('kpiGrid').innerHTML = cards.map(([l,v])=>
+    `<div class="kpi-card"><div class="label">${l}</div><div class="value">${v}</div></div>`).join('');
+}
+
+// Utility: hex color -> rgba string with the given alpha (used to fade Forecast bars/points).
+function withAlpha(hex, alpha){
+  const h = hex.replace('#','');
+  const r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// Position (within a filtered month index list) of the first Forecast month, or -1 if the range is all Actual.
+function forecastBoundary(monthIdx){
+  return monthIdx.findIndex(i => ER.months[i].type === 'Forecast');
+}
+
+// Shades the Forecast portion of a month-axis chart and draws a dashed divider + ACTUAL/FORECAST labels
+// at the point actuals (per the S-Curve Bands tab) turn into forecast.
+const actualForecastBackdrop = {
+  id: 'actualForecastBackdrop',
+  beforeDatasetsDraw(chart, args, opts){
+    const boundary = opts.boundary;
+    if(boundary == null || boundary <= 0) return;
+    const {ctx, chartArea:{top,bottom,left,right}, scales:{x}} = chart;
+    const startPx = x.getPixelForValue(boundary - 0.5);
+    if(startPx >= right || startPx <= left) return;
+    ctx.save();
+    ctx.fillStyle = opts.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.05)';
+    ctx.fillRect(startPx, top, right - startPx, bottom - top);
+    ctx.setLineDash([5,4]);
+    ctx.strokeStyle = opts.isDark ? 'rgba(255,255,255,0.35)' : 'rgba(15,23,42,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(startPx, top);
+    ctx.lineTo(startPx, bottom);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.fillStyle = opts.isDark ? 'rgba(255,255,255,0.55)' : 'rgba(15,23,42,0.55)';
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    if(startPx - left > 44) ctx.fillText('ACTUAL', left + 4, top + 4);
+    ctx.fillText('FORECAST', startPx + 6, top + 4);
+    ctx.restore();
+  }
+};
+
+function renderMainChart(){
+  const monthIdx = getFilteredMonthIdx();
+  const projects = getEffectiveProjects();
+  const labels = monthIdx.map(i=>ER.months[i].label);
+  const isActual = i => ER.months[i].type === 'Actual';
+  const barColor = hex => monthIdx.map(i => isActual(i) ? hex : withAlpha(hex, 0.4));
+  const boundary = forecastBoundary(monthIdx);
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+
+  const securedData = monthIdx.map(i => projects.filter(p=>p.status==='Secured').reduce((s,p)=>s+p.monthly[i],0));
+  const anticipatedData = monthIdx.map(i => projects.filter(p=>p.status==='Anticipated').reduce((s,p)=>s+p.monthly[i],0));
+  const possibleData = monthIdx.map(i => projects.filter(p=>p.status==='Possible').reduce((s,p)=>s+p.monthly[i],0));
+
+  const ctx = document.getElementById('mainChart');
+  if(charts.main) charts.main.destroy();
+  charts.main = new Chart(ctx,{
+    type:'bar',
+    data:{ labels, datasets:[
+      {label:'Secured', data:securedData, backgroundColor:barColor('#2563eb'), stack:'rev'},
+      {label:'Anticipated', data:anticipatedData, backgroundColor:barColor('#d93025'), stack:'rev'},
+      {label:'Possible', data:possibleData, backgroundColor:barColor('#9333ea'), stack:'rev'},
+    ]},
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{position:'top'},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtMoney(c.raw)} (${isActual(monthIdx[c.dataIndex])?'Actual':'Forecast'})`}},
+        actualForecastBackdrop:{boundary, isDark}
+      },
+      scales:{
+        x:{stacked:true, ticks:{maxRotation:90,minRotation:45}},
+        y:{stacked:true, ticks:{callback:v=>fmtMoneyM(v)}, title:{display:true,text:'Earned Revenue ($)'}}
+      }
+    },
+    plugins:[actualForecastBackdrop]
+  });
+}
+
+function renderCumChart(){
+  const monthIdx = getFilteredMonthIdx();
+  const projects = getEffectiveProjects();
+  const labels = monthIdx.map(i=>ER.months[i].label);
+  const isActual = i => ER.months[i].type === 'Actual';
+  const boundary = forecastBoundary(monthIdx);
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  let running = 0;
+  const cum = monthIdx.map(i=>{
+    running += projects.reduce((s,p)=>s+p.monthly[i],0);
+    return running;
+  });
+  const ctx = document.getElementById('cumChart');
+  if(charts.cum) charts.cum.destroy();
+  charts.cum = new Chart(ctx,{
+    type:'line',
+    data:{ labels, datasets:[{
+      label:'Cumulative Earned Revenue', data:cum, borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,.15)', fill:true, tension:.25,
+      segment:{ borderDash: c => isActual(monthIdx[c.p0DataIndex]) ? undefined : [6,4] },
+      pointBackgroundColor: monthIdx.map(i => isActual(i) ? '#2563eb' : withAlpha('#2563eb', 0.5)),
+    }] },
+    options:{
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>`${fmtMoney(c.raw)} (${isActual(monthIdx[c.dataIndex])?'Actual':'Forecast'})`}},
+        actualForecastBackdrop:{boundary, isDark}
+      },
+      scales:{ x:{ticks:{maxRotation:90,minRotation:45}}, y:{ticks:{callback:v=>fmtMoneyM(v)}} }
+    },
+    plugins:[actualForecastBackdrop]
+  });
+}
+
+function renderTcvChart(){
+  const projects = [...getFilteredProjects()].sort((a,b)=>b.tcv-a.tcv);
+  const ctx = document.getElementById('tcvChart');
+  if(charts.tcv) charts.tcv.destroy();
+  charts.tcv = new Chart(ctx,{
+    type:'bar',
+    data:{ labels: projects.map(p=>`${p.code} ${p.client}`), datasets:[
+      {label:'Earned to Date', data:projects.map(p=>p.earned), backgroundColor:'#2563eb'},
+      {label:'Backlog', data:projects.map(p=>p.backlog), backgroundColor:'#d93025'},
+    ]},
+    options:{
+      indexAxis:'y',
+      responsive:true,
+      plugins:{ legend:{position:'top'}, tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtMoney(c.raw)}`}} },
+      scales:{ x:{stacked:true, ticks:{callback:v=>fmtMoneyM(v)}}, y:{stacked:true} }
+    }
+  });
+}
+
+function renderYearChart(){
+  const projects = getEffectiveProjects();
+  const secured = {}, anticipated = {}, possible = {};
+  ER.months.forEach((m,i)=>{
+    const yr = m.label.split(' ')[1];
+    secured[yr] = (secured[yr]||0) + projects.filter(p=>p.status==='Secured').reduce((s,p)=>s+p.monthly[i],0);
+    anticipated[yr] = (anticipated[yr]||0) + projects.filter(p=>p.status==='Anticipated').reduce((s,p)=>s+p.monthly[i],0);
+    possible[yr] = (possible[yr]||0) + projects.filter(p=>p.status==='Possible').reduce((s,p)=>s+p.monthly[i],0);
+  });
+  const ctx = document.getElementById('yearChart');
+  if(charts.year) charts.year.destroy();
+  charts.year = new Chart(ctx,{
+    type:'bar',
+    data:{ labels: YEARS, datasets:[
+      {label:'Secured', data:YEARS.map(y=>secured[y]||0), backgroundColor:'#2563eb'},
+      {label:'Anticipated', data:YEARS.map(y=>anticipated[y]||0), backgroundColor:'#d93025'},
+      {label:'Possible', data:YEARS.map(y=>possible[y]||0), backgroundColor:'#9333ea'},
+    ]},
+    options:{
+      plugins:{ legend:{position:'top'}, tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtMoney(c.raw)}`}} },
+      scales:{ x:{stacked:true}, y:{stacked:true, ticks:{callback:v=>fmtMoneyM(v)}} }
+    }
+  });
+}
+
+const CURVE_OPTIONS = [
+  ['original','Original (As Modeled)'],
+  ['bell','Bell Curve (Mid-Loaded)'],
+  ['front','Front-Loaded'],
+  ['back','Back-Loaded'],
+  ['even','Even (Linear)'],
+];
+
+function renderProjTable(){
+  const projects = [...getFilteredProjects()].sort((a,b)=>b.tcv-a.tcv);
+  document.querySelector('#projTable tbody').innerHTML = projects.map(p=>{
+    const pct = p.tcv ? p.earned/p.tcv : 0;
+    const badge = p.status==='Secured' ? 'badge-secured' : (p.status==='Possible' ? 'badge-possible' : 'badge-anticipated');
+    const canOverride = p.status==='Anticipated' || p.status==='Possible';
+    const currentVal = projectCurveOverrides[projKey(p)] || 'original';
+    const projCell = canOverride
+      ? `<select class="curve-override" data-key="${projKey(p)}">${CURVE_OPTIONS.map(([v,l])=>
+          `<option value="${v}" ${v===currentVal?'selected':''}>${l}</option>`).join('')}</select>`
+      : '<span style="color:var(--muted)">—</span>';
+    return `<tr>
+      <td>${p.code}</td>
+      <td>${p.client}</td>
+      <td><span class="badge ${badge}">${p.status}</span></td>
+      <td>${projCell}</td>
+      <td>${fmtMoney(p.tcv)}</td>
+      <td>${fmtMoney(p.earned)}</td>
+      <td>${fmtMoney(p.backlog)}</td>
+      <td>${fmtPct(pct)}</td>
+    </tr>`;
+  }).join('');
+
+  document.querySelectorAll('#projTable select.curve-override').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      const key = e.target.dataset.key;
+      const val = e.target.value;
+      if(val==='original') delete projectCurveOverrides[key];
+      else projectCurveOverrides[key] = val;
+      renderAll();
+    });
+  });
+}
+
+function renderYearTable(){
+  const projects = getEffectiveProjects();
+  const secured = {}, anticipated = {}, possible = {};
+  ER.months.forEach((m,i)=>{
+    const yr = m.label.split(' ')[1];
+    secured[yr] = (secured[yr]||0) + projects.filter(p=>p.status==='Secured').reduce((s,p)=>s+p.monthly[i],0);
+    anticipated[yr] = (anticipated[yr]||0) + projects.filter(p=>p.status==='Anticipated').reduce((s,p)=>s+p.monthly[i],0);
+    possible[yr] = (possible[yr]||0) + projects.filter(p=>p.status==='Possible').reduce((s,p)=>s+p.monthly[i],0);
+  });
+  const total = YEARS.map(y=>(secured[y]||0)+(anticipated[y]||0)+(possible[y]||0));
+
+  const fmtShort = v => '$' + Number(v).toLocaleString(undefined,{maximumFractionDigits:0});
+  const dash = v => Math.round(v)===0 ? '-' : fmtShort(v);
+
+  document.getElementById('yearTableHead').innerHTML = `<th>Metric</th>` + YEARS.map(y=>`<th>${y}</th>`).join('');
+
+  const rowDef = [
+    ['Secured', YEARS.map(y=>dash(secured[y]||0))],
+    ['Anticipated', YEARS.map(y=>dash(anticipated[y]||0))],
+    ['Possible', YEARS.map(y=>dash(possible[y]||0))],
+    ['Total', total.map(fmtShort)],
+  ];
+
+  document.querySelector('#yearTable tbody').innerHTML = rowDef.map(([label, vals])=>{
+    const strong = label==='Total' ? 'font-weight:700;border-top:2px solid var(--border)' : '';
+    return `<tr style="${strong}"><td style="font-weight:600">${label}</td>${vals.map(v=>`<td>${v}</td>`).join('')}</tr>`;
+  }).join('');
+}
+
+function renderMonthlyTable(){
+  const monthIdx = getFilteredMonthIdx();
+  const projects = getEffectiveProjects();
+
+  const secured = monthIdx.map(i => projects.filter(p=>p.status==='Secured').reduce((s,p)=>s+p.monthly[i],0));
+  const anticipated = monthIdx.map(i => projects.filter(p=>p.status==='Anticipated').reduce((s,p)=>s+p.monthly[i],0));
+  const possible = monthIdx.map(i => projects.filter(p=>p.status==='Possible').reduce((s,p)=>s+p.monthly[i],0));
+  const total = monthIdx.map((_,idx)=>secured[idx]+anticipated[idx]+possible[idx]);
+  const grandTotal = total.reduce((a,b)=>a+b,0);
+
+  let running = 0;
+  const cum = total.map(v=>running += v);
+  const monthlyPct = total.map(v=>grandTotal ? v/grandTotal : 0);
+  const cumPct = cum.map(v=>grandTotal ? v/grandTotal : 0);
+
+  const fmtShort = v => '$' + Number(v).toLocaleString(undefined,{maximumFractionDigits:0});
+  const dash = v => Math.round(v)===0 ? '-' : fmtShort(v);
+
+  const head = `<th>Metric</th>` + monthIdx.map(mi=>`<th>${ER.months[mi].label}</th>`).join('');
+  document.getElementById('monthlyTableHead').innerHTML = head;
+
+  const rowDef = [
+    ['Cumulative %', cumPct.map(fmtPct)],
+    ['Monthly %', monthlyPct.map(fmtPct)],
+    ['Possible Work', possible.map(dash)],
+    ['Anticipated Work', anticipated.map(dash)],
+    ['Secured Work', secured.map(dash)],
+    ['Total', total.map(fmtShort)],
+  ];
+
+  document.querySelector('#monthlyTable tbody').innerHTML = rowDef.map(([label, vals])=>{
+    const strong = label==='Total' ? 'font-weight:700;border-top:2px solid var(--border)' : '';
+    return `<tr style="${strong}"><td style="font-weight:600">${label}</td>${vals.map(v=>`<td>${v}</td>`).join('')}</tr>`;
+  }).join('');
+}
+
+function renderCaptions(){
+  document.getElementById('mainChartCaption').textContent =
+    `Blue = Secured backlog. Red = Anticipated work. Purple = Possible work. Solid bars are Actuals (through ${LAST_ACTUAL_LABEL}); faded bars past the shaded divider are Forecast.`;
+  document.getElementById('cumChartCaption').textContent =
+    `Solid line = Actual to date (through ${LAST_ACTUAL_LABEL}). Dashed line past the shaded divider = Forecast.`;
+}
+
+function renderAll(){
+  renderCaptions();
+  renderKpis();
+  renderMainChart();
+  renderCumChart();
+  renderTcvChart();
+  renderYearChart();
+  renderYearTable();
+  renderProjTable();
+  renderMonthlyTable();
+}
+
+['yearFilter','periodFilter'].forEach(id=>
+  document.getElementById(id).addEventListener('change', renderAll));
+
+document.getElementById('darkToggle').addEventListener('click', ()=>{
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme')==='dark';
+  html.setAttribute('data-theme', isDark?'light':'dark');
+  document.getElementById('darkToggle').textContent = isDark ? '🌙 Dark Mode' : '☀️ Light Mode';
+  renderMainChart();
+  renderCumChart();
+});
+
+populateFilters();
+renderAll();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
