@@ -49,9 +49,12 @@ table.simple th:first-child,table.simple td:first-child{text-align:left;}
 table.simple th{color:var(--muted);font-size:11px;text-transform:uppercase;background:var(--panel);position:sticky;top:0;}
 table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);}
 .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;}
-.badge-secured{background:rgba(37,99,235,.15);color:var(--accent);}
-.badge-anticipated{background:rgba(217,48,37,.15);color:var(--bad);}
-.badge-possible{background:rgba(147,51,234,.15);color:#9333ea;}
+.badge-secured{background:var(--status-secured-bg, rgba(37,99,235,.15));color:var(--status-secured, var(--accent));}
+.badge-anticipated{background:var(--status-anticipated-bg, rgba(217,48,37,.15));color:var(--status-anticipated, var(--bad));}
+.badge-possible{background:var(--status-possible-bg, rgba(147,51,234,.15));color:var(--status-possible, #9333ea);}
+.color-ctl{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);margin:0;cursor:pointer;}
+.color-ctl input[type="color"]{width:26px;height:24px;padding:0;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:none;}
+#colorReset{padding:6px 10px;font-size:11px;}
 .scroll-y{max-height:480px;overflow-y:auto;}
 </style>
 </head>
@@ -94,13 +97,22 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
         <div class="ms-panel"></div>
       </div>
     </div>
+    <div>
+      <label>Status Colors</label>
+      <div style="display:flex;gap:12px;align-items:center;">
+        <label class="color-ctl">Secured <input type="color" id="colorSecured"></label>
+        <label class="color-ctl">Anticipated <input type="color" id="colorAnticipated"></label>
+        <label class="color-ctl">Possible <input type="color" id="colorPossible"></label>
+        <button type="button" class="toggle" id="colorReset">Reset</button>
+      </div>
+    </div>
   </div>
 
   <div class="kpi-grid" id="kpiGrid"></div>
 
   <div class="panel">
     <h2>Monthly Earned Revenue (Secured vs Anticipated vs Possible)</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="mainChartCaption">Blue = Secured backlog. Red = Anticipated work. Purple = Possible work. Solid bars are Actuals; faded/hatched bars with the shaded backdrop are Forecast.</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="mainChartCaption">See legend for Secured / Anticipated / Possible (colors adjustable above). Solid bars are Actuals; faded bars past the shaded divider are Forecast.</p>
     <canvas id="mainChart" height="100"></canvas>
     <div style="margin-top:14px;overflow-x:auto;">
     <table class="simple" id="monthlyTable" style="white-space:nowrap;">
@@ -110,15 +122,18 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
     </div>
   </div>
 
-  <div class="grid-2">
-    <div class="panel">
-      <h2>Cumulative Earned Revenue</h2>
-      <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="cumChartCaption">Solid line = Actual to date. Dashed line + shaded backdrop = Forecast.</p>
-      <canvas id="cumChart" height="160"></canvas>
-    </div>
-    <div class="panel">
-      <h2>Total Contract Value by Project</h2>
-      <canvas id="tcvChart" height="160"></canvas>
+  <div class="panel">
+    <h2>Cumulative Earned Revenue</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="cumChartCaption">Solid line = Actual to date. Dashed line + shaded backdrop = Forecast.</p>
+    <canvas id="cumChart" height="160"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>Total Contract Value by Project</h2>
+    <div class="scroll-y">
+      <div style="position:relative;">
+        <canvas id="tcvChart"></canvas>
+      </div>
     </div>
   </div>
 
@@ -160,6 +175,54 @@ const ER = {"months":[{"label":"Forecast End Date","type":"Forecast"},{"label":"
     if(p.endIdx!=null) p.endIdx -= drop;
   });
 })();
+
+// User-adjustable colors for each project Status, used by every chart/badge that breaks data
+// out by Secured/Anticipated/Possible. Persisted in localStorage so a chosen palette survives reload.
+const DEFAULT_STATUS_COLORS = { Secured:'#2563eb', Anticipated:'#d93025', Possible:'#9333ea' };
+let STATUS_COLORS = {...DEFAULT_STATUS_COLORS};
+try {
+  const saved = JSON.parse(localStorage.getItem('erStatusColors') || 'null');
+  if(saved) STATUS_COLORS = {...DEFAULT_STATUS_COLORS, ...saved};
+} catch(e){ /* localStorage unavailable — fall back to defaults */ }
+
+function saveStatusColors(){
+  try { localStorage.setItem('erStatusColors', JSON.stringify(STATUS_COLORS)); } catch(e){}
+}
+
+// Pushes the current status colors onto CSS variables (badges) and re-renders every chart that uses them.
+function applyStatusColors(){
+  const root = document.documentElement.style;
+  Object.entries(STATUS_COLORS).forEach(([status,hex])=>{
+    root.setProperty(`--status-${status.toLowerCase()}`, hex);
+    root.setProperty(`--status-${status.toLowerCase()}-bg`, withAlpha(hex, 0.15));
+  });
+}
+
+function initColorControls(){
+  const inputs = { Secured:'colorSecured', Anticipated:'colorAnticipated', Possible:'colorPossible' };
+  Object.entries(inputs).forEach(([status,id])=>{
+    const el = document.getElementById(id);
+    el.value = STATUS_COLORS[status];
+    el.addEventListener('input', ()=>{
+      STATUS_COLORS[status] = el.value;
+      saveStatusColors();
+      applyStatusColors();
+      renderMainChart();
+      renderYearChart();
+      renderProjTable();
+    });
+  });
+  document.getElementById('colorReset').addEventListener('click', ()=>{
+    STATUS_COLORS = {...DEFAULT_STATUS_COLORS};
+    Object.entries(inputs).forEach(([status,id])=>{ document.getElementById(id).value = STATUS_COLORS[status]; });
+    saveStatusColors();
+    applyStatusColors();
+    renderMainChart();
+    renderYearChart();
+    renderProjTable();
+  });
+  applyStatusColors();
+}
 
 const fmtMoney = v => '$' + Number(v).toLocaleString(undefined,{maximumFractionDigits:0});
 const fmtMoneyM = v => '$' + (Number(v)/1e6).toFixed(1) + 'M';
@@ -391,9 +454,9 @@ function renderMainChart(){
   charts.main = new Chart(ctx,{
     type:'bar',
     data:{ labels, datasets:[
-      {label:'Secured', data:securedData, backgroundColor:barColor('#2563eb'), stack:'rev'},
-      {label:'Anticipated', data:anticipatedData, backgroundColor:barColor('#d93025'), stack:'rev'},
-      {label:'Possible', data:possibleData, backgroundColor:barColor('#9333ea'), stack:'rev'},
+      {label:'Secured', data:securedData, backgroundColor:barColor(STATUS_COLORS.Secured), stack:'rev'},
+      {label:'Anticipated', data:anticipatedData, backgroundColor:barColor(STATUS_COLORS.Anticipated), stack:'rev'},
+      {label:'Possible', data:possibleData, backgroundColor:barColor(STATUS_COLORS.Possible), stack:'rev'},
     ]},
     options:{
       responsive:true,
@@ -447,6 +510,9 @@ function renderCumChart(){
 function renderTcvChart(){
   const projects = [...getFilteredProjects()].sort((a,b)=>b.tcv-a.tcv);
   const ctx = document.getElementById('tcvChart');
+  // Give every project row a fixed pixel height so all labels stay legible instead of
+  // being squeezed (and auto-skipped) into a fixed-aspect-ratio box.
+  ctx.parentElement.style.height = Math.max(280, projects.length * 28 + 40) + 'px';
   if(charts.tcv) charts.tcv.destroy();
   charts.tcv = new Chart(ctx,{
     type:'bar',
@@ -457,8 +523,9 @@ function renderTcvChart(){
     options:{
       indexAxis:'y',
       responsive:true,
+      maintainAspectRatio:false,
       plugins:{ legend:{position:'top'}, tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtMoney(c.raw)}`}} },
-      scales:{ x:{stacked:true, ticks:{callback:v=>fmtMoneyM(v)}}, y:{stacked:true} }
+      scales:{ x:{stacked:true, ticks:{callback:v=>fmtMoneyM(v)}}, y:{stacked:true, ticks:{autoSkip:false}} }
     }
   });
 }
@@ -477,9 +544,9 @@ function renderYearChart(){
   charts.year = new Chart(ctx,{
     type:'bar',
     data:{ labels: YEARS, datasets:[
-      {label:'Secured', data:YEARS.map(y=>secured[y]||0), backgroundColor:'#2563eb'},
-      {label:'Anticipated', data:YEARS.map(y=>anticipated[y]||0), backgroundColor:'#d93025'},
-      {label:'Possible', data:YEARS.map(y=>possible[y]||0), backgroundColor:'#9333ea'},
+      {label:'Secured', data:YEARS.map(y=>secured[y]||0), backgroundColor:STATUS_COLORS.Secured},
+      {label:'Anticipated', data:YEARS.map(y=>anticipated[y]||0), backgroundColor:STATUS_COLORS.Anticipated},
+      {label:'Possible', data:YEARS.map(y=>possible[y]||0), backgroundColor:STATUS_COLORS.Possible},
     ]},
     options:{
       plugins:{ legend:{position:'top'}, tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtMoney(c.raw)}`}} },
@@ -597,7 +664,7 @@ function renderMonthlyTable(){
 
 function renderCaptions(){
   document.getElementById('mainChartCaption').textContent =
-    `Blue = Secured backlog. Red = Anticipated work. Purple = Possible work. Solid bars are Actuals (through ${LAST_ACTUAL_LABEL}); faded bars past the shaded divider are Forecast.`;
+    `See legend for Secured / Anticipated / Possible (colors adjustable above). Solid bars are Actuals (through ${LAST_ACTUAL_LABEL}); faded bars past the shaded divider are Forecast.`;
   document.getElementById('cumChartCaption').textContent =
     `Solid line = Actual to date (through ${LAST_ACTUAL_LABEL}). Dashed line past the shaded divider = Forecast.`;
 }
@@ -627,6 +694,7 @@ document.getElementById('darkToggle').addEventListener('click', ()=>{
 });
 
 populateFilters();
+initColorControls();
 renderAll();
 </script>
 </body>
