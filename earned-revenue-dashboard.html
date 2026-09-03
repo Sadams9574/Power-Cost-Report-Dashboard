@@ -49,12 +49,11 @@ table.simple th:first-child,table.simple td:first-child{text-align:left;}
 table.simple th{color:var(--muted);font-size:11px;text-transform:uppercase;background:var(--panel);position:sticky;top:0;}
 table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);}
 .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;}
-.badge-secured{background:var(--status-secured-bg, rgba(37,99,235,.15));color:var(--status-secured, var(--accent));}
-.badge-anticipated{background:var(--status-anticipated-bg, rgba(217,48,37,.15));color:var(--status-anticipated, var(--bad));}
-.badge-possible{background:var(--status-possible-bg, rgba(147,51,234,.15));color:var(--status-possible, #9333ea);}
-.color-ctl{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);margin:0;cursor:pointer;}
-.color-ctl input[type="color"]{width:26px;height:24px;padding:0;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:none;}
-#colorReset{padding:6px 10px;font-size:11px;}
+.badge-secured{background:rgba(37,99,235,.15);color:var(--accent);}
+.badge-anticipated{background:rgba(217,48,37,.15);color:var(--bad);}
+.badge-possible{background:rgba(147,51,234,.15);color:#9333ea;}
+.badge-toggle{cursor:pointer;border:1px solid transparent;}
+.badge-toggle:hover{filter:brightness(0.9);border-color:currentColor;}
 .scroll-y{max-height:480px;overflow-y:auto;}
 #monthlyTableGroupHead th{position:static;font-size:10px;letter-spacing:.06em;padding:4px 9px;}
 #monthlyTableGroupHead th.grp-actual{color:var(--accent);text-align:right;}
@@ -102,22 +101,13 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
         <div class="ms-panel"></div>
       </div>
     </div>
-    <div>
-      <label>Status Colors</label>
-      <div style="display:flex;gap:12px;align-items:center;">
-        <label class="color-ctl">Secured <input type="color" id="colorSecured"></label>
-        <label class="color-ctl">Anticipated <input type="color" id="colorAnticipated"></label>
-        <label class="color-ctl">Possible <input type="color" id="colorPossible"></label>
-        <button type="button" class="toggle" id="colorReset">Reset</button>
-      </div>
-    </div>
   </div>
 
   <div class="kpi-grid" id="kpiGrid"></div>
 
   <div class="panel">
     <h2>Monthly Earned Revenue (Secured vs Anticipated vs Possible)</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="mainChartCaption">See legend for Secured / Anticipated / Possible (colors adjustable above). Solid bars are Actuals; faded bars past the shaded divider are Forecast.</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="mainChartCaption">Blue = Secured backlog. Red = Anticipated work. Purple = Possible work. Solid bars are Actuals; faded bars past the shaded divider are Forecast.</p>
     <canvas id="mainChart" height="100"></canvas>
     <div style="margin-top:14px;overflow-x:auto;">
     <table class="simple" id="monthlyTable" style="white-space:nowrap;">
@@ -184,53 +174,9 @@ const ER = {"months":[{"label":"Forecast End Date","type":"Forecast"},{"label":"
   });
 })();
 
-// User-adjustable colors for each project Status, used by every chart/badge that breaks data
-// out by Secured/Anticipated/Possible. Persisted in localStorage so a chosen palette survives reload.
-const DEFAULT_STATUS_COLORS = { Secured:'#2563eb', Anticipated:'#d93025', Possible:'#9333ea' };
-let STATUS_COLORS = {...DEFAULT_STATUS_COLORS};
-try {
-  const saved = JSON.parse(localStorage.getItem('erStatusColors') || 'null');
-  if(saved) STATUS_COLORS = {...DEFAULT_STATUS_COLORS, ...saved};
-} catch(e){ /* localStorage unavailable — fall back to defaults */ }
-
-function saveStatusColors(){
-  try { localStorage.setItem('erStatusColors', JSON.stringify(STATUS_COLORS)); } catch(e){}
-}
-
-// Pushes the current status colors onto CSS variables (badges) and re-renders every chart that uses them.
-function applyStatusColors(){
-  const root = document.documentElement.style;
-  Object.entries(STATUS_COLORS).forEach(([status,hex])=>{
-    root.setProperty(`--status-${status.toLowerCase()}`, hex);
-    root.setProperty(`--status-${status.toLowerCase()}-bg`, withAlpha(hex, 0.15));
-  });
-}
-
-function initColorControls(){
-  const inputs = { Secured:'colorSecured', Anticipated:'colorAnticipated', Possible:'colorPossible' };
-  Object.entries(inputs).forEach(([status,id])=>{
-    const el = document.getElementById(id);
-    el.value = STATUS_COLORS[status];
-    el.addEventListener('input', ()=>{
-      STATUS_COLORS[status] = el.value;
-      saveStatusColors();
-      applyStatusColors();
-      renderMainChart();
-      renderYearChart();
-      renderProjTable();
-    });
-  });
-  document.getElementById('colorReset').addEventListener('click', ()=>{
-    STATUS_COLORS = {...DEFAULT_STATUS_COLORS};
-    Object.entries(inputs).forEach(([status,id])=>{ document.getElementById(id).value = STATUS_COLORS[status]; });
-    saveStatusColors();
-    applyStatusColors();
-    renderMainChart();
-    renderYearChart();
-    renderProjTable();
-  });
-  applyStatusColors();
-}
+// Fixed colors for each project Status, used by every chart that breaks data out by
+// Secured/Anticipated/Possible.
+const STATUS_COLORS = { Secured:'#2563eb', Anticipated:'#d93025', Possible:'#9333ea' };
 
 const fmtMoney = v => '$' + Number(v).toLocaleString(undefined,{maximumFractionDigits:0});
 const fmtMoneyM = v => '$' + (Number(v)/1e6).toFixed(1) + 'M';
@@ -330,7 +276,7 @@ function getFilteredMonthIdx(){
 function getFilteredProjects(){
   const statusSel = statusMS.selected;
   const projSel = projectMS.selected;
-  return ER.projects.filter(p=>{
+  return getBaseProjects().filter(p=>{
     const sOk = statusSel.has(p.status);
     const pOk = projSel.has(p.code+'|'+p.client);
     return sOk && pOk;
@@ -359,6 +305,17 @@ function curveWeights(n, shape){
 
 const projectCurveOverrides = {}; // key -> shape, per-project projection curve (defaults to 'original')
 const projKey = p => p.code+'|'+p.client;
+
+// key -> 'Anticipated'|'Possible': lets a project be reclassified by clicking its Status badge in
+// the Project Backlog Summary table. Secured projects are never included here (not clickable).
+const projectStatusOverrides = {};
+
+function getBaseProjects(){
+  return ER.projects.map(p=>{
+    const override = projectStatusOverrides[projKey(p)];
+    return override ? {...p, status: override} : p;
+  });
+}
 
 function getEffectiveProjects(){
   return getFilteredProjects().map(p=>{
@@ -582,10 +539,13 @@ function renderProjTable(){
       ? `<select class="curve-override" data-key="${projKey(p)}">${CURVE_OPTIONS.map(([v,l])=>
           `<option value="${v}" ${v===currentVal?'selected':''}>${l}</option>`).join('')}</select>`
       : '<span style="color:var(--muted)">—</span>';
+    const statusCell = canOverride
+      ? `<span class="badge ${badge} badge-toggle" data-key="${projKey(p)}" data-status="${p.status}" title="Click to switch between Anticipated and Possible">${p.status}</span>`
+      : `<span class="badge ${badge}">${p.status}</span>`;
     return `<tr>
       <td>${p.code}</td>
       <td>${p.client}</td>
-      <td><span class="badge ${badge}">${p.status}</span></td>
+      <td>${statusCell}</td>
       <td>${projCell}</td>
       <td>${fmtMoney(p.tcv)}</td>
       <td>${fmtMoney(p.earned)}</td>
@@ -600,6 +560,14 @@ function renderProjTable(){
       const val = e.target.value;
       if(val==='original') delete projectCurveOverrides[key];
       else projectCurveOverrides[key] = val;
+      renderAll();
+    });
+  });
+
+  document.querySelectorAll('#projTable .badge-toggle').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const key = el.dataset.key;
+      projectStatusOverrides[key] = el.dataset.status === 'Anticipated' ? 'Possible' : 'Anticipated';
       renderAll();
     });
   });
@@ -693,7 +661,7 @@ function renderMonthlyTable(){
 
 function renderCaptions(){
   document.getElementById('mainChartCaption').textContent =
-    `See legend for Secured / Anticipated / Possible (colors adjustable above). Solid bars are Actuals (through ${LAST_ACTUAL_LABEL}); faded bars past the shaded divider are Forecast.`;
+    `Blue = Secured backlog. Red = Anticipated work. Purple = Possible work. Solid bars are Actuals (through ${LAST_ACTUAL_LABEL}); faded bars past the shaded divider are Forecast.`;
   document.getElementById('cumChartCaption').textContent =
     `Solid line = Actual to date (through ${LAST_ACTUAL_LABEL}). Dashed line past the shaded divider = Forecast.`;
 }
@@ -723,7 +691,6 @@ document.getElementById('darkToggle').addEventListener('click', ()=>{
 });
 
 populateFilters();
-initColorControls();
 renderAll();
 </script>
 </body>
