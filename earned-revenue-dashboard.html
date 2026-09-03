@@ -81,9 +81,10 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
     </div>
     <div>
       <label>Month</label>
-      <select id="monthFilter">
-        <option value="ALL">All Months</option>
-      </select>
+      <div class="ms" id="monthFilterMS">
+        <button type="button" class="ms-btn"></button>
+        <div class="ms-panel"></div>
+      </div>
     </div>
     <div>
       <label>Project Status</label>
@@ -253,14 +254,13 @@ function initMultiSelect(id, items, allLabel, onChange){
   return { selected };
 }
 
-let statusMS, projectMS;
+let statusMS, projectMS, monthMS;
 
 function populateFilters(){
   const ySel = document.getElementById('yearFilter');
   YEARS.forEach(y=>{ const o=document.createElement('option'); o.value=y; o.textContent=y; ySel.appendChild(o); });
 
-  const mSel = document.getElementById('monthFilter');
-  MONTHS.forEach(mo=>{ const o=document.createElement('option'); o.value=mo; o.textContent=mo; mSel.appendChild(o); });
+  monthMS = initMultiSelect('monthFilterMS', MONTHS.map(mo=>({value:mo, label:mo})), 'All Months', renderAll);
 
   statusMS = initMultiSelect('statusFilterMS', [
     {value:'Secured', label:'Secured'},
@@ -276,12 +276,12 @@ function populateFilters(){
 
 function getFilteredMonthIdx(){
   const year = document.getElementById('yearFilter').value;
-  const month = document.getElementById('monthFilter').value;
+  const monthSel = monthMS.selected;
   const period = document.getElementById('periodFilter').value;
   return ER.months.map((m,i)=>i).filter(i=>{
     const m = ER.months[i];
     const yOk = year==='ALL' || m.label.endsWith(year);
-    const moOk = month==='ALL' || m.label.startsWith(month + ' ');
+    const moOk = monthSel.has(m.label.split(' ')[0]);
     const pOk = period==='ALL' || m.type===period;
     return yOk && moOk && pOk;
   });
@@ -720,7 +720,7 @@ function renderAll(){
   renderMonthlyTable();
 }
 
-['yearFilter','monthFilter','periodFilter'].forEach(id=>
+['yearFilter','periodFilter'].forEach(id=>
   document.getElementById(id).addEventListener('change', renderAll));
 
 document.getElementById('darkToggle').addEventListener('click', ()=>{
