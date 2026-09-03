@@ -127,17 +127,19 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
     </div>
   </div>
 
-  <div class="panel">
-    <h2>Cumulative Earned Revenue</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="cumChartCaption">Solid line = Actual to date. Dashed line + shaded backdrop = Forecast.</p>
-    <canvas id="cumChart" height="160"></canvas>
-  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <h2>Cumulative Earned Revenue</h2>
+      <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="cumChartCaption">Solid line = Actual to date. Dashed line + shaded backdrop = Forecast.</p>
+      <canvas id="cumChart" height="160"></canvas>
+    </div>
 
-  <div class="panel">
-    <h2>Total Contract Value by Project</h2>
-    <div class="scroll-y">
-      <div style="position:relative;">
-        <canvas id="tcvChart"></canvas>
+    <div class="panel">
+      <h2>Total Contract Value by Project</h2>
+      <div class="scroll-y">
+        <div style="position:relative;">
+          <canvas id="tcvChart"></canvas>
+        </div>
       </div>
     </div>
   </div>
