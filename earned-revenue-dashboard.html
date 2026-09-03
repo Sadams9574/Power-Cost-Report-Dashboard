@@ -56,6 +56,11 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
 .color-ctl input[type="color"]{width:26px;height:24px;padding:0;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:none;}
 #colorReset{padding:6px 10px;font-size:11px;}
 .scroll-y{max-height:480px;overflow-y:auto;}
+#monthlyTableGroupHead th{position:static;font-size:10px;letter-spacing:.06em;padding:4px 9px;}
+#monthlyTableGroupHead th.grp-actual{color:var(--accent);text-align:right;}
+#monthlyTableGroupHead th.grp-forecast{color:var(--muted);text-align:left;}
+#monthlyTable td.col-forecast,#monthlyTable th.col-forecast{background:var(--bg);}
+#monthlyTable td.col-boundary,#monthlyTable th.col-boundary{border-left:2px dashed var(--border);}
 </style>
 </head>
 <body>
@@ -116,7 +121,10 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
     <canvas id="mainChart" height="100"></canvas>
     <div style="margin-top:14px;overflow-x:auto;">
     <table class="simple" id="monthlyTable" style="white-space:nowrap;">
-      <thead><tr id="monthlyTableHead"></tr></thead>
+      <thead>
+        <tr id="monthlyTableGroupHead"></tr>
+        <tr id="monthlyTableHead"></tr>
+      </thead>
       <tbody></tbody>
     </table>
     </div>
@@ -644,7 +652,28 @@ function renderMonthlyTable(){
   const fmtShort = v => '$' + Number(v).toLocaleString(undefined,{maximumFractionDigits:0});
   const dash = v => Math.round(v)===0 ? '-' : fmtShort(v);
 
-  const head = `<th>Metric</th>` + monthIdx.map(mi=>`<th>${ER.months[mi].label}</th>`).join('');
+  // Per-column Actual/Forecast class (matches the S-Curve Bands tab's row-3 labeling), plus a
+  // divider class on the first Forecast column so the split is obvious at a glance.
+  const boundaryPos = forecastBoundary(monthIdx);
+  const colClass = pos => {
+    const type = ER.months[monthIdx[pos]].type;
+    const cls = type === 'Forecast' ? 'col-forecast' : 'col-actual';
+    return pos === boundaryPos ? `${cls} col-boundary` : cls;
+  };
+
+  // Grouped ACTUAL / FORECAST header spanning consecutive same-type months.
+  const groups = [];
+  monthIdx.forEach(mi=>{
+    const type = ER.months[mi].type;
+    const last = groups[groups.length-1];
+    if(last && last.type===type) last.span++; else groups.push({type, span:1});
+  });
+  const groupHead = `<th></th>` + groups.map(g=>
+    `<th colspan="${g.span}" class="${g.type==='Actual'?'grp-actual':'grp-forecast'}">${g.type.toUpperCase()}</th>`
+  ).join('');
+  document.getElementById('monthlyTableGroupHead').innerHTML = groupHead;
+
+  const head = `<th>Metric</th>` + monthIdx.map((mi,pos)=>`<th class="${colClass(pos)}">${ER.months[mi].label}</th>`).join('');
   document.getElementById('monthlyTableHead').innerHTML = head;
 
   const rowDef = [
@@ -658,7 +687,7 @@ function renderMonthlyTable(){
 
   document.querySelector('#monthlyTable tbody').innerHTML = rowDef.map(([label, vals])=>{
     const strong = label==='Total' ? 'font-weight:700;border-top:2px solid var(--border)' : '';
-    return `<tr style="${strong}"><td style="font-weight:600">${label}</td>${vals.map(v=>`<td>${v}</td>`).join('')}</tr>`;
+    return `<tr style="${strong}"><td style="font-weight:600">${label}</td>${vals.map((v,pos)=>`<td class="${colClass(pos)}">${v}</td>`).join('')}</tr>`;
   }).join('');
 }
 
