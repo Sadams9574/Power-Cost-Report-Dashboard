@@ -401,6 +401,31 @@ const actualForecastBackdrop = {
   }
 };
 
+// Draws the cumulative $ value (abbreviated to millions) above each point on a line chart,
+// skipping labels that would collide so the chart itself never has to grow to fit them.
+const lineValueLabels = {
+  id: 'lineValueLabels',
+  afterDatasetsDraw(chart, args, opts){
+    const meta = chart.getDatasetMeta(0);
+    if(!meta || !meta.data || !meta.data.length) return;
+    const {ctx, chartArea:{left,right}} = chart;
+    ctx.save();
+    ctx.font = '10px Segoe UI, sans-serif';
+    ctx.fillStyle = opts.isDark ? 'rgba(255,255,255,0.75)' : 'rgba(15,23,42,0.75)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    let lastX = -Infinity;
+    const minGap = 44; // px — guarantees labels never overlap regardless of point count
+    meta.data.forEach((point, i)=>{
+      if(point.x < left || point.x > right) return;
+      if(point.x - lastX < minGap) return;
+      lastX = point.x;
+      ctx.fillText(fmtMoneyM(opts.values[i]), point.x, point.y - 6);
+    });
+    ctx.restore();
+  }
+};
+
 function renderMainChart(){
   const monthIdx = getFilteredMonthIdx();
   const projects = getEffectiveProjects();
@@ -461,14 +486,16 @@ function renderCumChart(){
       pointBackgroundColor: monthIdx.map(i => isActual(i) ? '#2563eb' : withAlpha('#2563eb', 0.5)),
     }] },
     options:{
+      layout:{ padding:{ top:18 } },
       plugins:{
         legend:{display:false},
         tooltip:{callbacks:{label:c=>`${fmtMoney(c.raw)} (${isActual(monthIdx[c.dataIndex])?'Actual':'Forecast'})`}},
-        actualForecastBackdrop:{boundary, isDark}
+        actualForecastBackdrop:{boundary, isDark},
+        lineValueLabels:{values:cum, isDark}
       },
       scales:{ x:{ticks:{maxRotation:90,minRotation:45}}, y:{ticks:{callback:v=>fmtMoneyM(v)}} }
     },
-    plugins:[actualForecastBackdrop]
+    plugins:[actualForecastBackdrop, lineValueLabels]
   });
 }
 
