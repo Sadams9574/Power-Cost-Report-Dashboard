@@ -80,6 +80,12 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
       </select>
     </div>
     <div>
+      <label>Month</label>
+      <select id="monthFilter">
+        <option value="ALL">All Months</option>
+      </select>
+    </div>
+    <div>
       <label>Project Status</label>
       <div class="ms" id="statusFilterMS">
         <button type="button" class="ms-btn"></button>
@@ -183,6 +189,9 @@ const fmtMoneyM = v => '$' + (Number(v)/1e6).toFixed(1) + 'M';
 const fmtPct = v => (v*100).toFixed(1) + '%';
 
 const YEARS = [...new Set(ER.months.map(m=>m.label.split(' ')[1]))];
+// Calendar-ordered month abbreviations, limited to the ones actually present in the data.
+const MONTH_ORDER = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTHS = MONTH_ORDER.filter(mo => ER.months.some(m => m.label.startsWith(mo + ' ')));
 
 // Last month labeled "Actual" in the S-Curve Bands data (the rest is Forecast).
 const LAST_ACTUAL_LABEL = ER.months.reduce((last,m)=> m.type==='Actual' ? m.label : last, null);
@@ -250,6 +259,9 @@ function populateFilters(){
   const ySel = document.getElementById('yearFilter');
   YEARS.forEach(y=>{ const o=document.createElement('option'); o.value=y; o.textContent=y; ySel.appendChild(o); });
 
+  const mSel = document.getElementById('monthFilter');
+  MONTHS.forEach(mo=>{ const o=document.createElement('option'); o.value=mo; o.textContent=mo; mSel.appendChild(o); });
+
   statusMS = initMultiSelect('statusFilterMS', [
     {value:'Secured', label:'Secured'},
     {value:'Anticipated', label:'Anticipated'},
@@ -264,12 +276,14 @@ function populateFilters(){
 
 function getFilteredMonthIdx(){
   const year = document.getElementById('yearFilter').value;
+  const month = document.getElementById('monthFilter').value;
   const period = document.getElementById('periodFilter').value;
   return ER.months.map((m,i)=>i).filter(i=>{
     const m = ER.months[i];
     const yOk = year==='ALL' || m.label.endsWith(year);
+    const moOk = month==='ALL' || m.label.startsWith(month + ' ');
     const pOk = period==='ALL' || m.type===period;
-    return yOk && pOk;
+    return yOk && moOk && pOk;
   });
 }
 
@@ -706,7 +720,7 @@ function renderAll(){
   renderMonthlyTable();
 }
 
-['yearFilter','periodFilter'].forEach(id=>
+['yearFilter','monthFilter','periodFilter'].forEach(id=>
   document.getElementById(id).addEventListener('change', renderAll));
 
 document.getElementById('darkToggle').addEventListener('click', ()=>{
