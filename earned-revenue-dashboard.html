@@ -651,6 +651,7 @@ function renderMonthlyTable(){
     ['Anticipated Work', anticipated.map(dash)],
     ['Secured Work', secured.map(dash)],
     ['Total', total.map(fmtShort)],
+    ['Cumulative', cum.map(fmtShort)],
   ];
 
   document.querySelector('#monthlyTable tbody').innerHTML = rowDef.map(([label, vals])=>{
