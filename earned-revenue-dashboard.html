@@ -1151,10 +1151,9 @@ function renderIndMonthlyTable(){
   const fmtHrs = v => Math.round(v).toLocaleString();
   const fmtWk = v => v.toFixed(1);
   const rowDef = [
-    ['Hours', monthIdx.map(i=>fmtHrs(IND.hours[i]))],
-    ['Workers', monthIdx.map(i=>fmtWk(IND.workers[i]))],
-    ['% Hours to Revenue', monthIdx.map(i=>fmtPct3(IND.pctHoursToRevenue[i]))],
-    ['Target Hours (Trend Model)', monthIdx.map(i=>fmtHrs(IND.targetHours[i]))],
+    ['Trend Model Hours', monthIdx.map(i=>fmtHrs(IND.hours[i]))],
+    ['Trend Model Workers', monthIdx.map(i=>fmtWk(IND.workers[i]))],
+    ['Trend Model %', monthIdx.map(i=>fmtPct3(IND.pctHoursToRevenue[i]))],
     ['Hours vs Target', monthIdx.map(i=>{
       const v = IND.hours[i]-IND.targetHours[i];
       if(Math.round(v)===0) return '-';
