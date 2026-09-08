@@ -55,25 +55,16 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
 .badge-toggle{cursor:pointer;border:1px solid transparent;}
 .badge-toggle:hover{filter:brightness(0.9);border-color:currentColor;}
 .scroll-y{max-height:480px;overflow-y:auto;}
-#monthlyTableGroupHead th{position:static;font-size:10px;letter-spacing:.06em;padding:4px 9px;}
-#monthlyTableGroupHead th.grp-actual{color:var(--accent);text-align:right;}
-#monthlyTableGroupHead th.grp-forecast{color:var(--muted);text-align:left;}
-#monthlyTable td.col-forecast,#monthlyTable th.col-forecast{background:var(--bg);}
-#monthlyTable td.col-boundary,#monthlyTable th.col-boundary{border-left:2px dashed var(--border);}
-#indMonthlyTableGroupHead th{position:static;font-size:10px;letter-spacing:.06em;padding:4px 9px;}
-#indMonthlyTableGroupHead th.grp-actual{color:var(--accent);text-align:right;}
-#indMonthlyTableGroupHead th.grp-forecast{color:var(--muted);text-align:left;}
-#indMonthlyTable td.col-forecast,#indMonthlyTable th.col-forecast,
-#indTeamTable td.col-forecast,#indTeamTable th.col-forecast,
-#indTrendTable td.col-forecast,#indTrendTable th.col-forecast{background:var(--bg);}
-#indMonthlyTable td.col-boundary,#indMonthlyTable th.col-boundary,
-#indTeamTable td.col-boundary,#indTeamTable th.col-boundary,
-#indTrendTable td.col-boundary,#indTrendTable th.col-boundary{border-left:2px dashed var(--border);}
-#indTrendTableGroupHead th{position:static;font-size:10px;letter-spacing:.06em;padding:4px 9px;}
-#indTrendTableGroupHead th.grp-actual{color:var(--accent);text-align:right;}
-#indTrendTableGroupHead th.grp-forecast{color:var(--muted);text-align:left;}
-#indTrendTable tr.group-sep td{padding:0;height:8px;border:none;background:var(--bg);}
-#indTrendTable tr.group-label td{padding:4px 9px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--bg);border-bottom:1px solid var(--border);text-align:left;}
+/* Shared Actual/Forecast column styling for every monthly data table (grp-head row, shaded
+   Forecast columns, dashed divider on the boundary column) — applied by class, so any table.simple
+   can opt in just by using these class names on its cells. */
+table.simple tr.grp-head th{position:static;font-size:10px;letter-spacing:.06em;padding:4px 9px;}
+table.simple tr.grp-head th.grp-actual{color:var(--accent);text-align:right;}
+table.simple tr.grp-head th.grp-forecast{color:var(--muted);text-align:left;}
+table.simple td.col-forecast,table.simple th.col-forecast{background:var(--bg);}
+table.simple td.col-boundary,table.simple th.col-boundary{border-left:2px dashed var(--border);}
+table.simple tr.group-sep td{padding:0;height:8px;border:none;background:var(--bg);}
+table.simple tr.group-label td{padding:4px 9px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--bg);border-bottom:1px solid var(--border);text-align:left;}
 .tabs{display:flex;gap:4px;padding:10px 24px 0;background:var(--panel);position:sticky;top:64px;z-index:40;border-bottom:1px solid var(--border);}
 .tab-btn{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;}
 .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
@@ -102,9 +93,10 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
   <div class="filters">
     <div>
       <label>Year</label>
-      <select id="yearFilter">
-        <option value="ALL">All Years</option>
-      </select>
+      <div class="ms" id="yearFilterMS">
+        <button type="button" class="ms-btn"></button>
+        <div class="ms-panel"></div>
+      </div>
     </div>
     <div>
       <label>Month</label>
@@ -146,7 +138,7 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
     <div style="margin-top:14px;overflow-x:auto;">
     <table class="simple" id="monthlyTable" style="white-space:nowrap;">
       <thead>
-        <tr id="monthlyTableGroupHead"></tr>
+        <tr id="monthlyTableGroupHead" class="grp-head"></tr>
         <tr id="monthlyTableHead"></tr>
       </thead>
       <tbody></tbody>
@@ -159,6 +151,15 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
       <h2>Cumulative Earned Revenue</h2>
       <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="cumChartCaption">Solid line = Actual to date. Dashed line + shaded backdrop = Forecast.</p>
       <canvas id="cumChart" height="160"></canvas>
+      <div style="margin-top:14px;overflow-x:auto;">
+      <table class="simple" id="cumTable" style="white-space:nowrap;">
+        <thead>
+          <tr id="cumTableGroupHead" class="grp-head"></tr>
+          <tr id="cumTableHead"></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      </div>
     </div>
 
     <div class="panel">
@@ -167,6 +168,12 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
         <div style="position:relative;">
           <canvas id="tcvChart"></canvas>
         </div>
+      </div>
+      <div style="margin-top:14px;overflow-x:auto;" class="scroll-y">
+        <table class="simple" id="tcvTable" style="white-space:nowrap;">
+          <thead><tr><th>Project</th><th>Earned to Date</th><th>Backlog</th></tr></thead>
+          <tbody></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -198,9 +205,10 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
   <div class="filters">
     <div>
       <label>Year</label>
-      <select id="indYearFilter">
-        <option value="ALL">All Years</option>
-      </select>
+      <div class="ms" id="indYearFilterMS">
+        <button type="button" class="ms-btn"></button>
+        <div class="ms-panel"></div>
+      </div>
     </div>
     <div>
       <label>Month</label>
@@ -226,7 +234,7 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
     <div style="overflow-x:auto;">
     <table class="simple" id="indMonthlyTable" style="white-space:nowrap;">
       <thead>
-        <tr id="indMonthlyTableGroupHead"></tr>
+        <tr id="indMonthlyTableGroupHead" class="grp-head"></tr>
         <tr id="indMonthlyTableHead"></tr>
       </thead>
       <tbody></tbody>
@@ -238,18 +246,45 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
     <h2>Target Hours (Trend Model) vs. Forecast Input Hours</h2>
     <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="indHoursChartCaption">Solid = what the trend model says Hours should be. Dots = the staffing plan actually entered (Team Staffing Plan below) — blank where no plan is entered yet.</p>
     <canvas id="indHoursChart" height="90"></canvas>
+    <div style="margin-top:14px;overflow-x:auto;">
+    <table class="simple" id="indHoursTable" style="white-space:nowrap;">
+      <thead>
+        <tr id="indHoursTableGroupHead" class="grp-head"></tr>
+        <tr id="indHoursTableHead"></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    </div>
   </div>
 
   <div class="panel">
     <h2>Actual % vs. Forecast Input %</h2>
     <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="indPctChartCaption">Solid = Actual Hours as a % of Revenue (3 decimals). Dots = the staffing plan's % — blank where no plan is entered yet.</p>
     <canvas id="indPctChart" height="90"></canvas>
+    <div style="margin-top:14px;overflow-x:auto;">
+    <table class="simple" id="indPctTable" style="white-space:nowrap;">
+      <thead>
+        <tr id="indPctTableGroupHead" class="grp-head"></tr>
+        <tr id="indPctTableHead"></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    </div>
   </div>
 
   <div class="panel">
     <h2>Target Workers (Trend Model) vs. Manpower Input</h2>
     <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="indWorkersChartCaption">Solid = what the trend model says Workers should be. Dots = the staffing plan's manpower input — blank where no plan is entered yet.</p>
     <canvas id="indWorkersChart" height="90"></canvas>
+    <div style="margin-top:14px;overflow-x:auto;">
+    <table class="simple" id="indWorkersTable" style="white-space:nowrap;">
+      <thead>
+        <tr id="indWorkersTableGroupHead" class="grp-head"></tr>
+        <tr id="indWorkersTableHead"></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    </div>
   </div>
 
   <div class="panel">
@@ -258,7 +293,7 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
     <div style="overflow-x:auto;">
     <table class="simple" id="indTrendTable" style="white-space:nowrap;">
       <thead>
-        <tr id="indTrendTableGroupHead"></tr>
+        <tr id="indTrendTableGroupHead" class="grp-head"></tr>
         <tr id="indTrendTableHead"></tr>
       </thead>
       <tbody></tbody>
@@ -376,11 +411,10 @@ function initMultiSelect(id, items, allLabel, onChange){
   return { selected };
 }
 
-let statusMS, projectMS, monthMS;
+let statusMS, projectMS, monthMS, yearMS;
 
 function populateFilters(){
-  const ySel = document.getElementById('yearFilter');
-  YEARS.forEach(y=>{ const o=document.createElement('option'); o.value=y; o.textContent=y; ySel.appendChild(o); });
+  yearMS = initMultiSelect('yearFilterMS', YEARS.map(y=>({value:y, label:y})), 'All Years', renderAll);
 
   monthMS = initMultiSelect('monthFilterMS', MONTHS.map(mo=>({value:mo, label:mo})), 'All Months', renderAll);
 
@@ -397,12 +431,12 @@ function populateFilters(){
 }
 
 function getFilteredMonthIdx(){
-  const year = document.getElementById('yearFilter').value;
+  const yearSel = yearMS.selected;
   const monthSel = monthMS.selected;
   const period = document.getElementById('periodFilter').value;
   return ER.months.map((m,i)=>i).filter(i=>{
     const m = ER.months[i];
-    const yOk = year==='ALL' || m.label.endsWith(year);
+    const yOk = yearSel.has(m.label.split(' ')[1]);
     const moOk = monthSel.has(m.label.split(' ')[0]);
     const pOk = period==='ALL' || m.type===period;
     return yOk && moOk && pOk;
@@ -636,6 +670,43 @@ function renderCumChart(){
   });
 }
 
+// A single "Cumulative" row attached directly under the Cumulative Earned Revenue chart, so its
+// exact plotted values are readable as numbers, not just points on a line.
+function renderCumTable(){
+  const monthIdx = getFilteredMonthIdx();
+  const projects = getEffectiveProjects();
+  const isActual = i => ER.months[i].type === 'Actual';
+  const boundaryPos = forecastBoundary(monthIdx);
+  const colClass = pos => {
+    const cls = isActual(monthIdx[pos]) ? 'col-actual' : 'col-forecast';
+    return pos === boundaryPos ? `${cls} col-boundary` : cls;
+  };
+
+  let running = 0;
+  const cum = monthIdx.map(i=>{
+    running += projects.reduce((s,p)=>s+p.monthly[i],0);
+    return running;
+  });
+
+  const groups = [];
+  monthIdx.forEach(mi=>{
+    const type = ER.months[mi].type;
+    const last = groups[groups.length-1];
+    if(last && last.type===type) last.span++; else groups.push({type, span:1});
+  });
+  const groupHead = `<th></th>` + groups.map(g=>
+    `<th colspan="${g.span}" class="${g.type==='Actual'?'grp-actual':'grp-forecast'}">${g.type.toUpperCase()}</th>`
+  ).join('');
+  document.getElementById('cumTableGroupHead').innerHTML = groupHead;
+
+  const head = `<th>Metric</th>` + monthIdx.map((mi,pos)=>`<th class="${colClass(pos)}">${ER.months[mi].label}</th>`).join('');
+  document.getElementById('cumTableHead').innerHTML = head;
+
+  const fmtShort = v => '$' + Number(v).toLocaleString(undefined,{maximumFractionDigits:0});
+  document.querySelector('#cumTable tbody').innerHTML =
+    `<tr><td style="font-weight:600">Cumulative</td>${cum.map((v,pos)=>`<td class="${colClass(pos)}">${fmtShort(v)}</td>`).join('')}</tr>`;
+}
+
 function renderTcvChart(){
   const projects = [...getFilteredProjects()].sort((a,b)=>b.tcv-a.tcv);
   const ctx = document.getElementById('tcvChart');
@@ -657,6 +728,14 @@ function renderTcvChart(){
       scales:{ x:{stacked:true, ticks:{callback:v=>fmtMoneyM(v)}}, y:{stacked:true, ticks:{autoSkip:false}} }
     }
   });
+}
+
+// The exact Earned-to-Date/Backlog values behind the tcvChart bars, same sort order.
+function renderTcvTable(){
+  const projects = [...getFilteredProjects()].sort((a,b)=>b.tcv-a.tcv);
+  document.querySelector('#tcvTable tbody').innerHTML = projects.map(p=>
+    `<tr><td>${p.code} ${p.client}</td><td>${fmtMoney(p.earned)}</td><td>${fmtMoney(p.backlog)}</td></tr>`
+  ).join('');
 }
 
 function renderYearChart(){
@@ -838,7 +917,9 @@ function renderAll(){
   renderKpis();
   renderMainChart();
   renderCumChart();
+  renderCumTable();
   renderTcvChart();
+  renderTcvTable();
   renderYearChart();
   renderYearTable();
   renderProjTable();
@@ -847,7 +928,7 @@ function renderAll(){
 
 // ===================== Indirects tab =====================
 
-let indMonthMS;
+let indMonthMS, indYearMS;
 const IND_MONTHS_PRESENT = MONTH_ORDER.filter(mo => IND.months.some(m => m.label.startsWith(mo + ' ')));
 
 // Last month labeled "Actual" in the Indirects data (the rest is trend-model Forecast).
@@ -857,20 +938,19 @@ const IND_LAST_ACTUAL_LABEL = IND_LAST_ACTUAL_IDX>=0 ? IND.months[IND_LAST_ACTUA
 let indCharts = {};
 
 function populateIndirectsFilters(){
-  const ySel = document.getElementById('indYearFilter');
   const years = [...new Set(IND.months.map(m=>m.label.split(' ')[1]))];
-  years.forEach(y=>{ const o=document.createElement('option'); o.value=y; o.textContent=y; ySel.appendChild(o); });
+  indYearMS = initMultiSelect('indYearFilterMS', years.map(y=>({value:y, label:y})), 'All Years', renderIndirectsAll);
 
   indMonthMS = initMultiSelect('indMonthFilterMS', IND_MONTHS_PRESENT.map(mo=>({value:mo, label:mo})), 'All Months', renderIndirectsAll);
 }
 
 function getIndFilteredMonthIdx(){
-  const year = document.getElementById('indYearFilter').value;
+  const yearSel = indYearMS.selected;
   const monthSel = indMonthMS.selected;
   const period = document.getElementById('indPeriodFilter').value;
   return IND.months.map((m,i)=>i).filter(i=>{
     const m = IND.months[i];
-    const yOk = year==='ALL' || m.label.endsWith(year);
+    const yOk = yearSel.has(m.label.split(' ')[1]);
     const moOk = monthSel.has(m.label.split(' ')[0]);
     const pOk = period==='ALL' || m.type===period;
     return yOk && moOk && pOk;
@@ -984,6 +1064,64 @@ function renderIndWorkersChart(){
     targetColor:'#9333ea', inputColor:'#d93025',
     tooltipFmt: v => v.toFixed(1),
     tickFmt: v => v.toFixed(0),
+  });
+}
+
+// The exact values behind an indCompareChart, as a table directly under it (grouped
+// ACTUAL/FORECAST header, same column shading as the other Indirects tables).
+function renderIndCompareTable(tableId, {targetVals, inputVals, targetLabel, inputLabel, fmtTarget, fmtInput}){
+  const monthIdx = getIndFilteredMonthIdx();
+  const isActual = i => IND.months[i].type === 'Actual';
+  const boundaryPos = indForecastBoundary(monthIdx);
+  const colClass = pos => {
+    const cls = isActual(monthIdx[pos]) ? 'col-actual' : 'col-forecast';
+    return pos === boundaryPos ? `${cls} col-boundary` : cls;
+  };
+
+  const groups = [];
+  monthIdx.forEach(mi=>{
+    const type = IND.months[mi].type;
+    const last = groups[groups.length-1];
+    if(last && last.type===type) last.span++; else groups.push({type, span:1});
+  });
+  const groupHead = `<th></th>` + groups.map(g=>
+    `<th colspan="${g.span}" class="${g.type==='Actual'?'grp-actual':'grp-forecast'}">${g.type.toUpperCase()}</th>`
+  ).join('');
+  document.getElementById(`${tableId}GroupHead`).innerHTML = groupHead;
+
+  const head = `<th>Metric</th>` + monthIdx.map((mi,pos)=>`<th class="${colClass(pos)}">${IND.months[mi].label}</th>`).join('');
+  document.getElementById(`${tableId}Head`).innerHTML = head;
+
+  const rowDef = [
+    [targetLabel, monthIdx.map(i=>fmtTarget(targetVals[i]))],
+    [inputLabel, monthIdx.map(i=>inputVals[i] ? fmtInput(inputVals[i]) : '-')],
+  ];
+  document.querySelector(`#${tableId} tbody`).innerHTML = rowDef.map(([label, vals])=>
+    `<tr><td style="font-weight:600">${label}</td>${vals.map((v,pos)=>`<td class="${colClass(pos)}">${v}</td>`).join('')}</tr>`
+  ).join('');
+}
+
+function renderIndHoursTable(){
+  renderIndCompareTable('indHoursTable', {
+    targetVals: IND.targetHours, inputVals: IND.totalTeamHours,
+    targetLabel:'Target Hours (Trend Model)', inputLabel:'Forecast Input Hours',
+    fmtTarget: v => Math.round(v).toLocaleString(), fmtInput: v => Math.round(v).toLocaleString(),
+  });
+}
+
+function renderIndPctTable(){
+  renderIndCompareTable('indPctTable', {
+    targetVals: IND.pctHoursToRevenue, inputVals: IND.forecastInputPct,
+    targetLabel:'Actual %', inputLabel:'Forecast Input %',
+    fmtTarget: fmtPct3, fmtInput: fmtPct3,
+  });
+}
+
+function renderIndWorkersTable(){
+  renderIndCompareTable('indWorkersTable', {
+    targetVals: IND.targetWorkers, inputVals: IND.totalTeamWorkers,
+    targetLabel:'Target Workers (Trend Model)', inputLabel:'Manpower Input',
+    fmtTarget: v => v.toFixed(1), fmtInput: v => v.toFixed(1),
   });
 }
 
@@ -1140,14 +1278,17 @@ function renderIndirectsAll(){
   renderIndKpis();
   renderIndMonthlyTable();
   renderIndHoursChart();
+  renderIndHoursTable();
   renderIndPctChart();
+  renderIndPctTable();
   renderIndWorkersChart();
+  renderIndWorkersTable();
   renderIndTrendTable();
   renderIndTeamTable();
   renderIndModelNotes();
 }
 
-['indYearFilter','indPeriodFilter'].forEach(id=>
+['indPeriodFilter'].forEach(id=>
   document.getElementById(id).addEventListener('change', renderIndirectsAll));
 
 let activeTab = 'earned';
@@ -1161,7 +1302,7 @@ function switchTab(tab){
 }
 document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click', ()=>switchTab(b.dataset.tab)));
 
-['yearFilter','periodFilter'].forEach(id=>
+['periodFilter'].forEach(id=>
   document.getElementById(id).addEventListener('change', renderAll));
 
 document.getElementById('darkToggle').addEventListener('click', ()=>{
