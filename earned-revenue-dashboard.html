@@ -65,6 +65,8 @@ table.simple td.col-forecast,table.simple th.col-forecast{background:var(--bg);}
 table.simple td.col-boundary,table.simple th.col-boundary{border-left:2px dashed var(--border);}
 table.simple tr.group-sep td{padding:0;height:8px;border:none;background:var(--bg);}
 table.simple tr.group-label td{padding:4px 9px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--bg);border-bottom:1px solid var(--border);text-align:left;}
+.trend-row-label{display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:600;white-space:nowrap;}
+.trend-row-label input[type="checkbox"]{accent-color:var(--accent);width:14px;height:14px;cursor:pointer;flex:none;}
 .tabs{display:flex;gap:4px;padding:10px 24px 0;background:var(--panel);position:sticky;top:64px;z-index:40;border-bottom:1px solid var(--border);}
 .tab-btn{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;}
 .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
@@ -243,53 +245,14 @@ table.simple tr.group-label td{padding:4px 9px;font-size:10px;letter-spacing:.06
   </div>
 
   <div class="panel">
-    <h2>Target Hours (Trend Model) vs. Forecast Input Hours</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="indHoursChartCaption">Solid = what the trend model says Hours should be. Dots = the staffing plan actually entered (Team Staffing Plan below) — blank where no plan is entered yet.</p>
-    <canvas id="indHoursChart" height="90"></canvas>
-    <div style="margin-top:14px;overflow-x:auto;">
-    <table class="simple" id="indHoursTable" style="white-space:nowrap;">
-      <thead>
-        <tr id="indHoursTableGroupHead" class="grp-head"></tr>
-        <tr id="indHoursTableHead"></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h2>Actual % vs. Forecast Input %</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="indPctChartCaption">Solid = Actual Hours as a % of Revenue (3 decimals). Dots = the staffing plan's % — blank where no plan is entered yet.</p>
-    <canvas id="indPctChart" height="90"></canvas>
-    <div style="margin-top:14px;overflow-x:auto;">
-    <table class="simple" id="indPctTable" style="white-space:nowrap;">
-      <thead>
-        <tr id="indPctTableGroupHead" class="grp-head"></tr>
-        <tr id="indPctTableHead"></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h2>Target Workers (Trend Model) vs. Manpower Input</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="indWorkersChartCaption">Solid = what the trend model says Workers should be. Dots = the staffing plan's manpower input — blank where no plan is entered yet.</p>
-    <canvas id="indWorkersChart" height="90"></canvas>
-    <div style="margin-top:14px;overflow-x:auto;">
-    <table class="simple" id="indWorkersTable" style="white-space:nowrap;">
-      <thead>
-        <tr id="indWorkersTableGroupHead" class="grp-head"></tr>
-        <tr id="indWorkersTableHead"></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    </div>
+    <h2>Trend Model Comparison</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Check any row(s) in the Trend Model vs. Staffing Plan table below to plot them here — mix Hours, %, and Workers rows freely.</p>
+    <canvas id="indTrendChart" height="110"></canvas>
   </div>
 
   <div class="panel">
     <h2>Trend Model vs. Staffing Plan</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px">What the trend model recommends vs. the staffing plan actually entered, for Hours, %, and Workers.</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">What the trend model recommends vs. the staffing plan actually entered, for Hours, %, and Workers. Check a row to plot it on the chart above.</p>
     <div style="overflow-x:auto;">
     <table class="simple" id="indTrendTable" style="white-space:nowrap;">
       <thead>
@@ -993,138 +956,6 @@ function renderIndKpis(){
 // literal 0, so the comparison line only shows where a plan actually exists.
 const zeroToNull = arr => arr.map(v => v ? v : null);
 
-// A two-line "Trend Model target vs what was actually input" chart, shared by the Hours/%/Workers
-// comparison charts below. targetVals is always plotted as a solid line; inputVals (already run
-// through zeroToNull) only shows points/segments where a plan was actually entered.
-function renderIndCompareChart(canvasId, chartKey, {targetVals, inputVals, targetLabel, inputLabel, targetColor, inputColor, tooltipFmt, tickFmt}){
-  const monthIdx = getIndFilteredMonthIdx();
-  const labels = monthIdx.map(i=>IND.months[i].label);
-  const isActual = i => IND.months[i].type === 'Actual';
-  const boundary = indForecastBoundary(monthIdx);
-  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
-
-  const targetData = monthIdx.map(i=>targetVals[i]);
-  const inputData = monthIdx.map(i=>inputVals[i]);
-
-  const ctx = document.getElementById(canvasId);
-  if(indCharts[chartKey]) indCharts[chartKey].destroy();
-  indCharts[chartKey] = new Chart(ctx,{
-    type:'line',
-    data:{ labels, datasets:[
-      { label:targetLabel, data:targetData, borderColor:targetColor, backgroundColor:withAlpha(targetColor,0.12), fill:true, tension:.25,
-        segment:{ borderDash: c => isActual(monthIdx[c.p0DataIndex]) ? undefined : [6,4] },
-        pointRadius:2,
-        pointBackgroundColor: monthIdx.map(i=> isActual(i) ? targetColor : withAlpha(targetColor,0.5)) },
-      { label:inputLabel, data:inputData, borderColor:inputColor, backgroundColor:inputColor, borderDash:[3,3], spanGaps:false,
-        pointRadius:4, pointStyle:'circle', showLine:false },
-    ] },
-    options:{
-      plugins:{
-        legend:{position:'top'},
-        tooltip:{callbacks:{label:c=>{
-          if(c.raw==null) return undefined;
-          const type = isActual(monthIdx[c.dataIndex]) ? 'Actual' : 'Forecast';
-          return `${c.dataset.label}: ${tooltipFmt(c.raw)} (${type})`;
-        }}},
-        actualForecastBackdrop:{boundary, isDark}
-      },
-      scales:{
-        x:{ticks:{maxRotation:90,minRotation:45}},
-        y:{ticks:{callback:tickFmt}}
-      }
-    },
-    plugins:[actualForecastBackdrop]
-  });
-}
-
-function renderIndHoursChart(){
-  renderIndCompareChart('indHoursChart', 'hours', {
-    targetVals: IND.targetHours, inputVals: zeroToNull(IND.totalTeamHours),
-    targetLabel:'Target Hours (Trend Model)', inputLabel:'Forecast Input Hours',
-    targetColor:'#2563eb', inputColor:'#d93025',
-    tooltipFmt: v => Math.round(v).toLocaleString(),
-    tickFmt: v => Math.round(v).toLocaleString(),
-  });
-}
-
-function renderIndPctChart(){
-  renderIndCompareChart('indPctChart', 'pct', {
-    targetVals: IND.pctHoursToRevenue, inputVals: zeroToNull(IND.forecastInputPct),
-    targetLabel:'Actual %', inputLabel:'Forecast Input %',
-    targetColor:'#0f9d58', inputColor:'#d93025',
-    tooltipFmt: fmtPct3,
-    tickFmt: v => fmtPct3(v),
-  });
-}
-
-function renderIndWorkersChart(){
-  renderIndCompareChart('indWorkersChart', 'workers', {
-    targetVals: IND.targetWorkers, inputVals: zeroToNull(IND.totalTeamWorkers),
-    targetLabel:'Target Workers (Trend Model)', inputLabel:'Manpower Input',
-    targetColor:'#9333ea', inputColor:'#d93025',
-    tooltipFmt: v => v.toFixed(1),
-    tickFmt: v => v.toFixed(0),
-  });
-}
-
-// The exact values behind an indCompareChart, as a table directly under it (grouped
-// ACTUAL/FORECAST header, same column shading as the other Indirects tables).
-function renderIndCompareTable(tableId, {targetVals, inputVals, targetLabel, inputLabel, fmtTarget, fmtInput}){
-  const monthIdx = getIndFilteredMonthIdx();
-  const isActual = i => IND.months[i].type === 'Actual';
-  const boundaryPos = indForecastBoundary(monthIdx);
-  const colClass = pos => {
-    const cls = isActual(monthIdx[pos]) ? 'col-actual' : 'col-forecast';
-    return pos === boundaryPos ? `${cls} col-boundary` : cls;
-  };
-
-  const groups = [];
-  monthIdx.forEach(mi=>{
-    const type = IND.months[mi].type;
-    const last = groups[groups.length-1];
-    if(last && last.type===type) last.span++; else groups.push({type, span:1});
-  });
-  const groupHead = `<th></th>` + groups.map(g=>
-    `<th colspan="${g.span}" class="${g.type==='Actual'?'grp-actual':'grp-forecast'}">${g.type.toUpperCase()}</th>`
-  ).join('');
-  document.getElementById(`${tableId}GroupHead`).innerHTML = groupHead;
-
-  const head = `<th>Metric</th>` + monthIdx.map((mi,pos)=>`<th class="${colClass(pos)}">${IND.months[mi].label}</th>`).join('');
-  document.getElementById(`${tableId}Head`).innerHTML = head;
-
-  const rowDef = [
-    [targetLabel, monthIdx.map(i=>fmtTarget(targetVals[i]))],
-    [inputLabel, monthIdx.map(i=>inputVals[i] ? fmtInput(inputVals[i]) : '-')],
-  ];
-  document.querySelector(`#${tableId} tbody`).innerHTML = rowDef.map(([label, vals])=>
-    `<tr><td style="font-weight:600">${label}</td>${vals.map((v,pos)=>`<td class="${colClass(pos)}">${v}</td>`).join('')}</tr>`
-  ).join('');
-}
-
-function renderIndHoursTable(){
-  renderIndCompareTable('indHoursTable', {
-    targetVals: IND.targetHours, inputVals: IND.totalTeamHours,
-    targetLabel:'Target Hours (Trend Model)', inputLabel:'Forecast Input Hours',
-    fmtTarget: v => Math.round(v).toLocaleString(), fmtInput: v => Math.round(v).toLocaleString(),
-  });
-}
-
-function renderIndPctTable(){
-  renderIndCompareTable('indPctTable', {
-    targetVals: IND.pctHoursToRevenue, inputVals: IND.forecastInputPct,
-    targetLabel:'Actual %', inputLabel:'Forecast Input %',
-    fmtTarget: fmtPct3, fmtInput: fmtPct3,
-  });
-}
-
-function renderIndWorkersTable(){
-  renderIndCompareTable('indWorkersTable', {
-    targetVals: IND.targetWorkers, inputVals: IND.totalTeamWorkers,
-    targetLabel:'Target Workers (Trend Model)', inputLabel:'Manpower Input',
-    fmtTarget: v => v.toFixed(1), fmtInput: v => v.toFixed(1),
-  });
-}
-
 function renderIndMonthlyTable(){
   const monthIdx = getIndFilteredMonthIdx();
   const isActual = i => IND.months[i].type === 'Actual';
@@ -1199,6 +1030,91 @@ function fmtOverage(v, fmt){
   return v>0 ? `+${s}` : `-${s}`;
 }
 
+// The 9 rows of the Trend Model vs. Staffing Plan table, each pluckable onto the single
+// Trend Model Comparison chart. "role" drives color (target/actual = per-unit color, input =
+// red, overage = amber); "sparse" rows are 0 wherever no plan was entered, so the chart renders
+// those as dots only (via zeroToNull), never a misleading zero-value line segment.
+const IND_TREND_ROWS = [
+  { key:'targetHours', block:'Hours', label:'Target Hours Needed (Trend Model)', unit:'hours', role:'target', sparse:false, values: IND.targetHours },
+  { key:'inputHours', block:'Hours', label:'Forecast Input Hours', unit:'hours', role:'input', sparse:true, values: IND.totalTeamHours },
+  { key:'overageHours', block:'Hours', label:'Forecast Input Hours Overage/(Shortfall) vs Trend Model', unit:'hours', role:'overage', sparse:true, values: IND.forecastInputHoursOverage },
+  { key:'actualPct', block:'%', label:'Actual %', unit:'pct', role:'target', sparse:false, values: IND.pctHoursToRevenue },
+  { key:'inputPct', block:'%', label:'Forecast Input %', unit:'pct', role:'input', sparse:true, values: IND.forecastInputPct },
+  { key:'overagePct', block:'%', label:'Forecast Input % Overage/(Shortfall) vs Trend Model %', unit:'pct', role:'overage', sparse:true, values: IND.forecastInputPctOverage },
+  { key:'targetWorkers', block:'Workers', label:'Target Workers Needed (Trend Model)', unit:'workers', role:'target', sparse:false, values: IND.targetWorkers },
+  { key:'inputWorkers', block:'Workers', label:'Manpower Input', unit:'workers', role:'input', sparse:true, values: IND.totalTeamWorkers },
+  { key:'varianceWorkers', block:'Workers', label:'Staffing Plan vs Trend Model — Variance (Workers)', unit:'workers', role:'overage', sparse:true, values: IND.varianceWorkers },
+];
+const IND_UNIT_META = {
+  hours: { axisLabel:'Hours', fmt: v => Math.round(v).toLocaleString() },
+  pct: { axisLabel:'%', fmt: fmtPct3 },
+  workers: { axisLabel:'Workers', fmt: v => v.toFixed(1) },
+};
+const IND_UNIT_COLOR = { hours:'#2563eb', pct:'#0f9d58', workers:'#9333ea' };
+const IND_ROLE_COLOR = { input:'#d93025', overage:'#f59e0b' };
+const indRowColor = row => row.role==='target' ? IND_UNIT_COLOR[row.unit] : IND_ROLE_COLOR[row.role];
+
+// Which rows are currently plotted on the Trend Model Comparison chart — starts with one
+// representative "target" row per block, toggled via the checkboxes in the table below.
+let indTrendSelected = new Set(['targetHours','actualPct','targetWorkers']);
+
+function renderIndTrendChart(){
+  const monthIdx = getIndFilteredMonthIdx();
+  const labels = monthIdx.map(i=>IND.months[i].label);
+  const isActual = i => IND.months[i].type === 'Actual';
+  const boundary = indForecastBoundary(monthIdx);
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+
+  const selectedRows = IND_TREND_ROWS.filter(r=>indTrendSelected.has(r.key));
+  const unitsUsed = [...new Set(selectedRows.map(r=>r.unit))];
+  const positions = ['left','right','right'];
+  const scales = { x:{ ticks:{maxRotation:90,minRotation:45} } };
+  unitsUsed.forEach((u,idx)=>{
+    scales['y_'+u] = {
+      position: positions[idx] || 'right',
+      title:{display:true, text:IND_UNIT_META[u].axisLabel},
+      ticks:{callback:IND_UNIT_META[u].fmt},
+      grid:{drawOnChartArea: idx===0},
+    };
+  });
+
+  const datasets = selectedRows.map(row=>{
+    const color = indRowColor(row);
+    const data = monthIdx.map(i=>row.values[i]);
+    if(row.sparse){
+      return { label:row.label, data:zeroToNull(data), yAxisID:'y_'+row.unit,
+        borderColor:color, backgroundColor:color, borderDash:[3,3], spanGaps:false,
+        pointRadius:4, pointStyle:'circle', showLine:false };
+    }
+    return { label:row.label, data, yAxisID:'y_'+row.unit,
+      borderColor:color, backgroundColor:withAlpha(color,0.10), fill:false, tension:.25,
+      segment:{ borderDash: c => isActual(monthIdx[c.p0DataIndex]) ? undefined : [6,4] },
+      pointRadius:2,
+      pointBackgroundColor: monthIdx.map(i=> isActual(i) ? color : withAlpha(color,0.5)) };
+  });
+
+  const ctx = document.getElementById('indTrendChart');
+  if(indCharts.trend) indCharts.trend.destroy();
+  indCharts.trend = new Chart(ctx,{
+    type:'line',
+    data:{ labels, datasets },
+    options:{
+      plugins:{
+        legend:{position:'top'},
+        tooltip:{callbacks:{label:c=>{
+          if(c.raw==null) return undefined;
+          const row = selectedRows[c.datasetIndex];
+          const type = isActual(monthIdx[c.dataIndex]) ? 'Actual' : 'Forecast';
+          return `${row.label}: ${IND_UNIT_META[row.unit].fmt(c.raw)} (${type})`;
+        }}},
+        actualForecastBackdrop:{boundary, isDark}
+      },
+      scales
+    },
+    plugins:[actualForecastBackdrop]
+  });
+}
+
 function renderIndTrendTable(){
   const monthIdx = getIndFilteredMonthIdx();
   const isActual = i => IND.months[i].type === 'Actual';
@@ -1222,40 +1138,34 @@ function renderIndTrendTable(){
   const head = `<th>Metric</th>` + monthIdx.map((mi,pos)=>`<th class="${colClass(pos)}">${IND.months[mi].label}</th>`).join('');
   document.getElementById('indTrendTableHead').innerHTML = head;
 
-  const fmtHrs = v => Math.round(v).toLocaleString();
-  const fmtWk = v => v.toFixed(1);
   const ncols = monthIdx.length + 1;
-
-  // Three blocks — Hours, %, Workers — each: Trend Model target, what was actually planned/input,
-  // and the Overage/(Shortfall) between them. A blank separator row + uppercase label sets each
-  // block apart so it reads easily left to right.
-  const blocks = [
-    { label: 'Hours', rows: [
-      ['Target Hours Needed (Trend Model)', monthIdx.map(i=>fmtHrs(IND.targetHours[i]))],
-      ['Forecast Input Hours', monthIdx.map(i=>IND.totalTeamHours[i] ? fmtHrs(IND.totalTeamHours[i]) : '-')],
-      ['Forecast Input Hours Overage/(Shortfall) vs Trend Model', monthIdx.map(i=>fmtOverage(IND.forecastInputHoursOverage[i], fmtHrs))],
-    ]},
-    { label: '%', rows: [
-      ['Actual %', monthIdx.map(i=>fmtPct3(IND.pctHoursToRevenue[i]))],
-      ['Forecast Input %', monthIdx.map(i=>IND.forecastInputPct[i] ? fmtPct3(IND.forecastInputPct[i]) : '-')],
-      ['Forecast Input % Overage/(Shortfall) vs Trend Model %', monthIdx.map(i=>fmtOverage(IND.forecastInputPctOverage[i], fmtPct3))],
-    ]},
-    { label: 'Workers', rows: [
-      ['Target Workers Needed (Trend Model)', monthIdx.map(i=>fmtWk(IND.targetWorkers[i]))],
-      ['Manpower Input', monthIdx.map(i=>IND.totalTeamWorkers[i] ? fmtWk(IND.totalTeamWorkers[i]) : '-')],
-      ['Staffing Plan vs Trend Model — Variance (Workers)', monthIdx.map(i=>fmtOverage(IND.varianceWorkers[i], fmtWk))],
-    ]},
-  ];
-
   const bodyRows = [];
-  blocks.forEach((block, bi)=>{
-    if(bi>0) bodyRows.push(`<tr class="group-sep"><td colspan="${ncols}"></td></tr>`);
-    bodyRows.push(`<tr class="group-label"><td colspan="${ncols}">${block.label}</td></tr>`);
-    block.rows.forEach(([label, vals])=>{
-      bodyRows.push(`<tr><td style="font-weight:600">${label}</td>${vals.map((v,pos)=>`<td class="${colClass(pos)}">${v}</td>`).join('')}</tr>`);
+  let lastBlock = null;
+  IND_TREND_ROWS.forEach(row=>{
+    if(row.block !== lastBlock){
+      if(lastBlock !== null) bodyRows.push(`<tr class="group-sep"><td colspan="${ncols}"></td></tr>`);
+      bodyRows.push(`<tr class="group-label"><td colspan="${ncols}">${row.block}</td></tr>`);
+      lastBlock = row.block;
+    }
+    const fmt = IND_UNIT_META[row.unit].fmt;
+    const vals = monthIdx.map(i=>{
+      const v = row.values[i];
+      if(row.sparse && !v) return '-';
+      return row.role==='overage' ? fmtOverage(v, fmt) : fmt(v);
     });
+    const checked = indTrendSelected.has(row.key) ? 'checked' : '';
+    const labelCell = `<label class="trend-row-label"><input type="checkbox" class="trend-row-toggle" data-key="${row.key}" ${checked}> ${row.label}</label>`;
+    bodyRows.push(`<tr><td>${labelCell}</td>${vals.map((v,pos)=>`<td class="${colClass(pos)}">${v}</td>`).join('')}</tr>`);
   });
   document.querySelector('#indTrendTable tbody').innerHTML = bodyRows.join('');
+
+  document.querySelectorAll('#indTrendTable .trend-row-toggle').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      if(cb.checked) indTrendSelected.add(cb.dataset.key);
+      else indTrendSelected.delete(cb.dataset.key);
+      renderIndTrendChart();
+    });
+  });
 }
 
 const IND_MODEL_NOTES = [
@@ -1276,12 +1186,7 @@ function renderIndirectsAll(){
   renderIndirectsCaptions();
   renderIndKpis();
   renderIndMonthlyTable();
-  renderIndHoursChart();
-  renderIndHoursTable();
-  renderIndPctChart();
-  renderIndPctTable();
-  renderIndWorkersChart();
-  renderIndWorkersTable();
+  renderIndTrendChart();
   renderIndTrendTable();
   renderIndTeamTable();
   renderIndModelNotes();
@@ -1310,7 +1215,7 @@ document.getElementById('darkToggle').addEventListener('click', ()=>{
   html.setAttribute('data-theme', isDark?'light':'dark');
   document.getElementById('darkToggle').textContent = isDark ? '🌙 Dark Mode' : '☀️ Light Mode';
   if(activeTab==='earned'){ renderMainChart(); renderCumChart(); }
-  else { renderIndHoursChart(); renderIndPctChart(); renderIndWorkersChart(); }
+  else { renderIndTrendChart(); }
 });
 
 populateFilters();
