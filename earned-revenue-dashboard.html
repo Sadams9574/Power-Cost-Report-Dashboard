@@ -60,18 +60,38 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
 #monthlyTableGroupHead th.grp-forecast{color:var(--muted);text-align:left;}
 #monthlyTable td.col-forecast,#monthlyTable th.col-forecast{background:var(--bg);}
 #monthlyTable td.col-boundary,#monthlyTable th.col-boundary{border-left:2px dashed var(--border);}
+#indMonthlyTableGroupHead th{position:static;font-size:10px;letter-spacing:.06em;padding:4px 9px;}
+#indMonthlyTableGroupHead th.grp-actual{color:var(--accent);text-align:right;}
+#indMonthlyTableGroupHead th.grp-forecast{color:var(--muted);text-align:left;}
+#indMonthlyTable td.col-forecast,#indMonthlyTable th.col-forecast,
+#indTeamTable td.col-forecast,#indTeamTable th.col-forecast{background:var(--bg);}
+#indMonthlyTable td.col-boundary,#indMonthlyTable th.col-boundary,
+#indTeamTable td.col-boundary,#indTeamTable th.col-boundary{border-left:2px dashed var(--border);}
+.tabs{display:flex;gap:4px;padding:10px 24px 0;background:var(--panel);position:sticky;top:64px;z-index:40;border-bottom:1px solid var(--border);}
+.tab-btn{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-btn:hover{color:var(--text);}
+.model-notes p{margin:0 0 12px;font-size:13px;line-height:1.6;}
+.model-notes p:last-child{margin-bottom:0;}
+.model-notes b{color:var(--accent);}
 </style>
 </head>
 <body>
 <header>
   <div>
-    <h1>Earned Revenue Dashboard</h1>
+    <h1 id="pageTitle">Earned Revenue Dashboard</h1>
     <div class="sub" id="headerSub">Portfolio Backlog Spread &amp; S-Curve Forecast</div>
   </div>
   <button class="toggle" id="darkToggle">🌙 Dark Mode</button>
 </header>
 
+<nav class="tabs" id="tabNav">
+  <button type="button" class="tab-btn active" data-tab="earned">Earned Revenue</button>
+  <button type="button" class="tab-btn" data-tab="indirects">Indirects</button>
+</nav>
+
 <main>
+<div id="tabEarned" class="tab-panel">
   <div class="filters">
     <div>
       <label>Year</label>
@@ -165,6 +185,72 @@ table.simple select{font-size:12px;padding:4px 6px;border-radius:5px;border:1px 
     </table>
     </div>
   </div>
+</div>
+
+<div id="tabIndirects" class="tab-panel" hidden>
+  <div class="filters">
+    <div>
+      <label>Year</label>
+      <select id="indYearFilter">
+        <option value="ALL">All Years</option>
+      </select>
+    </div>
+    <div>
+      <label>Month</label>
+      <div class="ms" id="indMonthFilterMS">
+        <button type="button" class="ms-btn"></button>
+        <div class="ms-panel"></div>
+      </div>
+    </div>
+    <div>
+      <label>Period Type</label>
+      <select id="indPeriodFilter">
+        <option value="ALL">Actual + Forecast</option>
+        <option value="Actual">Actual Only</option>
+        <option value="Forecast">Forecast Only</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="kpi-grid" id="indKpiGrid"></div>
+
+  <div class="panel">
+    <h2>Monthly Indirect Hours &amp; Workers</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="indMainChartCaption">Bars = Hours (left axis). Line = Workers (right axis). Solid = Actual; faded/dashed past the shaded divider is the trend-model Forecast.</p>
+    <canvas id="indMainChart" height="100"></canvas>
+    <div style="margin-top:14px;overflow-x:auto;">
+    <table class="simple" id="indMonthlyTable" style="white-space:nowrap;">
+      <thead>
+        <tr id="indMonthlyTableGroupHead"></tr>
+        <tr id="indMonthlyTableHead"></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>% Hours to Monthly Revenue (Labor Intensity)</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px" id="indPctChartCaption">Indirect hours as a share of monthly earned revenue — trending down means indirect labor is scaling slower than revenue.</p>
+    <canvas id="indPctChart" height="90"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>Team Staffing Plan (What-If)</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Manual team-by-team staffing input, for comparing a proposed staffing plan against what the trend model recommends for that month. Blank/zero months have no plan entered yet.</p>
+    <div style="overflow-x:auto;">
+    <table class="simple" id="indTeamTable" style="white-space:nowrap;">
+      <thead><tr id="indTeamTableHead"></tr></thead>
+      <tbody></tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>How the Trend Model Works</h2>
+    <div id="indModelNotes" class="model-notes"></div>
+  </div>
+</div>
 </main>
 
 <script>
@@ -186,6 +272,9 @@ const ER = {"months":[{"label":"Forecast End Date","type":"Forecast"},{"label":"
 // Fixed colors for each project Status, used by every chart that breaks data out by
 // Secured/Anticipated/Possible.
 const STATUS_COLORS = { Secured:'#2563eb', Anticipated:'#d93025', Possible:'#9333ea' };
+
+const IND = {"months":[{"label":"Jan 2026","type":"Actual"},{"label":"Feb 2026","type":"Actual"},{"label":"Mar 2026","type":"Actual"},{"label":"Apr 2026","type":"Actual"},{"label":"May 2026","type":"Actual"},{"label":"Jun 2026","type":"Actual"},{"label":"Jul 2026","type":"Actual"},{"label":"Aug 2026","type":"Forecast"},{"label":"Sep 2026","type":"Forecast"},{"label":"Oct 2026","type":"Forecast"},{"label":"Nov 2026","type":"Forecast"},{"label":"Dec 2026","type":"Forecast"},{"label":"Jan 2027","type":"Forecast"},{"label":"Feb 2027","type":"Forecast"},{"label":"Mar 2027","type":"Forecast"},{"label":"Apr 2027","type":"Forecast"},{"label":"May 2027","type":"Forecast"},{"label":"Jun 2027","type":"Forecast"},{"label":"Jul 2027","type":"Forecast"},{"label":"Aug 2027","type":"Forecast"},{"label":"Sep 2027","type":"Forecast"},{"label":"Oct 2027","type":"Forecast"},{"label":"Nov 2027","type":"Forecast"},{"label":"Dec 2027","type":"Forecast"},{"label":"Jan 2028","type":"Forecast"},{"label":"Feb 2028","type":"Forecast"},{"label":"Mar 2028","type":"Forecast"},{"label":"Apr 2028","type":"Forecast"},{"label":"May 2028","type":"Forecast"},{"label":"Jun 2028","type":"Forecast"},{"label":"Jul 2028","type":"Forecast"},{"label":"Aug 2028","type":"Forecast"},{"label":"Sep 2028","type":"Forecast"},{"label":"Oct 2028","type":"Forecast"},{"label":"Nov 2028","type":"Forecast"},{"label":"Dec 2028","type":"Forecast"},{"label":"Jan 2029","type":"Forecast"},{"label":"Feb 2029","type":"Forecast"},{"label":"Mar 2029","type":"Forecast"},{"label":"Apr 2029","type":"Forecast"},{"label":"May 2029","type":"Forecast"},{"label":"Jun 2029","type":"Forecast"},{"label":"Jul 2029","type":"Forecast"},{"label":"Aug 2029","type":"Forecast"},{"label":"Sep 2029","type":"Forecast"},{"label":"Oct 2029","type":"Forecast"},{"label":"Nov 2029","type":"Forecast"},{"label":"Dec 2029","type":"Forecast"},{"label":"Jan 2030","type":"Forecast"},{"label":"Feb 2030","type":"Forecast"},{"label":"Mar 2030","type":"Forecast"},{"label":"Apr 2030","type":"Forecast"},{"label":"May 2030","type":"Forecast"},{"label":"Jun 2030","type":"Forecast"},{"label":"Jul 2030","type":"Forecast"},{"label":"Aug 2030","type":"Forecast"},{"label":"Sep 2030","type":"Forecast"},{"label":"Oct 2030","type":"Forecast"},{"label":"Nov 2030","type":"Forecast"},{"label":"Dec 2030","type":"Forecast"}],"revenue":[10195386.960084,13212793.636088,13365880.94,23113825.43,17543253.72,25056141.225226,26734312.51,27208701.875973,30182774.065704,34821825.245579,40356604.011924,46979698.12361,48433366.108318,52826525.394322,53784500.800251,57112842.996274,71159958.191547,54444111.286006,73726900.885946,55512389.51549,69228702.85605,86015833.281859,92617718.974046,108792474.546776,130272670.779575,126424466.80806,127210201.559811,126860884.251108,106870531.834093,111337069.4342,113786127.961241,108819227.306093,101730341.633795,97382775.937734,92024557.253172,81796013.041323,71404944.205758,58783456.842774,42713756.40909,29169453.034011,19305867.383181,13053859.86689,8121201.812221,5562890.61315,3010397.335714,1857271.637787,646710.257895,265739.718615,112999.429516,0,0,0,0,0,0,0,0,0,0,0],"hours":[10000,11000,12000,12500,14000,14000,14000,14076.309153,14534.89325,15191.526246,15900.105759,16664.637167,16822.322119,17279.825845,17376.068296,17701.51603,18946.334094,17441.649198,19154.972815,17546.70647,18785.909174,20089.683338,20554.09676,21602.418146,22839.51087,22628.840985,22672.212407,22652.953517,21483.748459,21757.325229,21904.122948,21604.059725,21158.949948,20875.263622,20513.324244,19779.783507,18966.468633,17859.947005,16181.509596,14382.301475,12660.033036,11217.909111,9687.489439,8618.4357,7128.733665,6140.305018,4431.946317,3366.847629,2584.930858,0,0,0,0,0,0,0,0,0,0,0],"workers":[40,40,45,50,60,60,60,60.327039,62.2924,65.106541,68.14331,71.419874,72.095666,74.056396,74.468864,75.86364,81.198575,74.749925,82.092741,75.200171,80.511039,86.098643,88.088986,92.581792,97.883618,96.980747,97.166625,97.084086,92.073208,93.24568,93.874813,92.588827,90.681214,89.465416,87.914247,84.770501,81.284866,76.54263,69.349327,61.638435,54.257284,48.076753,41.517812,36.936153,30.551716,26.315593,18.994056,14.429347,11.078275,0,0,0,0,0,0,0,0,0,0,0],"pctHoursToRevenue":[0.000981,0.000833,0.000898,0.000541,0.000798,0.000559,0.000524,0.000517,0.000482,0.000436,0.000394,0.000355,0.000347,0.000327,0.000323,0.00031,0.000266,0.00032,0.00026,0.000316,0.000271,0.000234,0.000222,0.000199,0.000175,0.000179,0.000178,0.000179,0.000201,0.000195,0.000193,0.000199,0.000208,0.000214,0.000223,0.000242,0.000266,0.000304,0.000379,0.000493,0.000656,0.000859,0.001193,0.001549,0.002368,0.003306,0.006853,0.01267,0.022876,0,0,0,0,0,0,0,0,0,0,0],"targetHours":[10392.98057,11259.942828,11300.101275,13384.342241,12290.933079,13722.297311,14000,14076.309153,14534.89325,15191.526246,15900.105759,16664.637167,16822.322119,17279.825845,17376.068296,17701.51603,18946.334094,17441.649198,19154.972815,17546.70647,18785.909174,20089.683338,20554.09676,21602.418146,22839.51087,22628.840985,22672.212407,22652.953517,21483.748459,21757.325229,21904.122948,21604.059725,21158.949948,20875.263622,20513.324244,19779.783507,18966.468633,17859.947005,16181.509596,14382.301475,12660.033036,11217.909111,9687.489439,8618.4357,7128.733665,6140.305018,4431.946317,3366.847629,2584.930858,0,0,0,0,0,0,0,0,0,0,0],"targetWorkers":[44.541345,48.256898,48.429005,57.361467,52.675427,58.809846,60,60.327039,62.2924,65.106541,68.14331,71.419874,72.095666,74.056396,74.468864,75.86364,81.198575,74.749925,82.092741,75.200171,80.511039,86.098643,88.088986,92.581792,97.883618,96.980747,97.166625,97.084086,92.073208,93.24568,93.874813,92.588827,90.681214,89.465416,87.914247,84.770501,81.284866,76.54263,69.349327,61.638435,54.257284,48.076753,41.517812,36.936153,30.551716,26.315593,18.994056,14.429347,11.078275,0,0,0,0,0,0,0,0,0,0,0],"teams":[{"name":"Team 1","workers":[0,0,0,0,0,0,0,10,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"hours":[0,0,0,0,0,0,0,2333.333333,2333.333333,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"name":"Team 2","workers":[0,0,0,0,0,0,0,10,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"hours":[0,0,0,0,0,0,0,2333.333333,2333.333333,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"name":"Team 3","workers":[0,0,0,0,0,0,0,10,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"hours":[0,0,0,0,0,0,0,2333.333333,2333.333333,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"name":"Team 4","workers":[0,0,0,0,0,0,0,10,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"hours":[0,0,0,0,0,0,0,2333.333333,2333.333333,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"name":"Team 5","workers":[0,0,0,0,0,0,0,10,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"hours":[0,0,0,0,0,0,0,2333.333333,2333.333333,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"name":"Team 6","workers":[0,0,0,0,0,0,0,10,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"hours":[0,0,0,0,0,0,0,2333.333333,2333.333333,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"name":"Team 7","workers":[0,0,0,0,0,0,0,10,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"hours":[0,0,0,0,0,0,0,2333.333333,2333.333333,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},{"name":"Team 8","workers":[0,0,0,0,0,0,0,10,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"hours":[0,0,0,0,0,0,0,2333.333333,2333.333333,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}],"totalTeamWorkers":[0,0,0,0,0,0,0,80,80,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"totalTeamHours":[0,0,0,0,0,0,0,18666.666667,18666.666667,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"anchor":{"revenue":26734312.509999998,"hours":14000,"workers":60},"c":0.309049,"hoursPerWorker":233.333333,"actualMonths":7};
+
 
 const fmtMoney = v => '$' + Number(v).toLocaleString(undefined,{maximumFractionDigits:0});
 const fmtMoneyM = v => '$' + (Number(v)/1e6).toFixed(1) + 'M';
@@ -417,13 +506,14 @@ const actualForecastBackdrop = {
   }
 };
 
-// Draws the cumulative $ value (abbreviated to millions) above each point on a line chart,
+// Draws a value above each point on a line chart (abbreviated via opts.fmt, default millions),
 // skipping labels that would collide so the chart itself never has to grow to fit them.
 const lineValueLabels = {
   id: 'lineValueLabels',
   afterDatasetsDraw(chart, args, opts){
     const meta = chart.getDatasetMeta(0);
     if(!meta || !meta.data || !meta.data.length) return;
+    const fmt = opts.fmt || fmtMoneyM;
     const {ctx, chartArea:{left,right}} = chart;
     ctx.save();
     ctx.font = '10px Segoe UI, sans-serif';
@@ -436,7 +526,7 @@ const lineValueLabels = {
       if(point.x < left || point.x > right) return;
       if(point.x - lastX < minGap) return;
       lastX = point.x;
-      ctx.fillText(fmtMoneyM(opts.values[i]), point.x, point.y - 6);
+      ctx.fillText(fmt(opts.values[i]), point.x, point.y - 6);
     });
     ctx.restore();
   }
@@ -724,6 +814,247 @@ function renderAll(){
   renderMonthlyTable();
 }
 
+// ===================== Indirects tab =====================
+
+let indMonthMS;
+const IND_MONTHS_PRESENT = MONTH_ORDER.filter(mo => IND.months.some(m => m.label.startsWith(mo + ' ')));
+
+// Last month labeled "Actual" in the Indirects data (the rest is trend-model Forecast).
+const IND_LAST_ACTUAL_IDX = IND.months.reduce((last,m,i)=> m.type==='Actual' ? i : last, -1);
+const IND_LAST_ACTUAL_LABEL = IND_LAST_ACTUAL_IDX>=0 ? IND.months[IND_LAST_ACTUAL_IDX].label : null;
+
+let indCharts = {};
+
+function populateIndirectsFilters(){
+  const ySel = document.getElementById('indYearFilter');
+  const years = [...new Set(IND.months.map(m=>m.label.split(' ')[1]))];
+  years.forEach(y=>{ const o=document.createElement('option'); o.value=y; o.textContent=y; ySel.appendChild(o); });
+
+  indMonthMS = initMultiSelect('indMonthFilterMS', IND_MONTHS_PRESENT.map(mo=>({value:mo, label:mo})), 'All Months', renderIndirectsAll);
+}
+
+function getIndFilteredMonthIdx(){
+  const year = document.getElementById('indYearFilter').value;
+  const monthSel = indMonthMS.selected;
+  const period = document.getElementById('indPeriodFilter').value;
+  return IND.months.map((m,i)=>i).filter(i=>{
+    const m = IND.months[i];
+    const yOk = year==='ALL' || m.label.endsWith(year);
+    const moOk = monthSel.has(m.label.split(' ')[0]);
+    const pOk = period==='ALL' || m.type===period;
+    return yOk && moOk && pOk;
+  });
+}
+
+// Position (within a filtered month index list) of the first Forecast month, or -1 if all Actual.
+function indForecastBoundary(monthIdx){
+  return monthIdx.findIndex(i => IND.months[i].type === 'Forecast');
+}
+
+function renderIndirectsCaptions(){
+  document.getElementById('headerSub').textContent =
+    `Indirect Labor Hours, Workers & Trend-Model Forecast — ${IND.months[0].label} to ${IND.months[IND.months.length-1].label}`;
+  document.getElementById('indMainChartCaption').textContent =
+    `Bars = Hours (left axis). Line = Workers (right axis). Solid = Actual (through ${IND_LAST_ACTUAL_LABEL}); faded/dashed past the shaded divider is the trend-model Forecast.`;
+}
+
+function renderIndKpis(){
+  const monthIdx = getIndFilteredMonthIdx();
+  const i = IND_LAST_ACTUAL_IDX;
+  const avgHours = monthIdx.length ? monthIdx.reduce((s,idx)=>s+IND.hours[idx],0)/monthIdx.length : 0;
+  const cards = [
+    ['Latest Actual Month', IND_LAST_ACTUAL_LABEL || '—'],
+    ['Latest Actual Hours', i>=0 ? Math.round(IND.hours[i]).toLocaleString() : '—'],
+    ['Latest Actual Workers', i>=0 ? Math.round(IND.workers[i]) : '—'],
+    ['Hours / Worker (Anchor)', IND.hoursPerWorker.toFixed(1)],
+    ['% Hours to Revenue (Latest)', i>=0 ? fmtPct(IND.pctHoursToRevenue[i]) : '—'],
+    ['Power Curve Exponent (c)', IND.c.toFixed(3)],
+    ['Actual Months of Data', IND.actualMonths],
+    ['Avg Monthly Hours (Selected)', Math.round(avgHours).toLocaleString()],
+  ];
+  document.getElementById('indKpiGrid').innerHTML = cards.map(([l,v])=>
+    `<div class="kpi-card"><div class="label">${l}</div><div class="value">${v}</div></div>`).join('');
+}
+
+function renderIndMainChart(){
+  const monthIdx = getIndFilteredMonthIdx();
+  const labels = monthIdx.map(i=>IND.months[i].label);
+  const isActual = i => IND.months[i].type === 'Actual';
+  const boundary = indForecastBoundary(monthIdx);
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+
+  const hoursData = monthIdx.map(i=>IND.hours[i]);
+  const workersData = monthIdx.map(i=>IND.workers[i]);
+  const hoursColors = monthIdx.map(i=> isActual(i) ? '#2563eb' : withAlpha('#2563eb',0.4));
+
+  const ctx = document.getElementById('indMainChart');
+  if(indCharts.main) indCharts.main.destroy();
+  indCharts.main = new Chart(ctx,{
+    data:{ labels, datasets:[
+      { type:'bar', label:'Hours', data:hoursData, backgroundColor:hoursColors, yAxisID:'y' },
+      { type:'line', label:'Workers', data:workersData, borderColor:'#d93025', backgroundColor:'#d93025', yAxisID:'y1', tension:.25,
+        segment:{ borderDash: c => isActual(monthIdx[c.p0DataIndex]) ? undefined : [6,4] },
+        pointBackgroundColor: monthIdx.map(i=> isActual(i) ? '#d93025' : withAlpha('#d93025',0.5)) },
+    ]},
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{position:'top'},
+        tooltip:{callbacks:{label:c=>{
+          const type = isActual(monthIdx[c.dataIndex]) ? 'Actual' : 'Forecast';
+          return c.dataset.label==='Hours'
+            ? `Hours: ${Math.round(c.raw).toLocaleString()} (${type})`
+            : `Workers: ${c.raw.toFixed(1)} (${type})`;
+        }}},
+        actualForecastBackdrop:{boundary, isDark}
+      },
+      scales:{
+        x:{ticks:{maxRotation:90,minRotation:45}},
+        y:{position:'left', title:{display:true,text:'Hours'}},
+        y1:{position:'right', title:{display:true,text:'Workers'}, grid:{drawOnChartArea:false}}
+      }
+    },
+    plugins:[actualForecastBackdrop]
+  });
+}
+
+function renderIndPctChart(){
+  const monthIdx = getIndFilteredMonthIdx();
+  const labels = monthIdx.map(i=>IND.months[i].label);
+  const isActual = i => IND.months[i].type === 'Actual';
+  const boundary = indForecastBoundary(monthIdx);
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  const pctData = monthIdx.map(i=>IND.pctHoursToRevenue[i]);
+
+  const ctx = document.getElementById('indPctChart');
+  if(indCharts.pct) indCharts.pct.destroy();
+  indCharts.pct = new Chart(ctx,{
+    type:'line',
+    data:{ labels, datasets:[{
+      label:'% Hours to Revenue', data:pctData, borderColor:'#0f9d58', backgroundColor:'rgba(15,157,88,.15)', fill:true, tension:.25,
+      segment:{ borderDash: c => isActual(monthIdx[c.p0DataIndex]) ? undefined : [6,4] },
+      pointBackgroundColor: monthIdx.map(i=> isActual(i) ? '#0f9d58' : withAlpha('#0f9d58',0.5)),
+    }] },
+    options:{
+      layout:{ padding:{ top:18 } },
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>`${fmtPct(c.raw)} (${isActual(monthIdx[c.dataIndex])?'Actual':'Forecast'})`}},
+        actualForecastBackdrop:{boundary, isDark},
+        lineValueLabels:{values:pctData, isDark, fmt:fmtPct}
+      },
+      scales:{ x:{ticks:{maxRotation:90,minRotation:45}}, y:{ticks:{callback:v=>fmtPct(v)}} }
+    },
+    plugins:[actualForecastBackdrop, lineValueLabels]
+  });
+}
+
+function renderIndMonthlyTable(){
+  const monthIdx = getIndFilteredMonthIdx();
+  const isActual = i => IND.months[i].type === 'Actual';
+  const boundaryPos = indForecastBoundary(monthIdx);
+  const colClass = pos => {
+    const cls = isActual(monthIdx[pos]) ? 'col-actual' : 'col-forecast';
+    return pos === boundaryPos ? `${cls} col-boundary` : cls;
+  };
+
+  const groups = [];
+  monthIdx.forEach(mi=>{
+    const type = IND.months[mi].type;
+    const last = groups[groups.length-1];
+    if(last && last.type===type) last.span++; else groups.push({type, span:1});
+  });
+  const groupHead = `<th></th>` + groups.map(g=>
+    `<th colspan="${g.span}" class="${g.type==='Actual'?'grp-actual':'grp-forecast'}">${g.type.toUpperCase()}</th>`
+  ).join('');
+  document.getElementById('indMonthlyTableGroupHead').innerHTML = groupHead;
+
+  const head = `<th>Metric</th>` + monthIdx.map((mi,pos)=>`<th class="${colClass(pos)}">${IND.months[mi].label}</th>`).join('');
+  document.getElementById('indMonthlyTableHead').innerHTML = head;
+
+  const fmtHrs = v => Math.round(v).toLocaleString();
+  const fmtWk = v => v.toFixed(1);
+  const rowDef = [
+    ['Hours', monthIdx.map(i=>fmtHrs(IND.hours[i]))],
+    ['Workers', monthIdx.map(i=>fmtWk(IND.workers[i]))],
+    ['% Hours to Revenue', monthIdx.map(i=>fmtPct(IND.pctHoursToRevenue[i]))],
+    ['Target Hours (Trend Model)', monthIdx.map(i=>fmtHrs(IND.targetHours[i]))],
+    ['Hours vs Target', monthIdx.map(i=>{
+      const v = IND.hours[i]-IND.targetHours[i];
+      if(Math.round(v)===0) return '-';
+      const s = fmtHrs(Math.abs(v));
+      return v>0 ? `+${s}` : `-${s}`;
+    })],
+  ];
+  document.querySelector('#indMonthlyTable tbody').innerHTML = rowDef.map(([label, vals])=>
+    `<tr><td style="font-weight:600">${label}</td>${vals.map((v,pos)=>`<td class="${colClass(pos)}">${v}</td>`).join('')}</tr>`
+  ).join('');
+}
+
+function renderIndTeamTable(){
+  const monthIdx = getIndFilteredMonthIdx();
+  const isActual = i => IND.months[i].type === 'Actual';
+  const boundaryPos = indForecastBoundary(monthIdx);
+  const colClass = pos => {
+    const cls = isActual(monthIdx[pos]) ? 'col-actual' : 'col-forecast';
+    return pos === boundaryPos ? `${cls} col-boundary` : cls;
+  };
+  const head = `<th>Metric</th>` + monthIdx.map((mi,pos)=>`<th class="${colClass(pos)}">${IND.months[mi].label}</th>`).join('');
+  document.getElementById('indTeamTableHead').innerHTML = head;
+
+  const dash = v => Math.round(v*100)===0 ? '-' : v.toLocaleString(undefined,{maximumFractionDigits:1});
+  const rows = [];
+  IND.teams.forEach(t=>{
+    rows.push([`${t.name} — Workers`, monthIdx.map(i=>dash(t.workers[i]))]);
+    rows.push([`${t.name} — Hours`, monthIdx.map(i=>dash(t.hours[i]))]);
+  });
+  rows.push(['Total Workers (All Teams)', monthIdx.map(i=>dash(IND.totalTeamWorkers[i]))]);
+  rows.push(['Total Hours (All Teams)', monthIdx.map(i=>dash(IND.totalTeamHours[i]))]);
+
+  document.querySelector('#indTeamTable tbody').innerHTML = rows.map(([label, vals])=>{
+    const strong = label.startsWith('Total') ? 'font-weight:700;border-top:2px solid var(--border)' : '';
+    return `<tr style="${strong}"><td style="font-weight:600">${label}</td>${vals.map((v,pos)=>`<td class="${colClass(pos)}">${v}</td>`).join('')}</tr>`;
+  }).join('');
+}
+
+const IND_MODEL_NOTES = [
+  ['1. The problem', "We need to forecast Hours (and Workers) for future months based on forecasted Revenue. A flat % (Hours ÷ Revenue always the same) ignores that indirect labor doesn't scale 1:1 with revenue — as revenue grows, hours usually grow slower (economies of scale). A straight-line trend on that % was tried first, but extrapolated into negative territory for high-revenue months, creating a cliff down to 0 hours. Neither was realistic."],
+  ['2. The fix: a power curve', "Hours = AnchorHours × (Revenue ÷ AnchorRevenue) ^ c. This guarantees Hours always moves the SAME direction as Revenue (never flips sign, never hits a hard floor of zero), while the exponent c lets hours grow slower than revenue — capturing efficiency of scale without ever going negative."],
+  ['3. Fit the exponent c', `c = SLOPE of ln(Hours) vs ln(Revenue) across the actual months. Taking ln() of both sides turns the curved relationship Hours = a × Revenue^c into a straight line, so the ordinary SLOPE function can fit it. Currently c ≈ ${IND.c.toFixed(2)}, meaning a 10% increase in Revenue historically came with roughly a ${(IND.c*10).toFixed(1)}% increase in Hours.`],
+  ['4. Anchor the curve', `Instead of using the regression's own intercept (which can create a jump right at the boundary between actual and forecast), the curve is forced to pass exactly through the most recent actual month — currently ${IND_LAST_ACTUAL_LABEL}: Revenue ${fmtMoney(IND.anchor.revenue)}, Hours ${Math.round(IND.anchor.hours).toLocaleString()}, Workers ${IND.anchor.workers}. These anchor values dynamically pull whichever month is the LAST Actual month, so as new actuals are entered the anchor — and the whole forecast — automatically moves forward.`],
+  ['5. Target Hours', "Formula: = AnchorHours × (ThisMonthRevenue ÷ AnchorRevenue) ^ c. Since a forecast month's revenue is usually only slightly above the prior month's, and c makes hours grow slower than revenue, forecast hours land just slightly above the anchor — smooth, same-direction, no cliffs."],
+  ['6. Target Workers', `= Target Hours ÷ Hours-per-Worker-per-Month (${IND.hoursPerWorker.toFixed(1)} hrs, itself anchored to the last actual month), so Workers stays consistent with the Hours curve and won't dip below the last actual worker count just because of a stale blended average.`],
+];
+
+function renderIndModelNotes(){
+  document.getElementById('indModelNotes').innerHTML = IND_MODEL_NOTES.map(([title,body])=>
+    `<p><b>${title}.</b> ${body}</p>`).join('');
+}
+
+function renderIndirectsAll(){
+  renderIndirectsCaptions();
+  renderIndKpis();
+  renderIndMainChart();
+  renderIndPctChart();
+  renderIndMonthlyTable();
+  renderIndTeamTable();
+  renderIndModelNotes();
+}
+
+['indYearFilter','indPeriodFilter'].forEach(id=>
+  document.getElementById(id).addEventListener('change', renderIndirectsAll));
+
+let activeTab = 'earned';
+function switchTab(tab){
+  activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  document.getElementById('tabEarned').hidden = tab!=='earned';
+  document.getElementById('tabIndirects').hidden = tab!=='indirects';
+  document.getElementById('pageTitle').textContent = tab==='earned' ? 'Earned Revenue Dashboard' : 'Indirects Dashboard';
+  if(tab==='earned') renderAll(); else renderIndirectsAll();
+}
+document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click', ()=>switchTab(b.dataset.tab)));
+
 ['yearFilter','periodFilter'].forEach(id=>
   document.getElementById(id).addEventListener('change', renderAll));
 
@@ -732,12 +1063,13 @@ document.getElementById('darkToggle').addEventListener('click', ()=>{
   const isDark = html.getAttribute('data-theme')==='dark';
   html.setAttribute('data-theme', isDark?'light':'dark');
   document.getElementById('darkToggle').textContent = isDark ? '🌙 Dark Mode' : '☀️ Light Mode';
-  renderMainChart();
-  renderCumChart();
+  if(activeTab==='earned'){ renderMainChart(); renderCumChart(); }
+  else { renderIndMainChart(); renderIndPctChart(); }
 });
 
 populateFilters();
-renderAll();
+populateIndirectsFilters();
+switchTab('earned');
 </script>
 </body>
 </html>
