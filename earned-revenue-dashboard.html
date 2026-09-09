@@ -1080,22 +1080,17 @@ function renderIndTrendChart(){
   const datasets = selectedRows.map(row=>{
     const color = indRowColor(row);
     const data = monthIdx.map(i=>row.values[i]);
+    const barColors = monthIdx.map(i=> isActual(i) ? color : withAlpha(color,0.4));
     if(row.sparse){
-      return { label:row.label, data:zeroToNull(data), yAxisID:'y_'+row.unit,
-        borderColor:color, backgroundColor:color, borderDash:[3,3], spanGaps:false,
-        pointRadius:4, pointStyle:'circle', showLine:false };
+      return { label:row.label, data:zeroToNull(data), yAxisID:'y_'+row.unit, backgroundColor:barColors };
     }
-    return { label:row.label, data, yAxisID:'y_'+row.unit,
-      borderColor:color, backgroundColor:withAlpha(color,0.10), fill:false, tension:.25,
-      segment:{ borderDash: c => isActual(monthIdx[c.p0DataIndex]) ? undefined : [6,4] },
-      pointRadius:2,
-      pointBackgroundColor: monthIdx.map(i=> isActual(i) ? color : withAlpha(color,0.5)) };
+    return { label:row.label, data, yAxisID:'y_'+row.unit, backgroundColor:barColors };
   });
 
   const ctx = document.getElementById('indTrendChart');
   if(indCharts.trend) indCharts.trend.destroy();
   indCharts.trend = new Chart(ctx,{
-    type:'line',
+    type:'bar',
     data:{ labels, datasets },
     options:{
       plugins:{
