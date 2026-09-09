@@ -1056,8 +1056,6 @@ const IND_TREND_ROWS = [
 // kept as a separate list only because they live in a different table (Monthly Indirect...).
 const IND_MONTHLY_ROWS = [
   { key:'rawRevenue', label:'Monthly Earned Revenue', unit:'revenue', role:'actual', sparse:false, values: IND.revenue },
-  { key:'rawHours', label:'Hours', unit:'hours', role:'actual', sparse:false, values: IND.hours },
-  { key:'rawWorkers', label:'# of Workers', unit:'workers', role:'actual', sparse:false, values: IND.workers },
   { key:'rawPct', label:'% Hours to Monthly Earned Revenue', unit:'pct', role:'actual', sparse:false, values: IND.pctHoursToRevenue },
 ];
 const IND_ALL_ROWS = [...IND_MONTHLY_ROWS, ...IND_TREND_ROWS];
@@ -1068,7 +1066,7 @@ const IND_UNIT_META = {
   pct: { axisLabel:'%', fmt: fmtPct3 },
   workers: { axisLabel:'Workers', fmt: v => v.toFixed(1) },
 };
-const IND_UNIT_COLOR = { revenue:'#0891b2', hours:'#2563eb', pct:'#0f9d58', workers:'#9333ea' };
+const IND_UNIT_COLOR = { revenue:'#2563eb', hours:'#2563eb', pct:'#0f9d58', workers:'#9333ea' };
 const IND_ROLE_COLOR = { input:'#d93025', overage:'#f59e0b' };
 const indRowColor = row => (row.role==='input' || row.role==='overage') ? IND_ROLE_COLOR[row.role] : IND_UNIT_COLOR[row.unit];
 
