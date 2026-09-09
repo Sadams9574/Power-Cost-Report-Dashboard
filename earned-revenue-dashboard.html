@@ -236,6 +236,15 @@ table.simple tr.group-label td{padding:4px 9px;font-size:10px;letter-spacing:.06
     <h2>Trend Model, Forecast &amp; Variance Comparison</h2>
     <p style="font-size:12px;color:var(--muted);margin-top:-6px">Check any row(s) in the tables below to plot them here — mix Monthly, Trend Model, Forecast, and Variance rows across $, Hours, %, and FTE freely.</p>
     <canvas id="indTrendChart" height="110"></canvas>
+    <div style="overflow-x:auto;margin-top:14px;">
+    <table class="simple" id="indSelectedTable" style="white-space:nowrap;">
+      <thead>
+        <tr id="indSelectedTableGroupHead" class="grp-head"></tr>
+        <tr id="indSelectedTableHead"></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    </div>
   </div>
 
   <div class="panel">
@@ -983,10 +992,8 @@ function renderIndMonthlyTable(){
 
   // Matches rows 4-7 of the Indirects sheet exactly; each is checkable onto the Trend Model
   // Comparison chart, same as the rows in the Trend Model vs. Staffing Plan table below.
-  // (Exact figures here, not the chart axis's abbreviated millions.)
-  const monthlyTableFmt = { revenue: fmtMoney, hours: v=>Math.round(v).toLocaleString(), workers: v=>v.toFixed(1), pct: fmtPct3 };
   document.querySelector('#indMonthlyTable tbody').innerHTML = IND_MONTHLY_ROWS.map(row=>{
-    const fmt = monthlyTableFmt[row.unit];
+    const fmt = IND_EXACT_FMT[row.unit];
     const vals = monthIdx.map(i=>fmt(row.values[i]));
     const checked = indTrendSelected.has(row.key) ? 'checked' : '';
     const labelCell = `<label class="trend-row-label"><input type="checkbox" class="trend-row-toggle" data-key="${row.key}" ${checked}> ${row.label}</label>`;
@@ -998,6 +1005,7 @@ function renderIndMonthlyTable(){
       if(cb.checked) indTrendSelected.add(cb.dataset.key);
       else indTrendSelected.delete(cb.dataset.key);
       renderIndTrendChart();
+      renderIndSelectedTable();
     });
   });
 }
@@ -1069,6 +1077,9 @@ const IND_UNIT_META = {
 const IND_UNIT_COLOR = { revenue:'#2563eb', hours:'#2563eb', pct:'#0f9d58', workers:'#9333ea' };
 const IND_ROLE_COLOR = { input:'#d93025', overage:'#f59e0b' };
 const indRowColor = row => (row.role==='input' || row.role==='overage') ? IND_ROLE_COLOR[row.role] : IND_UNIT_COLOR[row.unit];
+// Exact (non-abbreviated) per-unit formatting for table cells — the chart axes use the
+// abbreviated IND_UNIT_META fmts instead.
+const IND_EXACT_FMT = { revenue: fmtMoney, hours: v=>Math.round(v).toLocaleString(), workers: v=>v.toFixed(1), pct: fmtPct3 };
 
 // Which rows are currently plotted on the Trend Model Comparison chart — starts with Monthly
 // Earned Revenue, toggled via the checkboxes in the tables below (Monthly Indirect... and
@@ -1127,6 +1138,43 @@ function renderIndTrendChart(){
   });
 }
 
+// Live table directly under the chart, showing exact values for whichever rows are currently
+// checked (in any table below) — appears when checked, disappears when unchecked.
+function renderIndSelectedTable(){
+  const monthIdx = getIndFilteredMonthIdx();
+  const isActual = i => IND.months[i].type === 'Actual';
+  const boundaryPos = indForecastBoundary(monthIdx);
+  const colClass = pos => {
+    const cls = isActual(monthIdx[pos]) ? 'col-actual' : 'col-forecast';
+    return pos === boundaryPos ? `${cls} col-boundary` : cls;
+  };
+
+  const groups = [];
+  monthIdx.forEach(mi=>{
+    const type = IND.months[mi].type;
+    const last = groups[groups.length-1];
+    if(last && last.type===type) last.span++; else groups.push({type, span:1});
+  });
+  const groupHead = `<th></th>` + groups.map(g=>
+    `<th colspan="${g.span}" class="${g.type==='Actual'?'grp-actual':'grp-forecast'}">${g.type.toUpperCase()}</th>`
+  ).join('');
+  document.getElementById('indSelectedTableGroupHead').innerHTML = groupHead;
+
+  const head = `<th>Metric</th>` + monthIdx.map((mi,pos)=>`<th class="${colClass(pos)}">${IND.months[mi].label}</th>`).join('');
+  document.getElementById('indSelectedTableHead').innerHTML = head;
+
+  const selectedRows = IND_ALL_ROWS.filter(r=>indTrendSelected.has(r.key));
+  document.querySelector('#indSelectedTable tbody').innerHTML = selectedRows.map(row=>{
+    const fmt = IND_EXACT_FMT[row.unit];
+    const vals = monthIdx.map(i=>{
+      const v = row.values[i];
+      if(row.sparse && !v) return '-';
+      return row.role==='overage' ? fmtOverage(v, fmt) : fmt(v);
+    });
+    return `<tr><td>${row.label}</td>${vals.map((v,pos)=>`<td class="${colClass(pos)}">${v}</td>`).join('')}</tr>`;
+  }).join('');
+}
+
 function renderIndTrendTable(){
   const monthIdx = getIndFilteredMonthIdx();
   const isActual = i => IND.months[i].type === 'Actual';
@@ -1176,6 +1224,7 @@ function renderIndTrendTable(){
       if(cb.checked) indTrendSelected.add(cb.dataset.key);
       else indTrendSelected.delete(cb.dataset.key);
       renderIndTrendChart();
+      renderIndSelectedTable();
     });
   });
 }
@@ -1199,6 +1248,7 @@ function renderIndirectsAll(){
   renderIndKpis();
   renderIndMonthlyTable();
   renderIndTrendChart();
+  renderIndSelectedTable();
   renderIndTrendTable();
   renderIndTeamTable();
   renderIndModelNotes();
@@ -1227,7 +1277,7 @@ document.getElementById('darkToggle').addEventListener('click', ()=>{
   html.setAttribute('data-theme', isDark?'light':'dark');
   document.getElementById('darkToggle').textContent = isDark ? '🌙 Dark Mode' : '☀️ Light Mode';
   if(activeTab==='earned'){ renderMainChart(); renderCumChart(); }
-  else { renderIndTrendChart(); }
+  else { renderIndTrendChart(); renderIndSelectedTable(); }
 });
 
 populateFilters();
