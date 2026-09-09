@@ -232,6 +232,17 @@ table.simple tr.group-label td{padding:4px 9px;font-size:10px;letter-spacing:.06
 
   <div class="kpi-grid" id="indKpiGrid"></div>
 
+  <div class="grid-2">
+    <div class="panel">
+      <h2>Monthly Earned Revenue</h2>
+      <canvas id="indRevenueChart" height="90"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Hours, Workers &amp; % to Revenue</h2>
+      <canvas id="indHoursWorkersChart" height="90"></canvas>
+    </div>
+  </div>
+
   <div class="panel">
     <h2>Monthly Indirect Hours, Workers &amp; % to Revenue</h2>
     <div style="overflow-x:auto;">
@@ -957,6 +968,85 @@ function renderIndKpis(){
 // literal 0, so the comparison line only shows where a plan actually exists.
 const zeroToNull = arr => arr.map(v => v ? v : null);
 
+// Monthly Earned Revenue as its own bar chart — kept separate from Hours/Workers/% since its
+// scale (millions) would otherwise swamp everything else on a shared axis.
+function renderIndRevenueChart(){
+  const monthIdx = getIndFilteredMonthIdx();
+  const labels = monthIdx.map(i=>IND.months[i].label);
+  const isActual = i => IND.months[i].type === 'Actual';
+  const boundary = indForecastBoundary(monthIdx);
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  const data = monthIdx.map(i=>IND.revenue[i]);
+  const colors = monthIdx.map(i=> isActual(i) ? '#2563eb' : withAlpha('#2563eb',0.4));
+
+  const ctx = document.getElementById('indRevenueChart');
+  if(indCharts.revenue) indCharts.revenue.destroy();
+  indCharts.revenue = new Chart(ctx,{
+    type:'bar',
+    data:{ labels, datasets:[{ label:'Monthly Earned Revenue', data, backgroundColor:colors }] },
+    options:{
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>`${fmtMoney(c.raw)} (${isActual(monthIdx[c.dataIndex])?'Actual':'Forecast'})`}},
+        actualForecastBackdrop:{boundary, isDark}
+      },
+      scales:{ x:{ticks:{maxRotation:90,minRotation:45}}, y:{ticks:{callback:v=>fmtMoneyM(v)}} }
+    },
+    plugins:[actualForecastBackdrop]
+  });
+}
+
+// Hours, Workers, and % to Revenue together — same multi-axis bar pattern as the Trend Model
+// Comparison chart, just fixed to these three raw monthly series instead of checkbox-selected.
+function renderIndHoursWorkersChart(){
+  const monthIdx = getIndFilteredMonthIdx();
+  const labels = monthIdx.map(i=>IND.months[i].label);
+  const isActual = i => IND.months[i].type === 'Actual';
+  const boundary = indForecastBoundary(monthIdx);
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+
+  const series = [
+    { label:'Hours', unit:'hours', color:'#2563eb', values:IND.hours },
+    { label:'# of Workers', unit:'workers', color:'#9333ea', values:IND.workers },
+    { label:'% Hours to Revenue', unit:'pct', color:'#0f9d58', values:IND.pctHoursToRevenue },
+  ];
+  const positions = ['left','right','right'];
+  const scales = { x:{ ticks:{maxRotation:90,minRotation:45} } };
+  series.forEach((s,idx)=>{
+    scales['y_'+s.unit] = {
+      position: positions[idx],
+      title:{display:true, text:IND_UNIT_META[s.unit].axisLabel},
+      ticks:{callback:IND_UNIT_META[s.unit].fmt},
+      grid:{drawOnChartArea: idx===0},
+    };
+  });
+
+  const datasets = series.map(s=>({
+    label:s.label, data:monthIdx.map(i=>s.values[i]), yAxisID:'y_'+s.unit,
+    backgroundColor: monthIdx.map(i=> isActual(i) ? s.color : withAlpha(s.color,0.4)),
+  }));
+
+  const ctx = document.getElementById('indHoursWorkersChart');
+  if(indCharts.hoursWorkers) indCharts.hoursWorkers.destroy();
+  indCharts.hoursWorkers = new Chart(ctx,{
+    type:'bar',
+    data:{ labels, datasets },
+    options:{
+      plugins:{
+        legend:{position:'top'},
+        tooltip:{callbacks:{label:c=>{
+          const s = series[c.datasetIndex];
+          const type = isActual(monthIdx[c.dataIndex]) ? 'Actual' : 'Forecast';
+          return `${s.label}: ${IND_UNIT_META[s.unit].fmt(c.raw)} (${type})`;
+        }}},
+        actualForecastBackdrop:{boundary, isDark}
+      },
+      scales
+    },
+    plugins:[actualForecastBackdrop]
+  });
+}
+
 function renderIndMonthlyTable(){
   const monthIdx = getIndFilteredMonthIdx();
   const isActual = i => IND.months[i].type === 'Actual';
@@ -1179,6 +1269,8 @@ function renderIndModelNotes(){
 function renderIndirectsAll(){
   renderIndirectsCaptions();
   renderIndKpis();
+  renderIndRevenueChart();
+  renderIndHoursWorkersChart();
   renderIndMonthlyTable();
   renderIndTrendChart();
   renderIndTrendTable();
@@ -1209,7 +1301,7 @@ document.getElementById('darkToggle').addEventListener('click', ()=>{
   html.setAttribute('data-theme', isDark?'light':'dark');
   document.getElementById('darkToggle').textContent = isDark ? '🌙 Dark Mode' : '☀️ Light Mode';
   if(activeTab==='earned'){ renderMainChart(); renderCumChart(); }
-  else { renderIndTrendChart(); }
+  else { renderIndRevenueChart(); renderIndHoursWorkersChart(); renderIndTrendChart(); }
 });
 
 populateFilters();
