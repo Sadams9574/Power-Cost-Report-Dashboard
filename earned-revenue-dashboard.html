@@ -233,8 +233,14 @@ table.simple tr.group-label td{padding:4px 9px;font-size:10px;letter-spacing:.06
   <div class="kpi-grid" id="indKpiGrid"></div>
 
   <div class="panel">
+    <h2>Trend Model, Forecast &amp; Variance Comparison</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Check any row(s) in the tables below to plot them here — mix Monthly, Trend Model, Forecast, and Variance rows across $, Hours, %, and FTE freely.</p>
+    <canvas id="indTrendChart" height="110"></canvas>
+  </div>
+
+  <div class="panel">
     <h2>Monthly Indirect Hours, Workers &amp; % to Revenue</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Check a row to plot it on the Trend Model, Forecast &amp; Variance Comparison chart below.</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Check a row to plot it on the Trend Model, Forecast &amp; Variance Comparison chart above.</p>
     <div style="overflow-x:auto;">
     <table class="simple" id="indMonthlyTable" style="white-space:nowrap;">
       <thead>
@@ -244,12 +250,6 @@ table.simple tr.group-label td{padding:4px 9px;font-size:10px;letter-spacing:.06
       <tbody></tbody>
     </table>
     </div>
-  </div>
-
-  <div class="panel">
-    <h2>Trend Model, Forecast &amp; Variance Comparison</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Check any row(s) in the tables above and below to plot them here — mix Monthly, Trend Model, Forecast, and Variance rows across $, Hours, %, and FTE freely.</p>
-    <canvas id="indTrendChart" height="110"></canvas>
   </div>
 
   <div class="panel">
