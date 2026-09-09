@@ -246,14 +246,14 @@ table.simple tr.group-label td{padding:4px 9px;font-size:10px;letter-spacing:.06
   </div>
 
   <div class="panel">
-    <h2>Trend Model Comparison</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Check any row(s) in the Trend Model vs. Staffing Plan table below to plot them here — mix Hours, %, and Workers rows freely.</p>
+    <h2>Trend Model, Forecast &amp; Variance Comparison</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Check any row(s) in the table below to plot them here — mix Trend Model, Forecast, and Variance rows across Hours, %, and FTE freely.</p>
     <canvas id="indTrendChart" height="110"></canvas>
   </div>
 
   <div class="panel">
-    <h2>Trend Model vs. Staffing Plan</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px">What the trend model recommends vs. the staffing plan actually entered, for Hours, %, and Workers. Check a row to plot it on the chart above.</p>
+    <h2>Trend Model (Hrs, % &amp; FTE) / Forecast / Variance</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Trend Model = what the curve recommends. Forecast = the staffing plan actually entered (Team-Level Workforce Forecast below). Variance = Trend Model vs. Forecast. Check a row to plot it on the chart above.</p>
     <div style="overflow-x:auto;">
     <table class="simple" id="indTrendTable" style="white-space:nowrap;">
       <thead>
@@ -266,8 +266,8 @@ table.simple tr.group-label td{padding:4px 9px;font-size:10px;letter-spacing:.06
   </div>
 
   <div class="panel">
-    <h2>Team Staffing Plan (What-If)</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Manual team-by-team staffing input, for comparing a proposed staffing plan against what the trend model recommends for that month. Blank/zero months have no plan entered yet.</p>
+    <h2>Team-Level Workforce Forecast</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Manual team-by-team staffing input (blue = your monthly input), for comparing a proposed staffing plan against what the trend model recommends for that month. Blank/zero months have no plan entered yet.</p>
     <div style="overflow-x:auto;">
     <table class="simple" id="indTeamTable" style="white-space:nowrap;">
       <thead><tr id="indTeamTableHead"></tr></thead>
@@ -982,16 +982,12 @@ function renderIndMonthlyTable(){
 
   const fmtHrs = v => Math.round(v).toLocaleString();
   const fmtWk = v => v.toFixed(1);
+  // Matches rows 4-7 of the Indirects sheet exactly.
   const rowDef = [
-    ['Trend Model Hours', monthIdx.map(i=>fmtHrs(IND.hours[i]))],
-    ['Trend Model Workers', monthIdx.map(i=>fmtWk(IND.workers[i]))],
-    ['Trend Model %', monthIdx.map(i=>fmtPct3(IND.pctHoursToRevenue[i]))],
-    ['Hours vs Target', monthIdx.map(i=>{
-      const v = IND.hours[i]-IND.targetHours[i];
-      if(Math.round(v)===0) return '-';
-      const s = fmtHrs(Math.abs(v));
-      return v>0 ? `+${s}` : `-${s}`;
-    })],
+    ['Monthly Earned Revenue', monthIdx.map(i=>fmtMoney(IND.revenue[i]))],
+    ['Hours', monthIdx.map(i=>fmtHrs(IND.hours[i]))],
+    ['# of Workers', monthIdx.map(i=>fmtWk(IND.workers[i]))],
+    ['% Hours to Monthly Earned Revenue', monthIdx.map(i=>fmtPct3(IND.pctHoursToRevenue[i]))],
   ];
   document.querySelector('#indMonthlyTable tbody').innerHTML = rowDef.map(([label, vals])=>
     `<tr><td style="font-weight:600">${label}</td>${vals.map((v,pos)=>`<td class="${colClass(pos)}">${v}</td>`).join('')}</tr>`
@@ -1036,15 +1032,17 @@ function fmtOverage(v, fmt){
 // red, overage = amber); "sparse" rows are 0 wherever no plan was entered, so the chart renders
 // those as dots only (via zeroToNull), never a misleading zero-value line segment.
 const IND_TREND_ROWS = [
-  { key:'targetHours', block:'Hours', label:'Target Hours Needed (Trend Model)', unit:'hours', role:'target', sparse:false, values: IND.targetHours },
-  { key:'inputHours', block:'Hours', label:'Forecast Input Hours', unit:'hours', role:'input', sparse:true, values: IND.totalTeamHours },
-  { key:'overageHours', block:'Hours', label:'Forecast Input Hours Overage/(Shortfall) vs Trend Model', unit:'hours', role:'overage', sparse:true, values: IND.forecastInputHoursOverage },
-  { key:'actualPct', block:'%', label:'Actual %', unit:'pct', role:'target', sparse:false, values: IND.pctHoursToRevenue },
-  { key:'inputPct', block:'%', label:'Forecast Input %', unit:'pct', role:'input', sparse:true, values: IND.forecastInputPct },
-  { key:'overagePct', block:'%', label:'Forecast Input % Overage/(Shortfall) vs Trend Model %', unit:'pct', role:'overage', sparse:true, values: IND.forecastInputPctOverage },
-  { key:'targetWorkers', block:'Workers', label:'Target Workers Needed (Trend Model)', unit:'workers', role:'target', sparse:false, values: IND.targetWorkers },
-  { key:'inputWorkers', block:'Workers', label:'Manpower Input', unit:'workers', role:'input', sparse:true, values: IND.totalTeamWorkers },
-  { key:'varianceWorkers', block:'Workers', label:'Staffing Plan vs Trend Model — Variance (Workers)', unit:'workers', role:'overage', sparse:true, values: IND.varianceWorkers },
+  { key:'trendHours', block:'Trend Model (Hrs, % & FTE)', label:'(Trend Model) Hours', unit:'hours', role:'target', sparse:false, values: IND.targetHours },
+  { key:'trendPct', block:'Trend Model (Hrs, % & FTE)', label:'(Trend Model) %', unit:'pct', role:'target', sparse:false, values: IND.pctHoursToRevenue },
+  { key:'trendFte', block:'Trend Model (Hrs, % & FTE)', label:'(Trend Model) FTE', unit:'workers', role:'target', sparse:false, values: IND.targetWorkers },
+
+  { key:'forecastHours', block:'Forecast (Hrs, % & FTE)', label:'Forecast Hours Input', unit:'hours', role:'input', sparse:true, values: IND.totalTeamHours },
+  { key:'forecastPct', block:'Forecast (Hrs, % & FTE)', label:'Forecast Input %', unit:'pct', role:'input', sparse:true, values: IND.forecastInputPct },
+  { key:'forecastFte', block:'Forecast (Hrs, % & FTE)', label:'Forecast Manpower Input', unit:'workers', role:'input', sparse:true, values: IND.totalTeamWorkers },
+
+  { key:'varHours', block:'Trend Model Vs Forecast Variance', label:'Trend Model Hours Vs Forecast Hours', unit:'hours', role:'overage', sparse:true, values: IND.forecastInputHoursOverage },
+  { key:'varPct', block:'Trend Model Vs Forecast Variance', label:'Trend Model Hour % Vs Forecast Hours%', unit:'pct', role:'overage', sparse:true, values: IND.forecastInputPctOverage },
+  { key:'varFte', block:'Trend Model Vs Forecast Variance', label:'Trend Model Workers Vs Forecast Workers', unit:'workers', role:'overage', sparse:true, values: IND.varianceWorkers },
 ];
 const IND_UNIT_META = {
   hours: { axisLabel:'Hours', fmt: v => Math.round(v).toLocaleString() },
@@ -1057,7 +1055,7 @@ const indRowColor = row => row.role==='target' ? IND_UNIT_COLOR[row.unit] : IND_
 
 // Which rows are currently plotted on the Trend Model Comparison chart — starts with one
 // representative "target" row per block, toggled via the checkboxes in the table below.
-let indTrendSelected = new Set(['targetHours','actualPct','targetWorkers']);
+let indTrendSelected = new Set(['trendHours','trendPct','trendFte']);
 
 function renderIndTrendChart(){
   const monthIdx = getIndFilteredMonthIdx();
