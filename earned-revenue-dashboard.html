@@ -233,14 +233,14 @@ table.simple tr.group-label td{padding:4px 9px;font-size:10px;letter-spacing:.06
   <div class="kpi-grid" id="indKpiGrid"></div>
 
   <div class="panel">
-    <h2>Monthly Earned Revenue</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Solid bars = Actual. Faded bars past the shaded divider = Forecast.</p>
+    <h2>Trend Model, Forecast &amp; Variance Comparison</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Check any row(s) in the table below to plot them here as bar charts. Solid bars = Actual. Faded bars past the shaded divider = Forecast.</p>
     <canvas id="indTrendChart" height="110"></canvas>
   </div>
 
   <div class="panel">
     <h2>Indirects</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Same rows, same order as the Indirects sheet: Trend Model (Actual &amp; Forecast-Trend), Forecast inputs, and the resulting Variance.</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Same rows, same order as the Indirects sheet: Trend Model (Actual &amp; Forecast-Trend), Forecast inputs, and the resulting Variance. Check a row to plot it on the chart above.</p>
     <div style="overflow-x:auto;">
     <table class="simple" id="indSheetTable" style="white-space:nowrap;">
       <thead>
@@ -974,6 +974,43 @@ function fmtOverage(v, fmt){
   return v>0 ? `+${s}` : `-${s}`;
 }
 
+// One table, same rows in the same order as the Indirects sheet (rows 4-17): Trend Model
+// (Actual & Forecast-Trend blended), Forecast inputs, and the resulting Variance. Each row is
+// checkable onto the chart above — "unit" groups rows onto the same/shared axis + color, "fmt"
+// is the exact (non-abbreviated) table format, "role" drives color for input/overage rows and
+// the +/- overage display.
+const IND_SHEET_ROWS = [
+  { key:'revenue', block:'Trend Model (Hrs, % & FTE)', label:'Monthly Earned Revenue (Act & FC Trend)', unit:'revenue', role:'actual', fmt: fmtMoney, sparse:false, values: IND.revenue },
+  { key:'hours', block:'Trend Model (Hrs, % & FTE)', label:'Hours (Act & FC Trend)', unit:'hours', role:'actual', fmt: v=>Math.round(v).toLocaleString(), sparse:false, values: IND.hours },
+  { key:'workers', block:'Trend Model (Hrs, % & FTE)', label:'# of Workers Charged (Act & FC Trend)', unit:'workers', role:'actual', fmt: v=>v.toFixed(1), sparse:false, values: IND.workers },
+  { key:'actualCost', block:'Trend Model (Hrs, % & FTE)', label:'Actual Cost (Act & FC Trend)', unit:'cost', role:'actual', fmt: fmtMoney, sparse:false, values: IND.actualCost },
+  { key:'pctCost', block:'Trend Model (Hrs, % & FTE)', label:'% Indirect Cost to Earned Revenue (Act & FC Trend)', unit:'pct', role:'actual', fmt: fmtPct2, sparse:false, values: IND.pctCostToRevenue },
+  { key:'pctHours', block:'Trend Model (Hrs, % & FTE)', label:'% Hours to Monthly Earned Revenue (Act & FC Trend)', unit:'pct', role:'actual', fmt: fmtPct3, sparse:false, values: IND.pctHoursToRevenue },
+
+  { key:'forecastHours', block:'Forecast (Hrs, % & FTE)', label:'Forecast Hours Input', unit:'hours', role:'input', fmt: v=>Math.round(v).toLocaleString(), sparse:true, values: IND.totalTeamHours },
+  { key:'forecastPct', block:'Forecast (Hrs, % & FTE)', label:'Forecast Hours %', unit:'pct', role:'input', fmt: fmtPct3, sparse:false, values: IND.forecastInputPct },
+  { key:'forecastFte', block:'Forecast (Hrs, % & FTE)', label:'Forecast Manpower Input', unit:'workers', role:'input', fmt: v=>v.toFixed(1), sparse:false, values: IND.totalTeamWorkers },
+
+  { key:'varHours', block:'Trend Model Vs Forecast Variance', label:'Trend Model Hours Vs Forecast Hours', unit:'hours', role:'overage', fmt: v=>Math.round(v).toLocaleString(), values: IND.forecastInputHoursOverage },
+  { key:'varPct', block:'Trend Model Vs Forecast Variance', label:'Trend Model Hour % Vs Forecast Hours%', unit:'pct', role:'overage', fmt: fmtPct3, values: IND.forecastInputPctOverage },
+  { key:'varFte', block:'Trend Model Vs Forecast Variance', label:'Trend Model Workers Vs Forecast Workers', unit:'workers', role:'overage', fmt: v=>v.toFixed(1), values: IND.varianceWorkers },
+];
+
+const IND_UNIT_META = {
+  revenue: { axisLabel:'$ Revenue', fmt: fmtMoneyM },
+  cost: { axisLabel:'$ Cost', fmt: fmtMoneyM },
+  hours: { axisLabel:'Hours', fmt: v => Math.round(v).toLocaleString() },
+  pct: { axisLabel:'%', fmt: fmtPct3 },
+  workers: { axisLabel:'Workers', fmt: v => v.toFixed(1) },
+};
+const IND_UNIT_COLOR = { revenue:'#2563eb', cost:'#ea580c', hours:'#16a34a', pct:'#0891b2', workers:'#9333ea' };
+const IND_ROLE_COLOR = { input:'#d93025', overage:'#f59e0b' };
+const indRowColor = row => (row.role==='input' || row.role==='overage') ? IND_ROLE_COLOR[row.role] : IND_UNIT_COLOR[row.unit];
+
+// Which rows are currently plotted on the chart — starts with Monthly Earned Revenue, toggled
+// via the checkboxes in the table below.
+let indTrendSelected = new Set(['revenue']);
+
 function renderIndTrendChart(){
   const monthIdx = getIndFilteredMonthIdx();
   const labels = monthIdx.map(i=>IND.months[i].label);
@@ -981,50 +1018,47 @@ function renderIndTrendChart(){
   const boundary = indForecastBoundary(monthIdx);
   const isDark = document.documentElement.getAttribute('data-theme')==='dark';
 
-  const data = monthIdx.map(i=>IND.revenue[i]);
-  const barColors = monthIdx.map(i=> isActual(i) ? '#2563eb' : withAlpha('#2563eb',0.4));
+  const selectedRows = IND_SHEET_ROWS.filter(r=>indTrendSelected.has(r.key));
+  const unitsUsed = [...new Set(selectedRows.map(r=>r.unit))];
+  const positions = ['left','right','right'];
+  const scales = { x:{ ticks:{maxRotation:90,minRotation:45} } };
+  unitsUsed.forEach((u,idx)=>{
+    scales['y_'+u] = {
+      position: positions[idx] || 'right',
+      title:{display:true, text:IND_UNIT_META[u].axisLabel},
+      ticks:{callback:IND_UNIT_META[u].fmt},
+      grid:{drawOnChartArea: idx===0},
+    };
+  });
+
+  const datasets = selectedRows.map(row=>{
+    const color = indRowColor(row);
+    const data = monthIdx.map(i=>row.values[i]);
+    const barColors = monthIdx.map(i=> isActual(i) ? color : withAlpha(color,0.4));
+    return { label:row.label, data, yAxisID:'y_'+row.unit, backgroundColor:barColors };
+  });
 
   const ctx = document.getElementById('indTrendChart');
   if(indCharts.trend) indCharts.trend.destroy();
   indCharts.trend = new Chart(ctx,{
     type:'bar',
-    data:{ labels, datasets:[{ label:'Monthly Earned Revenue', data, backgroundColor:barColors }] },
+    data:{ labels, datasets },
     options:{
       plugins:{
-        legend:{display:false},
+        legend:{position:'top'},
         tooltip:{callbacks:{label:c=>{
+          if(c.raw==null) return undefined;
+          const row = selectedRows[c.datasetIndex];
           const type = isActual(monthIdx[c.dataIndex]) ? 'Actual' : 'Forecast';
-          return `Monthly Earned Revenue: ${fmtMoneyM(c.raw)} (${type})`;
+          return `${row.label}: ${IND_UNIT_META[row.unit].fmt(c.raw)} (${type})`;
         }}},
         actualForecastBackdrop:{boundary, isDark}
       },
-      scales:{
-        x:{ ticks:{maxRotation:90,minRotation:45} },
-        y:{ title:{display:true, text:'$'}, ticks:{callback:fmtMoneyM} },
-      }
+      scales
     },
     plugins:[actualForecastBackdrop]
   });
 }
-
-// One table, same rows in the same order as the Indirects sheet (rows 4-17): Trend Model
-// (Actual & Forecast-Trend blended), Forecast inputs, and the resulting Variance.
-const IND_SHEET_ROWS = [
-  { block:'Trend Model (Hrs, % & FTE)', label:'Monthly Earned Revenue (Act & FC Trend)', fmt: fmtMoney, sparse:false, values: IND.revenue },
-  { block:'Trend Model (Hrs, % & FTE)', label:'Hours (Act & FC Trend)', fmt: v=>Math.round(v).toLocaleString(), sparse:false, values: IND.hours },
-  { block:'Trend Model (Hrs, % & FTE)', label:'# of Workers Charged (Act & FC Trend)', fmt: v=>v.toFixed(1), sparse:false, values: IND.workers },
-  { block:'Trend Model (Hrs, % & FTE)', label:'Actual Cost (Act & FC Trend)', fmt: fmtMoney, sparse:false, values: IND.actualCost },
-  { block:'Trend Model (Hrs, % & FTE)', label:'% Indirect Cost to Earned Revenue (Act & FC Trend)', fmt: fmtPct2, sparse:false, values: IND.pctCostToRevenue },
-  { block:'Trend Model (Hrs, % & FTE)', label:'% Hours to Monthly Earned Revenue (Act & FC Trend)', fmt: fmtPct3, sparse:false, values: IND.pctHoursToRevenue },
-
-  { block:'Forecast (Hrs, % & FTE)', label:'Forecast Hours Input', fmt: v=>Math.round(v).toLocaleString(), sparse:true, values: IND.totalTeamHours },
-  { block:'Forecast (Hrs, % & FTE)', label:'Forecast Hours %', fmt: fmtPct3, sparse:false, values: IND.forecastInputPct },
-  { block:'Forecast (Hrs, % & FTE)', label:'Forecast Manpower Input', fmt: v=>v.toFixed(1), sparse:false, values: IND.totalTeamWorkers },
-
-  { block:'Trend Model Vs Forecast Variance', label:'Trend Model Hours Vs Forecast Hours', fmt: v=>Math.round(v).toLocaleString(), role:'overage', values: IND.forecastInputHoursOverage },
-  { block:'Trend Model Vs Forecast Variance', label:'Trend Model Hour % Vs Forecast Hours%', fmt: fmtPct3, role:'overage', values: IND.forecastInputPctOverage },
-  { block:'Trend Model Vs Forecast Variance', label:'Trend Model Workers Vs Forecast Workers', fmt: v=>v.toFixed(1), role:'overage', values: IND.varianceWorkers },
-];
 
 function renderIndSheetTable(){
   const monthIdx = getIndFilteredMonthIdx();
@@ -1064,9 +1098,19 @@ function renderIndSheetTable(){
       if(row.sparse && !v) return '-';
       return row.fmt(v);
     });
-    bodyRows.push(`<tr><td>${row.label}</td>${vals.map((v,pos)=>`<td class="${colClass(pos)}">${v}</td>`).join('')}</tr>`);
+    const checked = indTrendSelected.has(row.key) ? 'checked' : '';
+    const labelCell = `<label class="trend-row-label"><input type="checkbox" class="trend-row-toggle" data-key="${row.key}" ${checked}> ${row.label}</label>`;
+    bodyRows.push(`<tr><td>${labelCell}</td>${vals.map((v,pos)=>`<td class="${colClass(pos)}">${v}</td>`).join('')}</tr>`);
   });
   document.querySelector('#indSheetTable tbody').innerHTML = bodyRows.join('');
+
+  document.querySelectorAll('#indSheetTable .trend-row-toggle').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      if(cb.checked) indTrendSelected.add(cb.dataset.key);
+      else indTrendSelected.delete(cb.dataset.key);
+      renderIndTrendChart();
+    });
+  });
 }
 
 const IND_MODEL_NOTES = [
