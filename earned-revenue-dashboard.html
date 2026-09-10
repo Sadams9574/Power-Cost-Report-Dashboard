@@ -1039,6 +1039,10 @@ const IND_UNIT_META = {
 const IND_UNIT_COLOR = { revenue:'#2563eb', cost:'#ea580c', hours:'#16a34a', pct:'#0891b2', workers:'#9333ea' };
 const IND_ROLE_COLOR = { input:'#d93025', overage:'#f59e0b' };
 const indRowColor = row => (row.role==='input' || row.role==='overage') ? IND_ROLE_COLOR[row.role] : IND_UNIT_COLOR[row.unit];
+// Forecast bars use the same peach the Indirects sheet's own conditional formatting uses for
+// Forecast columns, so the chart and the table below it match exactly.
+const IND_FORECAST_BAR_COLOR = '#FCE4D6';
+const IND_FORECAST_BAR_BORDER = '#C55A11';
 
 // Which rows are currently plotted on the chart — starts with Monthly Earned Revenue, toggled
 // via the checkboxes in the table below.
@@ -1067,8 +1071,9 @@ function renderIndTrendChart(){
   const datasets = selectedRows.map(row=>{
     const color = indRowColor(row);
     const data = monthIdx.map(i=>row.values[i]);
-    const barColors = monthIdx.map(i=> isActual(i) ? color : withAlpha(color,0.4));
-    return { label:row.label, data, yAxisID:'y_'+row.unit, backgroundColor:barColors };
+    const barColors = monthIdx.map(i=> isActual(i) ? color : IND_FORECAST_BAR_COLOR);
+    const borderColors = monthIdx.map(i=> isActual(i) ? color : IND_FORECAST_BAR_BORDER);
+    return { label:row.label, data, yAxisID:'y_'+row.unit, backgroundColor:barColors, borderColor:borderColors, borderWidth:1 };
   });
 
   const ctx = document.getElementById('indTrendChart');
