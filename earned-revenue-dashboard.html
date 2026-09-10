@@ -1071,9 +1071,24 @@ function renderIndTrendChart(){
   const datasets = selectedRows.map(row=>{
     const color = indRowColor(row);
     const data = monthIdx.map(i=>row.values[i]);
+    // % rows plot as a line (rather than bars) so they read clearly against $/Hours/Workers
+    // rows sharing the chart — dashed and switched to the forecast color past the divider.
+    if(row.unit === 'pct'){
+      return {
+        type:'line', label:row.label, data, yAxisID:'y_'+row.unit,
+        borderColor:color, backgroundColor:color,
+        pointBackgroundColor: monthIdx.map((i,pos)=> (boundary>=0 && pos>=boundary) ? IND_FORECAST_BAR_BORDER : color),
+        pointBorderColor: monthIdx.map((i,pos)=> (boundary>=0 && pos>=boundary) ? IND_FORECAST_BAR_BORDER : color),
+        segment:{
+          borderDash: ctx => (boundary>=0 && ctx.p1DataIndex>=boundary) ? [5,4] : undefined,
+          borderColor: ctx => (boundary>=0 && ctx.p1DataIndex>=boundary) ? IND_FORECAST_BAR_BORDER : color,
+        },
+        borderWidth:2, pointRadius:2, tension:0.15, order:-1, spanGaps:true,
+      };
+    }
     const barColors = monthIdx.map(i=> isActual(i) ? color : IND_FORECAST_BAR_COLOR);
     const borderColors = monthIdx.map(i=> isActual(i) ? color : IND_FORECAST_BAR_BORDER);
-    return { label:row.label, data, yAxisID:'y_'+row.unit, backgroundColor:barColors, borderColor:borderColors, borderWidth:1 };
+    return { type:'bar', label:row.label, data, yAxisID:'y_'+row.unit, backgroundColor:barColors, borderColor:borderColors, borderWidth:1 };
   });
 
   const ctx = document.getElementById('indTrendChart');
