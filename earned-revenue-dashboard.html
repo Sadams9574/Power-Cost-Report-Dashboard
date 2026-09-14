@@ -65,7 +65,7 @@ table.simple tr.grp-head th.grp-forecast{color:var(--muted);text-align:left;}
 table.simple td.col-forecast,table.simple th.col-forecast{background:var(--bg);}
 table.simple td.col-boundary,table.simple th.col-boundary{border-left:2px dashed var(--border);}
 table.simple tr.group-sep td{padding:0;height:8px;border:none;background:var(--bg);}
-table.simple tr.group-label td{padding:4px 9px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--bg);border-bottom:1px solid var(--border);text-align:left;}
+table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;letter-spacing:.02em;color:var(--accent);background:var(--bg);border-bottom:1px solid var(--border);text-align:left;}
 /* Indirects tab only: Actual/Forecast column colors match the source workbook's own conditional
    formatting on the Indirects sheet (light blue for Actual columns, light peach for Forecast). */
 #tabIndirects table.simple td.col-actual,#tabIndirects table.simple th.col-actual{background:#DDEBF7;}
@@ -290,11 +290,20 @@ table.simple tr.group-label td{padding:4px 9px;font-size:10px;letter-spacing:.06
   <div class="panel">
     <h2>Group 1 Pivot Data — Personnel Input Model</h2>
     <p style="font-size:12px;color:var(--muted);margin-top:-6px">Check a box in any Forecast month to add that person to the Personnel-Input Forecast for that month — adds 1 to their department's headcount (C2), which becomes Hours (B2) via the department's own Hours-per-Worker, and recalculates % (A2), all in the table above. Filter by Group, or use a column's ↩ Prior button to carry forward last month's roster.</p>
-    <div style="margin-bottom:12px;">
-      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Filter by Group</label>
-      <div class="ms" id="indGroupFilterMS">
-        <button type="button" class="ms-btn"></button>
-        <div class="ms-panel"></div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;">
+      <div>
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Filter by Group</label>
+        <div class="ms" id="indGroupFilterMS">
+          <button type="button" class="ms-btn"></button>
+          <div class="ms-panel"></div>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Filter by Report</label>
+        <div class="ms" id="indReportFilterMS">
+          <button type="button" class="ms-btn"></button>
+          <div class="ms-panel"></div>
+        </div>
       </div>
     </div>
     <div style="overflow-x:auto;">
@@ -925,7 +934,7 @@ function renderAll(){
 
 // ===================== Indirects tab =====================
 
-let indMonthMS, indYearMS, indGroupMS, indDeptFilterMS;
+let indMonthMS, indYearMS, indGroupMS, indDeptFilterMS, indReportMS;
 const IND_MONTHS_PRESENT = MONTH_ORDER.filter(mo => IND.months.some(m => m.label.startsWith(mo + ' ')));
 
 // Last month labeled "Actual" in the Indirects data (the rest is trend-model Forecast).
@@ -943,6 +952,9 @@ function populateIndirectsFilters(){
   indGroupMS = initMultiSelect('indGroupFilterMS', IND_DEPTS.map(d=>({value:d, label:d})), 'All Groups', renderIndTeamTable);
 
   indDeptFilterMS = initMultiSelect('indDeptFilterMS', IND_DEPTS.map(d=>({value:d, label:d})), 'All Departments', renderIndSheetTable);
+
+  const reports = [...new Set(IND.people.map(p=>p.report).filter(Boolean))].sort();
+  indReportMS = initMultiSelect('indReportFilterMS', reports.map(r=>({value:r, label:r})), 'All Reports', renderIndTeamTable);
 }
 
 function getIndFilteredMonthIdx(){
@@ -1027,13 +1039,19 @@ function indComputeDeptForecast(){
     ['hoursForecast','workersForecast','pctForecast','hoursCompare','workersCompare','pctCompare'].forEach(key=>{
       IND[key]['Total Monthly'][i] = IND_DEPTS.reduce((s,d)=>s+IND[key][d][i], 0);
     });
+    // Subtotal Manpower (row 105) is the sheet's headcount across every department — matches
+    // the Personnel-Input Forecast's Total Monthly #Workers exactly once people are checked in.
+    IND.subtotalManpower[i] = IND.workersForecast['Total Monthly'][i];
   }
 }
 
 // The people currently visible in the Group 1 Pivot Data table, honoring the Group filter.
 function indFilteredPeople(){
   const groupSel = indGroupMS ? indGroupMS.selected : null;
-  return groupSel ? IND.people.filter(p=>groupSel.has(p.group)) : IND.people;
+  const reportSel = indReportMS ? indReportMS.selected : null;
+  return IND.people.filter(p=>
+    (!groupSel || groupSel.has(p.group)) && (!reportSel || reportSel.has(p.report))
+  );
 }
 
 // Was this person "in" for the given month — a real logged hour if it's an Actual month, or
@@ -1158,17 +1176,20 @@ const IND_SHEET_ROWS = [
 
   ...indDeptRows(IND.pctTrend, 'A1.) % Ratio Hours/Earned Rev — Actual & Trend Model', 'pct', fmtPct4, 'actual'),
   ...indDeptRows(IND.pctForecast, 'A2.) % Ratio Hours/Earned Rev — Actual & Personnel-Input Forecast', 'pct', fmtPct4, 'input', true),
-  ...indDeptRows(IND.pctCompare, 'A3.) % Ratio — Trend Model Vs Personnel-Input Forecast', 'pct', fmtPct4, 'overage'),
 
   ...indDeptRows(IND.hoursTrend, 'B1.) Hours Worked — Actual & Trend Model', 'hours', fmtHoursExact, 'actual'),
   ...indDeptRows(IND.hoursForecast, 'B2.) Hours Worked — Actual & Personnel-Input Forecast', 'hours', fmtHoursExact, 'input', true),
-  ...indDeptRows(IND.hoursCompare, 'B3.) Hours — Trend Model Vs Personnel-Input Forecast', 'hours', fmtHoursExact, 'overage'),
 
   ...indDeptRows(IND.workersTrend, 'C1.) # of Workers — Actual & Trend Model', 'workers', fmtWorkers, 'actual'),
   ...indDeptRows(IND.workersForecast, 'C2.) # of Workers — Actual & Personnel-Input Forecast', 'workers', fmtWorkers, 'input', true),
-  ...indDeptRows(IND.workersCompare, 'C3.) # of Workers — Trend Model Vs Personnel-Input Forecast', 'workers', fmtWorkers, 'overage'),
 
   { key:'subtotalManpower', block:'Personnel Data Collected', label:'Subtotal Manpower (Headcount)', unit:'workers', role:'actual', fmt:fmtWorkers, values: IND.subtotalManpower },
+
+  // A3/B3/C3 (Trend Model Vs Personnel-Input Forecast variance) moved to their own area at the
+  // end of the table, out of the way of the main A1/A2, B1/B2, C1/C2 rows above.
+  ...indDeptRows(IND.pctCompare, 'A3.) % Ratio — Trend Model Vs Personnel-Input Forecast', 'pct', fmtPct4, 'overage'),
+  ...indDeptRows(IND.hoursCompare, 'B3.) Hours — Trend Model Vs Personnel-Input Forecast', 'hours', fmtHoursExact, 'overage'),
+  ...indDeptRows(IND.workersCompare, 'C3.) # of Workers — Trend Model Vs Personnel-Input Forecast', 'workers', fmtWorkers, 'overage'),
 ];
 
 const IND_UNIT_META = {
