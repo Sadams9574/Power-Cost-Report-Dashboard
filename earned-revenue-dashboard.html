@@ -1089,32 +1089,45 @@ function populateIndirectsFilters(){
   const indChartRowItems = predicate => IND_SHEET_ROWS.filter(predicate).map(r=>(
     { value:r.key, label:indRowDisplayLabel(r) }
   ));
+  // Every Trend Model / Input Forecast dropdown defaults to its own "Total Monthly" row (the
+  // last item indDeptRows appends to each block) so every chart already shows something the
+  // moment the tab opens — pick a different row, or add more, only if you want to change it.
+  const indDefaultTotal = items => {
+    const found = items.find(it=>it.label.endsWith('— Total Monthly'));
+    return found ? [found.value] : [];
+  };
   // Comparison 1 = % data only (A1 Trend Model / A2 Input Forecast), Comparison 2 = Hours only
   // (B1/B2), Comparison 3 = #Workers only (C1/C2) — each pairs a Trend Model picker with an
   // Input Forecast picker plotting together on one shared chart, scoped to a single metric so
   // the two dropdowns are never mixing unrelated units.
-  indComp1TrendMS = initMultiSelect('indComp1TrendMS', indChartRowItems(r=>/^A1\.\)/.test(r.block)), 'Choose rows…', renderIndComp1, []);
-  indComp1ForecastMS = initMultiSelect('indComp1ForecastMS', indChartRowItems(r=>/^A2\.\)/.test(r.block)), 'Choose rows…', renderIndComp1, []);
-  indComp2TrendMS = initMultiSelect('indComp2TrendMS', indChartRowItems(r=>/^B1\.\)/.test(r.block)), 'Choose rows…', renderIndComp2, []);
-  indComp2ForecastMS = initMultiSelect('indComp2ForecastMS', indChartRowItems(r=>/^B2\.\)/.test(r.block)), 'Choose rows…', renderIndComp2, []);
-  indComp3TrendMS = initMultiSelect('indComp3TrendMS', indChartRowItems(r=>/^C1\.\)/.test(r.block)), 'Choose rows…', renderIndComp3, []);
-  indComp3ForecastMS = initMultiSelect('indComp3ForecastMS', indChartRowItems(r=>/^C2\.\)/.test(r.block)), 'Choose rows…', renderIndComp3, []);
+  const a1Items = indChartRowItems(r=>/^A1\.\)/.test(r.block));
+  const a2Items = indChartRowItems(r=>/^A2\.\)/.test(r.block));
+  const b1Items = indChartRowItems(r=>/^B1\.\)/.test(r.block));
+  const b2Items = indChartRowItems(r=>/^B2\.\)/.test(r.block));
+  const c1Items = indChartRowItems(r=>/^C1\.\)/.test(r.block));
+  const c2Items = indChartRowItems(r=>/^C2\.\)/.test(r.block));
+  indComp1TrendMS = initMultiSelect('indComp1TrendMS', a1Items, 'Choose rows…', renderIndComp1, indDefaultTotal(a1Items));
+  indComp1ForecastMS = initMultiSelect('indComp1ForecastMS', a2Items, 'Choose rows…', renderIndComp1, indDefaultTotal(a2Items));
+  indComp2TrendMS = initMultiSelect('indComp2TrendMS', b1Items, 'Choose rows…', renderIndComp2, indDefaultTotal(b1Items));
+  indComp2ForecastMS = initMultiSelect('indComp2ForecastMS', b2Items, 'Choose rows…', renderIndComp2, indDefaultTotal(b2Items));
+  indComp3TrendMS = initMultiSelect('indComp3TrendMS', c1Items, 'Choose rows…', renderIndComp3, indDefaultTotal(c1Items));
+  indComp3ForecastMS = initMultiSelect('indComp3ForecastMS', c2Items, 'Choose rows…', renderIndComp3, indDefaultTotal(c2Items));
 
   // Comparison 4 and the main chart above both let you mix any metric — every Trend Model row
   // (A1/B1/C1) against every Input Forecast row (A2/B2/C2) — for ad hoc comparisons that don't
   // fit the single-metric Comparison 1/2/3 charts.
   const allTrendItems = indChartRowItems(r=>/^[A-C]1\.\)/.test(r.block));
   const allForecastItems = indChartRowItems(r=>/^[A-C]2\.\)/.test(r.block));
-  indComp4TrendMS = initMultiSelect('indComp4TrendMS', allTrendItems, 'Choose rows…', renderIndComp4, []);
-  indComp4ForecastMS = initMultiSelect('indComp4ForecastMS', allForecastItems, 'Choose rows…', renderIndComp4, []);
+  indComp4TrendMS = initMultiSelect('indComp4TrendMS', allTrendItems, 'Choose rows…', renderIndComp4, indDefaultTotal(allTrendItems));
+  indComp4ForecastMS = initMultiSelect('indComp4ForecastMS', allForecastItems, 'Choose rows…', renderIndComp4, indDefaultTotal(allForecastItems));
 
   // The main chart's own Trend Model / Input Forecast pickers add rows the same way the
   // Comparison charts do — quicker than scrolling the big table below to find a checkbox —
   // and cover every metric (%, Hours, #Workers) since the main chart already supports mixed
   // units on separate axes.
   const indMainRender = ()=>{ renderIndTrendChart(); renderIndSelectedTable(); };
-  indMainTrendMS = initMultiSelect('indMainTrendMS', allTrendItems, 'Choose rows…', indMainRender, []);
-  indMainForecastMS = initMultiSelect('indMainForecastMS', allForecastItems, 'Choose rows…', indMainRender, []);
+  indMainTrendMS = initMultiSelect('indMainTrendMS', allTrendItems, 'Choose rows…', indMainRender, indDefaultTotal(allTrendItems));
+  indMainForecastMS = initMultiSelect('indMainForecastMS', allForecastItems, 'Choose rows…', indMainRender, indDefaultTotal(allForecastItems));
 }
 
 function getIndFilteredMonthIdx(){
