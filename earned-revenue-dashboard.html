@@ -268,7 +268,14 @@ table.simple tr.group-label td{padding:4px 9px;font-size:10px;letter-spacing:.06
 
   <div class="panel">
     <h2>Indirects — By Department</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Same rows, same order as the Indirects sheet: Revenue, then % / Hours / #Workers each split into Trend Model, Personnel-Input Forecast, and Comparison, broken out across all 7 departments. Check a row to plot it on the chart above.</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Same rows, same order as the Indirects sheet: Revenue, then % / Hours / #Workers each split into Trend Model, Personnel-Input Forecast, and Comparison, broken out across all 7 departments. Check a row to plot it on the chart above. Click a block's ▾ to roll it up to just Total Monthly.</p>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Filter by Department</label>
+      <div class="ms" id="indDeptFilterMS">
+        <button type="button" class="ms-btn"></button>
+        <div class="ms-panel"></div>
+      </div>
+    </div>
     <div style="overflow-x:auto;">
     <table class="simple" id="indSheetTable" style="white-space:nowrap;">
       <thead>
@@ -918,7 +925,7 @@ function renderAll(){
 
 // ===================== Indirects tab =====================
 
-let indMonthMS, indYearMS, indGroupMS;
+let indMonthMS, indYearMS, indGroupMS, indDeptFilterMS;
 const IND_MONTHS_PRESENT = MONTH_ORDER.filter(mo => IND.months.some(m => m.label.startsWith(mo + ' ')));
 
 // Last month labeled "Actual" in the Indirects data (the rest is trend-model Forecast).
@@ -934,6 +941,8 @@ function populateIndirectsFilters(){
   indMonthMS = initMultiSelect('indMonthFilterMS', IND_MONTHS_PRESENT.map(mo=>({value:mo, label:mo})), 'All Months', renderIndirectsAll);
 
   indGroupMS = initMultiSelect('indGroupFilterMS', IND_DEPTS.map(d=>({value:d, label:d})), 'All Groups', renderIndTeamTable);
+
+  indDeptFilterMS = initMultiSelect('indDeptFilterMS', IND_DEPTS.map(d=>({value:d, label:d})), 'All Departments', renderIndSheetTable);
 }
 
 function getIndFilteredMonthIdx(){
@@ -1133,10 +1142,10 @@ const fmtHoursExact = v => Math.round(v).toLocaleString();
 function indDeptRows(dataDict, block, unit, fmt, role, sparse){
   const slug = block.replace(/[^A-Za-z0-9]/g,'');
   const rows = IND_DEPTS.map(d => ({
-    key: slug+'_'+d.replace(/[^A-Za-z0-9]/g,''), block, label:d, unit, role, fmt, sparse,
+    key: slug+'_'+d.replace(/[^A-Za-z0-9]/g,''), block, label:d, unit, role, fmt, sparse, collapsible:true,
     values: dataDict[d],
   }));
-  rows.push({ key:slug+'_Total', block, label:'Total Monthly', unit, role, fmt, sparse, values: dataDict['Total Monthly'] });
+  rows.push({ key:slug+'_Total', block, label:'Total Monthly', unit, role, fmt, sparse, values: dataDict['Total Monthly'], isBlockTotal:true });
   return rows;
 }
 
@@ -1179,6 +1188,10 @@ const IND_FORECAST_BAR_BORDER = '#C55A11';
 // Which rows are currently plotted on the chart — starts with Monthly Earned Revenue, toggled
 // via the checkboxes in the table below.
 let indTrendSelected = new Set(['revenue']);
+
+// Which A/B/C blocks are currently collapsed to just their Total Monthly row — click the
+// chevron next to a block's title to roll its 7 department rows up into one line.
+let indCollapsedBlocks = new Set();
 
 function renderIndTrendChart(){
   const monthIdx = getIndFilteredMonthIdx();
@@ -1311,9 +1324,16 @@ function renderIndSheetTable(){
   IND_SHEET_ROWS.forEach(row=>{
     if(row.block !== lastBlock){
       if(lastBlock !== null) bodyRows.push(`<tr class="group-sep"><td colspan="${ncols}"></td></tr>`);
-      bodyRows.push(`<tr class="group-label"><td colspan="${ncols}">${row.block}</td></tr>`);
+      const blockEsc = row.block.replace(/"/g,'&quot;');
+      const collapsed = row.collapsible && indCollapsedBlocks.has(row.block);
+      const chevron = row.collapsible
+        ? `<span class="block-toggle" data-block="${blockEsc}" style="cursor:pointer;display:inline-block;margin-right:6px;transition:transform .15s;${collapsed?'transform:rotate(-90deg);':''}">▾</span>`
+        : '';
+      bodyRows.push(`<tr class="group-label"><td colspan="${ncols}">${chevron}${row.block}</td></tr>`);
       lastBlock = row.block;
     }
+    if(row.collapsible && !row.isBlockTotal && indCollapsedBlocks.has(row.block)) return;
+    if(row.collapsible && !row.isBlockTotal && indDeptFilterMS && !indDeptFilterMS.selected.has(row.label)) return;
     const vals = monthIdx.map(i=>{
       const v = row.values[i];
       if(row.role==='overage') return fmtOverage(v, row.fmt);
@@ -1321,7 +1341,8 @@ function renderIndSheetTable(){
       return row.fmt(v);
     });
     const checked = indTrendSelected.has(row.key) ? 'checked' : '';
-    const labelCell = `<label class="trend-row-label"><input type="checkbox" class="trend-row-toggle" data-key="${row.key}" ${checked}> ${row.label}</label>`;
+    const strong = row.isBlockTotal ? 'font-weight:700;' : '';
+    const labelCell = `<label class="trend-row-label" style="${strong}"><input type="checkbox" class="trend-row-toggle" data-key="${row.key}" ${checked}> ${row.label}</label>`;
     bodyRows.push(`<tr><td>${labelCell}</td>${vals.map((v,pos)=>`<td class="${colClass(pos)}">${v}</td>`).join('')}</tr>`);
   });
   document.querySelector('#indSheetTable tbody').innerHTML = bodyRows.join('');
@@ -1332,6 +1353,15 @@ function renderIndSheetTable(){
       else indTrendSelected.delete(cb.dataset.key);
       renderIndTrendChart();
       renderIndSelectedTable();
+    });
+  });
+
+  document.querySelectorAll('#indSheetTable .block-toggle').forEach(chev=>{
+    chev.addEventListener('click', ()=>{
+      const block = chev.dataset.block;
+      if(indCollapsedBlocks.has(block)) indCollapsedBlocks.delete(block);
+      else indCollapsedBlocks.add(block);
+      renderIndSheetTable();
     });
   });
 }
