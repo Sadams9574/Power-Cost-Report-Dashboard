@@ -1118,8 +1118,10 @@ function populateIndirectsFilters(){
   // fit the single-metric Comparison 1/2/3 charts.
   const allTrendItems = indChartRowItems(r=>/^[A-C]1\.\)/.test(r.block));
   const allForecastItems = indChartRowItems(r=>/^[A-C]2\.\)/.test(r.block));
-  indComp4TrendMS = initMultiSelect('indComp4TrendMS', allTrendItems, 'Choose rows…', renderIndComp4, indDefaultTotal(allTrendItems));
-  indComp4ForecastMS = initMultiSelect('indComp4ForecastMS', allForecastItems, 'Choose rows…', renderIndComp4, indDefaultTotal(allForecastItems));
+  // Comparison 4 stays empty on first load — it's the free-form "pick anything" chart, so
+  // defaulting it to a specific row would just be one more thing to clear before starting.
+  indComp4TrendMS = initMultiSelect('indComp4TrendMS', allTrendItems, 'Choose rows…', renderIndComp4, []);
+  indComp4ForecastMS = initMultiSelect('indComp4ForecastMS', allForecastItems, 'Choose rows…', renderIndComp4, []);
 
   // The main chart's own Trend Model / Input Forecast pickers add rows the same way the
   // Comparison charts do — quicker than scrolling the big table below to find a checkbox —
