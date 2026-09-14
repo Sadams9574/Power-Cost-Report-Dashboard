@@ -1324,11 +1324,21 @@ let indCollapsedBlocks = new Set();
 // Every row's own label repeats across blocks (e.g. "G&A" appears in A1, A2, B1...), so once a
 // chart can mix rows from more than one block — as the merged Comparison charts do, pairing a
 // Trend Model row with an Input Forecast row on the same canvas — the legend needs the block
-// code to tell them apart.
+// code to tell them apart, and a bare "A1" doesn't say what A1 actually means, so spell it out
+// right next to the code.
+const IND_BLOCK_MEANING = {
+  A1:'Trend Model %', A2:'Input Forecast %', A3:'Variance %',
+  B1:'Trend Model Hours', B2:'Input Forecast Hours', B3:'Variance Hours',
+  C1:'Trend Model Workers', C2:'Input Forecast Workers', C3:'Variance Workers',
+};
 function indRowDisplayLabel(row){
-  const codeMatch = row.block.match(/^[A-Z]\d\.\)/);
-  const prefix = codeMatch ? codeMatch[0].replace('.)','') : row.block;
-  return `${prefix} — ${row.label}`;
+  const codeMatch = row.block.match(/^([A-Z]\d)\.\)/);
+  if(codeMatch){
+    const code = codeMatch[1];
+    const meaning = IND_BLOCK_MEANING[code];
+    return `${code}${meaning ? ' ('+meaning+')' : ''} — ${row.label}`;
+  }
+  return `${row.block} — ${row.label}`;
 }
 
 // Shared renderer behind the main chart and the extra Comparison/Manpower/Variance charts below
@@ -1383,6 +1393,10 @@ function indRenderComparisonChart(canvasId, selectedKeys, chartSlot){
     type:'bar',
     data:{ labels, datasets },
     options:{
+      // The Variance chart sits alone at full panel width (the others share a half-width
+      // grid), so give it a flatter aspect ratio — otherwise it renders much taller than
+      // the rest just because it's wider.
+      aspectRatio: chartSlot==='chart4' ? 4.5 : 2,
       plugins:{
         legend:{position:'top'},
         tooltip:{callbacks:{label:c=>{
