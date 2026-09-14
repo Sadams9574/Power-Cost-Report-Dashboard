@@ -356,8 +356,8 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
       </div>
     </div>
     <div class="panel" style="margin-bottom:0;">
-      <h2>Comparison 4</h2>
-      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Any metric — pick Trend Model row(s) (A1/B1/C1) and Input Forecast row(s) (A2/B2/C2), both plot together on this one chart. Pick both for the same department (and same metric) and its Variance (delta) shows up in the table below — not on the chart itself.</p>
+      <h2>Comparison 4 — Cost</h2>
+      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Cost data only — pick Trend Model Monthly Cost (D1) and Input Forecast Monthly Cost (D2), both plot together on this one chart. Pick both and the Variance (delta) shows up in the table below — not on the chart itself.</p>
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
         <div>
           <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Trend Model</label>
@@ -470,6 +470,16 @@ const IND = {"months": [{"label": "Jan 2026", "type": "Actual"}, {"label": "Feb 
 for(let indTbdI=1; indTbdI<=50; indTbdI++){
   IND.people.push({ name:`TBD ${indTbdI}`, group:'', report:'', hours:new Array(IND.months.length).fill(0), placeholder:true, id:'tbd'+indTbdI });
 }
+
+// New Cost section from the sheet (rows 99-106, D1/E1 — Trend Model Monthly Cost & Input
+// Forecast Monthly Cost). Flat, company-wide totals — no per-department breakdown like the
+// %/Hours/Workers blocks have. Input Forecast Cost for Forecast months starts at 0 here (the
+// cached value from the sheet, since nobody was checked into the Personnel Model when it was
+// exported) — indComputeDeptForecast() below makes it live, recalculating it from whoever's
+// actually checked in ($100/person/month, same as the sheet's own K108*100 formula).
+IND.costTrendMonthly = [1288414, 1103753, 1300171, 1353909, 1424359, 1726613, 1967972, 1982709.1153481065, 2072160.856699983, 2202892.74434397, 2347460.284135958, 2507504.550085913, 2541037.649612344, 2639343.196142959, 2660214.999715932, 2731287.673579584, 3010167.073473507, 2674475.5179519737, 3057999.2547981306, 2697384.649741036, 2973601.1710696244, 3276131.428244602, 3386846.9058634117, 3642467.3811022555, 3954288.3922116817, 3900408.767818283, 3911475.0507734474, 3906559.4443103443, 3613134.45156222, 3680909.964355325, 3717499.417604109, 3642873.8593544057, 3533368.4029226317, 3464319.736398958, 3377064.697568075, 3203114.4332799674, 3014769.4409596566, 2766162.315726973, 2405878.4002443054, 2042227.187797951, 1716079.5204505837, 1459604.4231879262, 1204144.027505986, 1036018.2774092031, 816111.3326480269, 679598.7376956687, 461830.2653660776, 338112.3915951549, 253418.8233520569, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+IND.costForecastMonthly = IND.costTrendMonthly.map((v,i)=> IND.months[i].type==='Actual' ? v : 0);
+IND.costVarianceMonthly = new Array(IND.months.length).fill(0);
 
 const fmtMoney = v => '$' + Number(v).toLocaleString(undefined,{maximumFractionDigits:0});
 const fmtMoneyM = v => '$' + (Number(v)/1e6).toFixed(1) + 'M';
@@ -1113,20 +1123,20 @@ function populateIndirectsFilters(){
   indComp3TrendMS = initMultiSelect('indComp3TrendMS', c1Items, 'Choose rows…', renderIndComp3, indDefaultTotal(c1Items));
   indComp3ForecastMS = initMultiSelect('indComp3ForecastMS', c2Items, 'Choose rows…', renderIndComp3, indDefaultTotal(c2Items));
 
-  // Comparison 4 and the main chart above both let you mix any metric — every Trend Model row
-  // (A1/B1/C1) against every Input Forecast row (A2/B2/C2) — for ad hoc comparisons that don't
-  // fit the single-metric Comparison 1/2/3 charts.
-  const allTrendItems = indChartRowItems(r=>/^[A-C]1\.\)/.test(r.block));
-  const allForecastItems = indChartRowItems(r=>/^[A-C]2\.\)/.test(r.block));
-  // Comparison 4 stays empty on first load — it's the free-form "pick anything" chart, so
-  // defaulting it to a specific row would just be one more thing to clear before starting.
-  indComp4TrendMS = initMultiSelect('indComp4TrendMS', allTrendItems, 'Choose rows…', renderIndComp4, []);
-  indComp4ForecastMS = initMultiSelect('indComp4ForecastMS', allForecastItems, 'Choose rows…', renderIndComp4, []);
+  // Comparison 4 = Cost only (D1 Trend Model / D2 Input Forecast) — same single-metric pattern
+  // as Comparison 1/2/3, just for the newer Cost section (rows 99-106). Stays empty on first
+  // load per your last request, rather than auto-selecting the one available row.
+  const d1Items = indChartRowItems(r=>/^D1\.\)/.test(r.block));
+  const d2Items = indChartRowItems(r=>/^D2\.\)/.test(r.block));
+  indComp4TrendMS = initMultiSelect('indComp4TrendMS', d1Items, 'Choose rows…', renderIndComp4, []);
+  indComp4ForecastMS = initMultiSelect('indComp4ForecastMS', d2Items, 'Choose rows…', renderIndComp4, []);
 
   // The main chart's own Trend Model / Input Forecast pickers add rows the same way the
   // Comparison charts do — quicker than scrolling the big table below to find a checkbox —
-  // and cover every metric (%, Hours, #Workers) since the main chart already supports mixed
-  // units on separate axes.
+  // and cover every metric (%, Hours, #Workers, Cost) since the main chart already supports
+  // mixed units on separate axes.
+  const allTrendItems = indChartRowItems(r=>/^[A-D]1\.\)/.test(r.block));
+  const allForecastItems = indChartRowItems(r=>/^[A-D]2\.\)/.test(r.block));
   const indMainRender = ()=>{ renderIndTrendChart(); renderIndSelectedTable(); };
   indMainTrendMS = initMultiSelect('indMainTrendMS', allTrendItems, 'Choose rows…', indMainRender, indDefaultTotal(allTrendItems));
   indMainForecastMS = initMultiSelect('indMainForecastMS', allForecastItems, 'Choose rows…', indMainRender, indDefaultTotal(allForecastItems));
@@ -1226,6 +1236,11 @@ function indComputeDeptForecast(){
     // Subtotal Manpower (row 105) is the sheet's headcount across every department — matches
     // the Personnel-Input Forecast's Total Monthly #Workers exactly once people are checked in.
     IND.subtotalManpower[i] = IND.workersForecast['Total Monthly'][i];
+    // Input Forecast Monthly Cost (E1, row 101) — same formula the sheet uses: headcount
+    // checked in for the month × $100/person (K108*100). Variance is forecast minus trend,
+    // synthesized here since the sheet has no cost-variance row of its own.
+    IND.costForecastMonthly[i] = IND.subtotalManpower[i] * 100;
+    IND.costVarianceMonthly[i] = IND.costForecastMonthly[i] - IND.costTrendMonthly[i];
   }
 }
 
@@ -1271,10 +1286,15 @@ function renderIndTeamTable(){
 
   // A "copy prior month" button on every Forecast column — checks in everyone (in the current
   // Group filter) who was active the calendar month before, so a staffing plan can be carried
-  // forward instead of rebuilt one person at a time.
+  // forward instead of rebuilt one person at a time. Once anyone is checked in for that month
+  // the button flips to "Clear" so there's a one-click way back to empty — otherwise clicking
+  // Prior was a one-way door with no undo except unchecking everyone by hand.
   const copyRow = `<th></th><th></th><th></th>` + monthIdx.map((mi,pos)=>{
     if(isActual(mi) || mi===0) return `<th class="${colClass(pos)}"></th>`;
-    return `<th class="${colClass(pos)}"><button type="button" class="copy-prior-btn" data-month="${mi}" title="Check in everyone who was active last month">↩ Prior</button></th>`;
+    const hasAny = indFilteredPeople().some(p=>indActiveCells.has(indCellKey(indPersonKey(p), mi)));
+    return hasAny
+      ? `<th class="${colClass(pos)}"><button type="button" class="copy-prior-btn" data-month="${mi}" data-mode="clear" title="Uncheck everyone for this month">✕ Clear</button></th>`
+      : `<th class="${colClass(pos)}"><button type="button" class="copy-prior-btn" data-month="${mi}" data-mode="prior" title="Check in everyone who was active last month">↩ Prior</button></th>`;
   }).join('');
   document.getElementById('indTeamTableCopyRow').innerHTML = copyRow;
 
@@ -1365,16 +1385,20 @@ document.querySelector('#indTeamTable tbody').addEventListener('change', e=>{
   }
 });
 
-// Likewise, one delegated listener for every "copy prior month" button.
+// Likewise, one delegated listener for every "copy prior month" / "Clear" button.
 document.getElementById('indTeamTableCopyRow').addEventListener('click', e=>{
   const btn = e.target.closest('.copy-prior-btn');
   if(!btn) return;
   const mi = Number(btn.dataset.month);
-  const priorIdx = mi - 1;
-  if(priorIdx < 0) return;
-  indFilteredPeople().forEach(p=>{
-    if(indPersonWasActive(p, priorIdx)) indActiveCells.add(indCellKey(indPersonKey(p), mi));
-  });
+  if(btn.dataset.mode === 'clear'){
+    indFilteredPeople().forEach(p=>{ indActiveCells.delete(indCellKey(indPersonKey(p), mi)); });
+  } else {
+    const priorIdx = mi - 1;
+    if(priorIdx < 0) return;
+    indFilteredPeople().forEach(p=>{
+      if(indPersonWasActive(p, priorIdx)) indActiveCells.add(indCellKey(indPersonKey(p), mi));
+    });
+  }
   indRefreshAfterPersonnelChange();
 });
 
@@ -1421,6 +1445,13 @@ const IND_SHEET_ROWS = [
 
   { key:'subtotalManpower', block:'Personnel Data Collected', label:'Subtotal Manpower (Headcount)', unit:'workers', role:'actual', fmt:fmtWorkers, values: IND.subtotalManpower },
 
+  // Cost — new from the sheet's rows 99-106, flat company-wide totals (no per-department
+  // breakdown like %/Hours/Workers have). D3 (Variance) is synthesized here — the sheet has no
+  // cost-variance row of its own — kept live in indComputeDeptForecast() the same way B2/C2 are.
+  { key:'costTrendMonthly', block:'D1.) Trend Model Monthly Cost', label:'Monthly Cost', unit:'cost', role:'actual', fmt:fmtMoney, values: IND.costTrendMonthly },
+  { key:'costForecastMonthly', block:'D2.) Input Forecast Monthly Cost', label:'Monthly Cost', unit:'cost', role:'input', fmt:fmtMoney, values: IND.costForecastMonthly },
+  { key:'costVarianceMonthly', block:'D3.) Variance Monthly Cost', label:'Monthly Cost', unit:'cost', role:'overage', fmt:fmtMoney, values: IND.costVarianceMonthly },
+
   // A3/B3/C3 (Trend Model Vs Personnel-Input Forecast variance) moved to their own area at the
   // end of the table, out of the way of the main A1/A2, B1/B2, C1/C2 rows above.
   ...indDeptRows(IND.pctCompare, 'A3.) % Ratio — Trend Model Vs Personnel-Input Forecast', 'pct', fmtPct4, 'overage'),
@@ -1433,8 +1464,9 @@ const IND_UNIT_META = {
   hours: { axisLabel:'Hours', fmt: v => Math.round(v).toLocaleString() },
   pct: { axisLabel:'%', fmt: fmtPct4 },
   workers: { axisLabel:'Workers', fmt: v => v.toFixed(1) },
+  cost: { axisLabel:'$ Cost', fmt: fmtMoneyM },
 };
-const IND_UNIT_COLOR = { revenue:'#2563eb', hours:'#16a34a', pct:'#0891b2', workers:'#9333ea' };
+const IND_UNIT_COLOR = { revenue:'#2563eb', hours:'#16a34a', pct:'#0891b2', workers:'#9333ea', cost:'#0d9488' };
 const IND_ROLE_COLOR = { input:'#d93025', overage:'#f59e0b' };
 const indRowColor = row => (row.role==='input' || row.role==='overage') ? IND_ROLE_COLOR[row.role] : IND_UNIT_COLOR[row.unit];
 // Forecast bars use the same peach the Indirects sheet's own conditional formatting uses for
@@ -1459,6 +1491,7 @@ const IND_BLOCK_MEANING = {
   A1:'Trend Model %', A2:'Input Forecast %', A3:'Variance %',
   B1:'Trend Model Hours', B2:'Input Forecast Hours', B3:'Variance Hours',
   C1:'Trend Model Workers', C2:'Input Forecast Workers', C3:'Variance Workers',
+  D1:'Trend Model Cost', D2:'Input Forecast Cost', D3:'Variance Cost',
 };
 function indRowDisplayLabel(row){
   const codeMatch = row.block.match(/^([A-Z]\d)\.\)/);
