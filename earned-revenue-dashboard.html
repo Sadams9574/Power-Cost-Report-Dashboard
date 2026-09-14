@@ -280,7 +280,14 @@ table.simple tr.group-label td{padding:4px 9px;font-size:10px;letter-spacing:.06
 
   <div class="panel">
     <h2>Group 1 Pivot Data — Personnel Input Model</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Check a name to add them to the Personnel-Input Forecast — their last actual month's hours carry forward into every future month and roll up into their department's row (and the #Workers headcount) in the table above.</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Check a box in any Forecast month to add that person to the Personnel-Input Forecast for that month — their last actual month's hours roll up into their department's row (Hours in B2, headcount in C2, % recalculated in A2) in the table above.</p>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Filter by Group</label>
+      <div class="ms" id="indGroupFilterMS">
+        <button type="button" class="ms-btn"></button>
+        <div class="ms-panel"></div>
+      </div>
+    </div>
     <div style="overflow-x:auto;">
     <table class="simple" id="indTeamTable" style="white-space:nowrap;">
       <thead>
@@ -908,7 +915,7 @@ function renderAll(){
 
 // ===================== Indirects tab =====================
 
-let indMonthMS, indYearMS;
+let indMonthMS, indYearMS, indGroupMS;
 const IND_MONTHS_PRESENT = MONTH_ORDER.filter(mo => IND.months.some(m => m.label.startsWith(mo + ' ')));
 
 // Last month labeled "Actual" in the Indirects data (the rest is trend-model Forecast).
@@ -922,6 +929,8 @@ function populateIndirectsFilters(){
   indYearMS = initMultiSelect('indYearFilterMS', years.map(y=>({value:y, label:y})), 'All Years', renderIndirectsAll);
 
   indMonthMS = initMultiSelect('indMonthFilterMS', IND_MONTHS_PRESENT.map(mo=>({value:mo, label:mo})), 'All Months', renderIndirectsAll);
+
+  indGroupMS = initMultiSelect('indGroupFilterMS', IND_DEPTS.map(d=>({value:d, label:d})), 'All Groups', renderIndTeamTable);
 }
 
 function getIndFilteredMonthIdx(){
@@ -962,7 +971,7 @@ function renderIndKpis(){
     ['Latest Actual Manpower (Headcount)', i>=0 ? Math.round(IND.subtotalManpower[i]) : '—'],
     ['Departments Tracked', IND_DEPTS.length],
     ['People in Personnel Model', IND.people.length],
-    ['People Added to Forecast', indActivePeople.size],
+    ['People Checked Into Forecast', new Set([...indActiveCells].map(k=>k.split('__')[0])).size],
   ];
   document.getElementById('indKpiGrid').innerHTML = cards.map(([l,v])=>
     `<div class="kpi-card"><div class="label">${l}</div><div class="value">${v}</div></div>`).join('');
@@ -971,25 +980,28 @@ function renderIndKpis(){
 // The 7 departments tracked throughout the Indirects sheet.
 const IND_DEPTS = ['G&A','Estimating','Engineering','Project Engineer','Procurement','Construction','Project Management'];
 
-// Which people are currently "checked in" to the Personnel-Input Forecast — mirrors the sheet's
-// Group 1 Pivot Data list (rows 108-237): checking a name carries their last actual month's
-// hours forward into every forecast month, rolling up into their department below (and into the
-// #Workers rows, ties to the sheet's rows 80-86) exactly like the sheet's own SUMIF/COUNTIFS.
-let indActivePeople = new Set();
+// Which (person, forecast-month) cells are currently checked in the Personnel Input Model —
+// mirrors the sheet's Group 1 Pivot Data list (rows 108-237): checking a person in for one
+// forecast month carries their last actual month's hours into just that month, rolling up into
+// their department's Hours (B2), #Workers headcount (C2), and % (A2) rows above — exactly like
+// the sheet's own SUMIF/COUNTIFS formulas (rows 108-237 feeding rows 80-86).
+let indActiveCells = new Set();
+const indCellKey = (name, monthIdx) => name + '__' + monthIdx;
 
 function indComputeDeptForecast(){
   const n = IND.months.length;
   IND_DEPTS.forEach(dept=>{
-    const activePeople = IND.people.filter(p=>p.group===dept && indActivePeople.has(p.name));
-    const activeHours = activePeople.reduce((s,p)=>s + (p.hours[IND_LAST_ACTUAL_IDX]||0), 0);
-    const activeCount = activePeople.length;
+    const deptPeople = IND.people.filter(p=>p.group===dept);
     for(let i=0;i<n;i++){
       if(IND.months[i].type !== 'Forecast') continue;
-      IND.hoursForecast[dept][i] = activeHours;
-      IND.workersForecast[dept][i] = activeCount;
-      IND.pctForecast[dept][i] = IND.revenue[i] ? activeHours/IND.revenue[i] : 0;
-      IND.hoursCompare[dept][i] = activeHours - IND.hoursTrend[dept][i];
-      IND.workersCompare[dept][i] = activeCount - IND.workersTrend[dept][i];
+      const active = deptPeople.filter(p=>indActiveCells.has(indCellKey(p.name,i)));
+      const hours = active.reduce((s,p)=>s + (p.hours[IND_LAST_ACTUAL_IDX]||0), 0);
+      const count = active.length;
+      IND.hoursForecast[dept][i] = hours;
+      IND.workersForecast[dept][i] = count;
+      IND.pctForecast[dept][i] = IND.revenue[i] ? hours/IND.revenue[i] : 0;
+      IND.hoursCompare[dept][i] = hours - IND.hoursTrend[dept][i];
+      IND.workersCompare[dept][i] = count - IND.workersTrend[dept][i];
       IND.pctCompare[dept][i] = IND.pctForecast[dept][i] - IND.pctTrend[dept][i];
     }
   });
@@ -1016,39 +1028,46 @@ function renderIndTeamTable(){
     const last = groups[groups.length-1];
     if(last && last.type===type) last.span++; else groups.push({type, span:1});
   });
-  const groupHead = `<th></th><th></th><th></th>` + groups.map(g=>
+  const groupHead = `<th></th><th></th>` + groups.map(g=>
     `<th colspan="${g.span}" class="${g.type==='Actual'?'grp-actual':'grp-forecast'}">${g.type.toUpperCase()}</th>`
   ).join('');
   document.getElementById('indTeamTableGroupHead').innerHTML = groupHead;
 
-  const head = `<th></th><th>Name</th><th>Group</th>` + monthIdx.map((mi,pos)=>`<th class="${colClass(pos)}">${IND.months[mi].label}</th>`).join('');
+  const head = `<th>Name</th><th>Group</th>` + monthIdx.map((mi,pos)=>`<th class="${colClass(pos)}">${IND.months[mi].label}</th>`).join('');
   document.getElementById('indTeamTableHead').innerHTML = head;
 
   const dash = v => Math.round(v*100)===0 ? '-' : Math.round(v).toLocaleString();
-  document.querySelector('#indTeamTable tbody').innerHTML = IND.people.map(p=>{
-    const checked = indActivePeople.has(p.name) ? 'checked' : '';
-    const vals = monthIdx.map(i=>{
-      if(isActual(i)) return dash(p.hours[i]);
-      return indActivePeople.has(p.name) ? dash(p.hours[IND_LAST_ACTUAL_IDX]) : '-';
-    });
-    const nameEsc = p.name.replace(/"/g,'&quot;');
-    const labelCell = `<label class="trend-row-label"><input type="checkbox" class="person-toggle" data-name="${nameEsc}" ${checked}></label>`;
-    return `<tr><td>${labelCell}</td><td style="font-weight:600">${p.name}</td><td>${p.group}</td>${vals.map((v,pos)=>`<td class="${colClass(pos)}">${v}</td>`).join('')}</tr>`;
-  }).join('');
+  const groupSel = indGroupMS ? indGroupMS.selected : null;
+  const people = groupSel ? IND.people.filter(p=>groupSel.has(p.group)) : IND.people;
 
-  document.querySelectorAll('#indTeamTable .person-toggle').forEach(cb=>{
-    cb.addEventListener('change', ()=>{
-      if(cb.checked) indActivePeople.add(cb.dataset.name);
-      else indActivePeople.delete(cb.dataset.name);
-      indComputeDeptForecast();
-      renderIndKpis();
-      renderIndTrendChart();
-      renderIndSelectedTable();
-      renderIndSheetTable();
-      renderIndTeamTable();
+  document.querySelector('#indTeamTable tbody').innerHTML = people.map(p=>{
+    const nameEsc = p.name.replace(/"/g,'&quot;');
+    const cells = monthIdx.map((mi,pos)=>{
+      if(isActual(mi)) return `<td class="${colClass(pos)}">${dash(p.hours[mi])}</td>`;
+      const checked = indActiveCells.has(indCellKey(p.name,mi)) ? 'checked' : '';
+      const valText = checked ? dash(p.hours[IND_LAST_ACTUAL_IDX]) : '-';
+      return `<td class="${colClass(pos)}"><label style="display:flex;align-items:center;justify-content:center;gap:4px;cursor:pointer;">`
+        + `<input type="checkbox" class="person-cell-toggle" data-name="${nameEsc}" data-month="${mi}" ${checked}><span>${valText}</span></label></td>`;
     });
-  });
+    return `<tr><td style="font-weight:600">${p.name}</td><td>${p.group}</td>${cells.join('')}</tr>`;
+  }).join('');
 }
+
+// One delegated listener handles every forecast checkbox — far cheaper than attaching one
+// listener per cell across 100+ people x dozens of forecast months, and it survives every
+// re-render since only the tbody's innerHTML is replaced, never the tbody element itself.
+document.querySelector('#indTeamTable tbody').addEventListener('change', e=>{
+  const cb = e.target.closest('.person-cell-toggle');
+  if(!cb) return;
+  const key = indCellKey(cb.dataset.name, Number(cb.dataset.month));
+  if(cb.checked) indActiveCells.add(key); else indActiveCells.delete(key);
+  indComputeDeptForecast();
+  renderIndKpis();
+  renderIndTrendChart();
+  renderIndSelectedTable();
+  renderIndSheetTable();
+  renderIndTeamTable();
+});
 
 // Signed +/- formatter for an overage/(shortfall) value; "-" when effectively zero.
 function fmtOverage(v, fmt){
@@ -1274,7 +1293,7 @@ function renderIndSheetTable(){
 const IND_MODEL_NOTES = [
   ['1. Departments', `Indirect labor is tracked across ${IND_DEPTS.length} departments — ${IND_DEPTS.join(', ')} — instead of one company-wide total, so each group's %, Hours, and #Workers can be forecast on its own curve.`],
   ['2. Trend Model (the "1" blocks — A1, B1, C1)', "Hours and #Workers = Anchor × (Revenue ÷ AnchorRevenue) ^ exponent, fit independently for every department and anchored to that department's last actual month — the same power-curve idea as before, just sliced 7 ways. It's a pure model: it never needs anyone to enter anything."],
-  ['3. Personnel-Input Forecast (the "2" blocks — A2, B2, C2)', "Below, every person in the Group 1 Pivot Data list has a checkbox. Checking someone in carries their last actual month's hours forward into every future month, and rolls those hours (and that headcount) up into their department's row here — and into the Total Monthly row — mirroring how the sheet's own SUMIF/COUNTIFS formulas total the personnel table by department."],
+  ['3. Personnel-Input Forecast (the "2" blocks — A2, B2, C2)', "Below, every person in the Group 1 Pivot Data list has a checkbox in each Forecast month (filter the list to one Group at a time using the dropdown above it). Checking someone in for a given month carries their last actual month's hours into just that month, and rolls those hours (and that headcount) up into their department's row here — and into the Total Monthly row — mirroring how the sheet's own SUMIF/COUNTIFS formulas total the personnel table by department."],
   ['4. Comparison (the "3" blocks — A3, B3, C3)', "Trend Model minus Personnel-Input Forecast, department by department: a quick read on whether the staffing plan you're building (by checking people in below) is running ahead of or behind what the trend model recommends."],
 ];
 
