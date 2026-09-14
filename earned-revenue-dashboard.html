@@ -256,7 +256,17 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
 
   <div class="panel">
     <h2>Trend Model, Forecast &amp; Variance Comparison</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Check any row(s) in the table below to plot them here as bar charts. Solid bars = Actual. Faded bars past the shaded divider = Forecast.</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Pick Trend Model row(s) and/or Input Forecast row(s) below to add them here, or check any row(s) in the big table further down. Solid bars = Actual. Faded bars past the shaded divider = Forecast.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+      <div>
+        <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Trend Model</label>
+        <div class="ms" id="indMainTrendMS"><button type="button" class="ms-btn"></button><div class="ms-panel"></div></div>
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Input Forecast</label>
+        <div class="ms" id="indMainForecastMS"><button type="button" class="ms-btn"></button><div class="ms-panel"></div></div>
+      </div>
+    </div>
     <canvas id="indTrendChart" height="110"></canvas>
     <div style="overflow-x:auto;margin-top:14px;">
     <table class="simple" id="indSelectedTable" style="white-space:nowrap;">
@@ -1038,6 +1048,7 @@ function renderAll(){
 
 let indMonthMS, indYearMS, indGroupMS, indDeptFilterMS, indReportMS, indVarianceMS;
 let indComp1TrendMS, indComp1ForecastMS, indComp2TrendMS, indComp2ForecastMS, indComp3TrendMS, indComp3ForecastMS;
+let indMainTrendMS, indMainForecastMS;
 const IND_MONTHS_PRESENT = MONTH_ORDER.filter(mo => IND.months.some(m => m.label.startsWith(mo + ' ')));
 
 // Last month labeled "Actual" in the Indirects data (the rest is trend-model Forecast).
@@ -1077,6 +1088,14 @@ function populateIndirectsFilters(){
   indComp3ForecastMS = initMultiSelect('indComp3ForecastMS', indChartRowItems(r=>/^C2\.\)/.test(r.block)), 'Choose rows…', renderIndComp3, []);
 
   indVarianceMS = initMultiSelect('indVarianceMS', indChartRowItems(r=>/^[A-C]3\.\)/.test(r.block)), 'Choose rows…', renderIndVariance, []);
+
+  // The main chart's own Trend Model / Input Forecast pickers add rows the same way the
+  // Comparison charts do — quicker than scrolling the big table below to find a checkbox —
+  // and cover every metric (%, Hours, #Workers) since the main chart already supports mixed
+  // units on separate axes.
+  const indMainRender = ()=>{ renderIndTrendChart(); renderIndSelectedTable(); };
+  indMainTrendMS = initMultiSelect('indMainTrendMS', indChartRowItems(r=>/^[A-C]1\.\)/.test(r.block)), 'Choose rows…', indMainRender, []);
+  indMainForecastMS = initMultiSelect('indMainForecastMS', indChartRowItems(r=>/^[A-C]2\.\)/.test(r.block)), 'Choose rows…', indMainRender, []);
 }
 
 function getIndFilteredMonthIdx(){
@@ -1431,7 +1450,16 @@ function indRenderComparisonChart(canvasId, selectedKeys, chartSlot){
   });
 }
 
-function renderIndTrendChart(){ indRenderComparisonChart('indTrendChart', indTrendSelected, 'trend'); }
+// The main chart's selection is the union of the big table's checkboxes (indTrendSelected)
+// and the two Trend Model / Input Forecast dropdowns above the chart — either method adds a
+// row, and the chart/table below just reflect whatever's selected across both.
+function indMainSelectedKeys(){
+  const extra = [];
+  if(indMainTrendMS) extra.push(...indMainTrendMS.selected);
+  if(indMainForecastMS) extra.push(...indMainForecastMS.selected);
+  return new Set([...indTrendSelected, ...extra]);
+}
+function renderIndTrendChart(){ indRenderComparisonChart('indTrendChart', indMainSelectedKeys(), 'trend'); }
 function renderIndComp1(){
   if(!indComp1TrendMS || !indComp1ForecastMS) return;
   const combined = new Set([...indComp1TrendMS.selected, ...indComp1ForecastMS.selected]);
@@ -1496,7 +1524,7 @@ function indRenderMiniTable(tableId, selectedKeys){
 
 // Live table directly under the main chart, showing exact values for whichever rows are
 // currently checked — appears when checked, disappears when unchecked.
-function renderIndSelectedTable(){ indRenderMiniTable('indSelectedTable', indTrendSelected); }
+function renderIndSelectedTable(){ indRenderMiniTable('indSelectedTable', indMainSelectedKeys()); }
 
 function renderIndSheetTable(){
   const monthIdx = getIndFilteredMonthIdx();
