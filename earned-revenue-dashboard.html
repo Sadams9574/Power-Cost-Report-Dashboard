@@ -282,7 +282,7 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
   <div class="grid-2-equal">
     <div class="panel" style="margin-bottom:0;">
       <h2>Comparison 1</h2>
-      <p style="font-size:12px;color:var(--muted);margin-top:-6px">% data only — pick Trend Model row(s) (A1) and Input Forecast row(s) (A2), both plot together on this one chart.</p>
+      <p style="font-size:12px;color:var(--muted);margin-top:-6px">% data only — pick Trend Model row(s) (A1) and Input Forecast row(s) (A2), both plot together on this one chart. Pick both for the same department and its Variance (delta) shows up in the table below — not on the chart itself.</p>
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
         <div>
           <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Trend Model</label>
@@ -306,7 +306,7 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
     </div>
     <div class="panel" style="margin-bottom:0;">
       <h2>Comparison 2</h2>
-      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Hours data only — pick Trend Model row(s) (B1) and Input Forecast row(s) (B2), both plot together on this one chart.</p>
+      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Hours data only — pick Trend Model row(s) (B1) and Input Forecast row(s) (B2), both plot together on this one chart. Pick both for the same department and its Variance (delta) shows up in the table below — not on the chart itself.</p>
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
         <div>
           <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Trend Model</label>
@@ -333,7 +333,7 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
   <div class="grid-2-equal">
     <div class="panel" style="margin-bottom:0;">
       <h2>Comparison 3</h2>
-      <p style="font-size:12px;color:var(--muted);margin-top:-6px">#Workers data only — pick Trend Model row(s) (C1) and Input Forecast row(s) (C2), both plot together on this one chart.</p>
+      <p style="font-size:12px;color:var(--muted);margin-top:-6px">#Workers data only — pick Trend Model row(s) (C1) and Input Forecast row(s) (C2), both plot together on this one chart. Pick both for the same department and its Variance (delta) shows up in the table below — not on the chart itself.</p>
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
         <div>
           <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Trend Model</label>
@@ -356,18 +356,24 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
       </div>
     </div>
     <div class="panel" style="margin-bottom:0;">
-      <h2>Variance</h2>
-      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Pick any row(s) from A3/B3/C3 — Trend Model Vs Personnel-Input Forecast.</p>
-      <div class="ms" id="indVarianceMS" style="margin-bottom:10px;">
-        <button type="button" class="ms-btn"></button>
-        <div class="ms-panel"></div>
+      <h2>Comparison 4</h2>
+      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Any metric — pick Trend Model row(s) (A1/B1/C1) and Input Forecast row(s) (A2/B2/C2), both plot together on this one chart. Pick both for the same department (and same metric) and its Variance (delta) shows up in the table below — not on the chart itself.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+        <div>
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Trend Model</label>
+          <div class="ms" id="indComp4TrendMS"><button type="button" class="ms-btn"></button><div class="ms-panel"></div></div>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Input Forecast</label>
+          <div class="ms" id="indComp4ForecastMS"><button type="button" class="ms-btn"></button><div class="ms-panel"></div></div>
+        </div>
       </div>
-      <canvas id="indVarianceChart" height="140"></canvas>
+      <canvas id="indComp4Chart" height="140"></canvas>
       <div style="overflow-x:auto;margin-top:14px;">
-      <table class="simple" id="indVarianceTable" style="white-space:nowrap;">
+      <table class="simple" id="indComp4Table" style="white-space:nowrap;">
         <thead>
-          <tr id="indVarianceTableGroupHead" class="grp-head"></tr>
-          <tr id="indVarianceTableHead"></tr>
+          <tr id="indComp4TableGroupHead" class="grp-head"></tr>
+          <tr id="indComp4TableHead"></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -1054,8 +1060,8 @@ function renderAll(){
 
 // ===================== Indirects tab =====================
 
-let indMonthMS, indYearMS, indGroupMS, indDeptFilterMS, indReportMS, indVarianceMS;
-let indComp1TrendMS, indComp1ForecastMS, indComp2TrendMS, indComp2ForecastMS, indComp3TrendMS, indComp3ForecastMS;
+let indMonthMS, indYearMS, indGroupMS, indDeptFilterMS, indReportMS;
+let indComp1TrendMS, indComp1ForecastMS, indComp2TrendMS, indComp2ForecastMS, indComp3TrendMS, indComp3ForecastMS, indComp4TrendMS, indComp4ForecastMS;
 let indMainTrendMS, indMainForecastMS;
 const IND_MONTHS_PRESENT = MONTH_ORDER.filter(mo => IND.months.some(m => m.label.startsWith(mo + ' ')));
 
@@ -1094,15 +1100,21 @@ function populateIndirectsFilters(){
   indComp3TrendMS = initMultiSelect('indComp3TrendMS', indChartRowItems(r=>/^C1\.\)/.test(r.block)), 'Choose rows…', renderIndComp3, []);
   indComp3ForecastMS = initMultiSelect('indComp3ForecastMS', indChartRowItems(r=>/^C2\.\)/.test(r.block)), 'Choose rows…', renderIndComp3, []);
 
-  indVarianceMS = initMultiSelect('indVarianceMS', indChartRowItems(r=>/^[A-C]3\.\)/.test(r.block)), 'Choose rows…', renderIndVariance, []);
+  // Comparison 4 and the main chart above both let you mix any metric — every Trend Model row
+  // (A1/B1/C1) against every Input Forecast row (A2/B2/C2) — for ad hoc comparisons that don't
+  // fit the single-metric Comparison 1/2/3 charts.
+  const allTrendItems = indChartRowItems(r=>/^[A-C]1\.\)/.test(r.block));
+  const allForecastItems = indChartRowItems(r=>/^[A-C]2\.\)/.test(r.block));
+  indComp4TrendMS = initMultiSelect('indComp4TrendMS', allTrendItems, 'Choose rows…', renderIndComp4, []);
+  indComp4ForecastMS = initMultiSelect('indComp4ForecastMS', allForecastItems, 'Choose rows…', renderIndComp4, []);
 
   // The main chart's own Trend Model / Input Forecast pickers add rows the same way the
   // Comparison charts do — quicker than scrolling the big table below to find a checkbox —
   // and cover every metric (%, Hours, #Workers) since the main chart already supports mixed
   // units on separate axes.
   const indMainRender = ()=>{ renderIndTrendChart(); renderIndSelectedTable(); };
-  indMainTrendMS = initMultiSelect('indMainTrendMS', indChartRowItems(r=>/^[A-C]1\.\)/.test(r.block)), 'Choose rows…', indMainRender, []);
-  indMainForecastMS = initMultiSelect('indMainForecastMS', indChartRowItems(r=>/^[A-C]2\.\)/.test(r.block)), 'Choose rows…', indMainRender, []);
+  indMainTrendMS = initMultiSelect('indMainTrendMS', allTrendItems, 'Choose rows…', indMainRender, []);
+  indMainForecastMS = initMultiSelect('indMainForecastMS', allForecastItems, 'Choose rows…', indMainRender, []);
 }
 
 function getIndFilteredMonthIdx(){
@@ -1297,7 +1309,7 @@ function indRefreshAfterPersonnelChange(){
   renderIndComp1();
   renderIndComp2();
   renderIndComp3();
-  renderIndVariance();  renderIndSelectedTable();
+  renderIndComp4();  renderIndSelectedTable();
   renderIndSheetTable();
   renderIndTeamTable();
 }
@@ -1443,9 +1455,47 @@ function indRowDisplayLabel(row){
   return `${row.block} — ${row.label}`;
 }
 
-// Shared renderer behind the main chart and the extra Comparison/Manpower/Variance charts below
-// it — each just passes its own canvas id, its own selected-keys Set, and its own indCharts
-// slot, so they stay fully independent (different rows, different chart instances).
+// A row's block code as {letter, num} — e.g. "A1.) ..." -> {letter:'A', num:'1'} — or null for
+// rows outside the A/B/C 1/2/3 grid (Revenue, Subtotal Manpower).
+function indBlockCode(row){
+  const m = row.block.match(/^([A-Z])(\d)\.\)/);
+  return m ? {letter:m[1], num:m[2]} : null;
+}
+
+// The precomputed Variance row (A3/B3/C3, role 'overage') for a given Trend (…1) or Forecast
+// (…2) row — same letter, same department label — or null if there isn't one.
+function indVarianceRowFor(row){
+  const code = indBlockCode(row);
+  if(!code || code.num==='3') return null;
+  return IND_SHEET_ROWS.find(r=>{
+    const c = indBlockCode(r);
+    return c && c.letter===code.letter && c.num==='3' && r.label===row.label;
+  }) || null;
+}
+
+// For the data table only (never the chart) — whenever both a Trend Model row and an Input
+// Forecast row are selected for the same metric and department, add that department's Variance
+// (delta) row to the table too, without the user having to pick it separately.
+function indExpandWithVariance(selectedKeys){
+  const selectedRows = IND_SHEET_ROWS.filter(r=>selectedKeys.has(r.key));
+  const expanded = new Set(selectedKeys);
+  selectedRows.forEach(row=>{
+    const code = indBlockCode(row);
+    if(!code || code.num!=='1') return;
+    const hasForecastPair = selectedRows.some(other=>{
+      const c = indBlockCode(other);
+      return c && c.letter===code.letter && c.num==='2' && other.label===row.label;
+    });
+    if(!hasForecastPair) return;
+    const varianceRow = indVarianceRowFor(row);
+    if(varianceRow) expanded.add(varianceRow.key);
+  });
+  return expanded;
+}
+
+// Shared renderer behind the main chart and the extra Comparison charts below it — each just
+// passes its own canvas id, its own selected-keys Set, and its own indCharts slot, so they stay
+// fully independent (different rows, different chart instances).
 function indRenderComparisonChart(canvasId, selectedKeys, chartSlot){
   const monthIdx = getIndFilteredMonthIdx();
   const labels = monthIdx.map(i=>IND.months[i].label);
@@ -1522,33 +1572,39 @@ function indMainSelectedKeys(){
   return new Set([...indTrendSelected, ...extra]);
 }
 function renderIndTrendChart(){ indRenderComparisonChart('indTrendChart', indMainSelectedKeys(), 'trend'); }
+// Each Comparison chart plots only the rows explicitly picked from its two dropdowns — the
+// Variance row never appears on the chart itself — but its table gets indExpandWithVariance()'s
+// expanded set, which adds in the matching department's Variance (delta) row automatically
+// whenever both a Trend Model and an Input Forecast row are picked for it.
 function renderIndComp1(){
   if(!indComp1TrendMS || !indComp1ForecastMS) return;
   const combined = new Set([...indComp1TrendMS.selected, ...indComp1ForecastMS.selected]);
   indRenderComparisonChart('indComp1Chart', combined, 'comp1');
-  indRenderMiniTable('indComp1Table', combined);
+  indRenderMiniTable('indComp1Table', indExpandWithVariance(combined));
 }
 function renderIndComp2(){
   if(!indComp2TrendMS || !indComp2ForecastMS) return;
   const combined = new Set([...indComp2TrendMS.selected, ...indComp2ForecastMS.selected]);
   indRenderComparisonChart('indComp2Chart', combined, 'comp2');
-  indRenderMiniTable('indComp2Table', combined);
+  indRenderMiniTable('indComp2Table', indExpandWithVariance(combined));
 }
 function renderIndComp3(){
   if(!indComp3TrendMS || !indComp3ForecastMS) return;
   const combined = new Set([...indComp3TrendMS.selected, ...indComp3ForecastMS.selected]);
   indRenderComparisonChart('indComp3Chart', combined, 'comp3');
-  indRenderMiniTable('indComp3Table', combined);
+  indRenderMiniTable('indComp3Table', indExpandWithVariance(combined));
 }
-function renderIndVariance(){
-  if(!indVarianceMS) return;
-  indRenderComparisonChart('indVarianceChart', indVarianceMS.selected, 'variance');
-  indRenderMiniTable('indVarianceTable', indVarianceMS.selected);
+function renderIndComp4(){
+  if(!indComp4TrendMS || !indComp4ForecastMS) return;
+  const combined = new Set([...indComp4TrendMS.selected, ...indComp4ForecastMS.selected]);
+  indRenderComparisonChart('indComp4Chart', combined, 'comp4');
+  indRenderMiniTable('indComp4Table', indExpandWithVariance(combined));
 }
 
-// Live table builder shared by the main chart's table and every Comparison/Variance chart's
-// table below it — fills in the Actual/Forecast group header, the month header, and one row
-// per currently-selected key, showing exact values for whatever's plotted above it.
+// Live table builder shared by the main chart's table and every Comparison chart's table below
+// it — fills in the Actual/Forecast group header, the month header, and one row per currently-
+// selected key, showing exact values for whatever's plotted above it (plus, for the Comparison
+// charts, any auto-added Variance rows from indExpandWithVariance()).
 function indRenderMiniTable(tableId, selectedKeys){
   const monthIdx = getIndFilteredMonthIdx();
   const isActual = i => IND.months[i].type === 'Actual';
@@ -1679,7 +1735,7 @@ function renderIndirectsAll(){
   renderIndComp1();
   renderIndComp2();
   renderIndComp3();
-  renderIndVariance();  renderIndSelectedTable();
+  renderIndComp4();  renderIndSelectedTable();
   renderIndSheetTable();
   renderIndTeamTable();
   renderIndModelNotes();
@@ -1708,7 +1764,7 @@ document.getElementById('darkToggle').addEventListener('click', ()=>{
   html.setAttribute('data-theme', isDark?'light':'dark');
   document.getElementById('darkToggle').textContent = isDark ? '🌙 Dark Mode' : '☀️ Light Mode';
   if(activeTab==='earned'){ renderMainChart(); renderCumChart(); }
-  else { renderIndTrendChart(); renderIndComp1(); renderIndComp2(); renderIndComp3(); renderIndVariance(); renderIndSelectedTable(); }
+  else { renderIndTrendChart(); renderIndComp1(); renderIndComp2(); renderIndComp3(); renderIndComp4(); renderIndSelectedTable(); }
 });
 
 // Collapsible panels on the Indirects tab — click a panel's title to tuck away everything
