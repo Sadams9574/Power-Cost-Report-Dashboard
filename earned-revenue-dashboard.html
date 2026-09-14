@@ -271,8 +271,8 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
 
   <div class="grid-2-equal">
     <div class="panel" style="margin-bottom:0;">
-      <h2>Comparison Chart B</h2>
-      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Pick any row(s) to run a second, independent comparison alongside the main chart above.</p>
+      <h2>Trend Model</h2>
+      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Pick any row(s) from A1/B1/C1 — the pure Trend Model (%, Hours, #Workers).</p>
       <div class="ms" id="indChart2MS" style="margin-bottom:10px;">
         <button type="button" class="ms-btn"></button>
         <div class="ms-panel"></div>
@@ -280,13 +280,34 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
       <canvas id="indChart2" height="140"></canvas>
     </div>
     <div class="panel" style="margin-bottom:0;">
-      <h2>Comparison Chart C</h2>
-      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Pick any row(s) to run a third, independent comparison alongside the other two.</p>
+      <h2>Input Forecast</h2>
+      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Pick any row(s) from A2/B2/C2 — the Personnel-Input Forecast (%, Hours, #Workers).</p>
       <div class="ms" id="indChart3MS" style="margin-bottom:10px;">
         <button type="button" class="ms-btn"></button>
         <div class="ms-panel"></div>
       </div>
       <canvas id="indChart3" height="140"></canvas>
+    </div>
+  </div>
+
+  <div class="grid-2-equal">
+    <div class="panel" style="margin-bottom:0;">
+      <h2>Variance</h2>
+      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Pick any row(s) from A3/B3/C3 — Trend Model Vs Personnel-Input Forecast.</p>
+      <div class="ms" id="indChart4MS" style="margin-bottom:10px;">
+        <button type="button" class="ms-btn"></button>
+        <div class="ms-panel"></div>
+      </div>
+      <canvas id="indChart4" height="140"></canvas>
+    </div>
+    <div class="panel" style="margin-bottom:0;">
+      <h2># of Workers</h2>
+      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Pick any row(s) from every #Workers block (C1, C2, C3, Subtotal Manpower) to compare headcount together.</p>
+      <div class="ms" id="indChart5MS" style="margin-bottom:10px;">
+        <button type="button" class="ms-btn"></button>
+        <div class="ms-panel"></div>
+      </div>
+      <canvas id="indChart5" height="140"></canvas>
     </div>
   </div>
 
@@ -961,7 +982,7 @@ function renderAll(){
 
 // ===================== Indirects tab =====================
 
-let indMonthMS, indYearMS, indGroupMS, indDeptFilterMS, indReportMS, indChart2MS, indChart3MS;
+let indMonthMS, indYearMS, indGroupMS, indDeptFilterMS, indReportMS, indChart2MS, indChart3MS, indChart4MS, indChart5MS;
 const IND_MONTHS_PRESENT = MONTH_ORDER.filter(mo => IND.months.some(m => m.label.startsWith(mo + ' ')));
 
 // Last month labeled "Actual" in the Indirects data (the rest is trend-model Forecast).
@@ -984,14 +1005,19 @@ function populateIndirectsFilters(){
   indReportMS = initMultiSelect('indReportFilterMS', reports.map(r=>({value:r, label:r})), 'All Reports', renderIndTeamTable);
 
   // Every row's own label repeats across blocks (e.g. "G&A" appears in A1, A2, B1...), so prefix
-  // each option with its block's short code (A1, B2, ...) to keep the flat dropdown list readable.
-  const chartRowItems = IND_SHEET_ROWS.map(r=>{
+  // each option with its block's short code (A1, B2, ...) to keep each dropdown list readable.
+  // Each of the 4 chart pickers below is scoped to just the rows that belong there: Trend Model
+  // (A1/B1/C1), Personnel-Input Forecast (A2/B2/C2), Variance (A3/B3/C3), or every #Workers row
+  // regardless of block (C1/C2/C3 plus the standalone Subtotal Manpower row).
+  const indChartRowItems = predicate => IND_SHEET_ROWS.filter(predicate).map(r=>{
     const codeMatch = r.block.match(/^[A-Z]\d\.\)/);
     const prefix = codeMatch ? codeMatch[0].replace('.)','') : r.block;
     return { value:r.key, label:`${prefix} — ${r.label}` };
   });
-  indChart2MS = initMultiSelect('indChart2MS', chartRowItems, 'Choose rows…', renderIndChart2, []);
-  indChart3MS = initMultiSelect('indChart3MS', chartRowItems, 'Choose rows…', renderIndChart3, []);
+  indChart2MS = initMultiSelect('indChart2MS', indChartRowItems(r=>/^[A-C]1\.\)/.test(r.block)), 'Choose rows…', renderIndChart2, []);
+  indChart3MS = initMultiSelect('indChart3MS', indChartRowItems(r=>/^[A-C]2\.\)/.test(r.block)), 'Choose rows…', renderIndChart3, []);
+  indChart4MS = initMultiSelect('indChart4MS', indChartRowItems(r=>/^[A-C]3\.\)/.test(r.block)), 'Choose rows…', renderIndChart4, []);
+  indChart5MS = initMultiSelect('indChart5MS', indChartRowItems(r=>r.unit==='workers'), 'Choose rows…', renderIndChart5, []);
 }
 
 function getIndFilteredMonthIdx(){
@@ -1158,6 +1184,8 @@ document.querySelector('#indTeamTable tbody').addEventListener('change', e=>{
   renderIndTrendChart();
   renderIndChart2();
   renderIndChart3();
+  renderIndChart4();
+  renderIndChart5();
   renderIndSelectedTable();
   renderIndSheetTable();
   renderIndTeamTable();
@@ -1178,6 +1206,8 @@ document.getElementById('indTeamTableCopyRow').addEventListener('click', e=>{
   renderIndTrendChart();
   renderIndChart2();
   renderIndChart3();
+  renderIndChart4();
+  renderIndChart5();
   renderIndSelectedTable();
   renderIndSheetTable();
   renderIndTeamTable();
@@ -1326,6 +1356,8 @@ function indRenderComparisonChart(canvasId, selectedKeys, chartSlot){
 function renderIndTrendChart(){ indRenderComparisonChart('indTrendChart', indTrendSelected, 'trend'); }
 function renderIndChart2(){ if(indChart2MS) indRenderComparisonChart('indChart2', indChart2MS.selected, 'chart2'); }
 function renderIndChart3(){ if(indChart3MS) indRenderComparisonChart('indChart3', indChart3MS.selected, 'chart3'); }
+function renderIndChart4(){ if(indChart4MS) indRenderComparisonChart('indChart4', indChart4MS.selected, 'chart4'); }
+function renderIndChart5(){ if(indChart5MS) indRenderComparisonChart('indChart5', indChart5MS.selected, 'chart5'); }
 
 // Live table directly under the chart, showing exact values for whichever rows are currently
 // checked — appears when checked, disappears when unchecked.
@@ -1454,6 +1486,8 @@ function renderIndirectsAll(){
   renderIndTrendChart();
   renderIndChart2();
   renderIndChart3();
+  renderIndChart4();
+  renderIndChart5();
   renderIndSelectedTable();
   renderIndSheetTable();
   renderIndTeamTable();
@@ -1483,7 +1517,7 @@ document.getElementById('darkToggle').addEventListener('click', ()=>{
   html.setAttribute('data-theme', isDark?'light':'dark');
   document.getElementById('darkToggle').textContent = isDark ? '🌙 Dark Mode' : '☀️ Light Mode';
   if(activeTab==='earned'){ renderMainChart(); renderCumChart(); }
-  else { renderIndTrendChart(); renderIndChart2(); renderIndChart3(); renderIndSelectedTable(); }
+  else { renderIndTrendChart(); renderIndChart2(); renderIndChart3(); renderIndChart4(); renderIndChart5(); renderIndSelectedTable(); }
 });
 
 // Collapsible panels on the Indirects tab — click a panel's title to tuck away everything
