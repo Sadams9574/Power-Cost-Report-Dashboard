@@ -44,6 +44,9 @@ main{padding:20px 24px 60px;max-width:1500px;margin:0 auto;}
 .grid-2{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;}
 .grid-2>.panel{min-width:0;}
 @media(max-width:1100px){.grid-2{grid-template-columns:1fr;}}
+.grid-2-equal{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:22px;}
+.grid-2-equal>.panel{min-width:0;}
+@media(max-width:1100px){.grid-2-equal{grid-template-columns:1fr;}}
 table.simple{width:100%;border-collapse:collapse;font-size:13px;}
 table.simple th,table.simple td{padding:7px 9px;border-bottom:1px solid var(--border);text-align:right;}
 table.simple th:first-child,table.simple td:first-child{text-align:left;}
@@ -266,6 +269,27 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
     </div>
   </div>
 
+  <div class="grid-2-equal">
+    <div class="panel" style="margin-bottom:0;">
+      <h2>Comparison Chart B</h2>
+      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Pick any row(s) to run a second, independent comparison alongside the main chart above.</p>
+      <div class="ms" id="indChart2MS" style="margin-bottom:10px;">
+        <button type="button" class="ms-btn"></button>
+        <div class="ms-panel"></div>
+      </div>
+      <canvas id="indChart2" height="140"></canvas>
+    </div>
+    <div class="panel" style="margin-bottom:0;">
+      <h2>Comparison Chart C</h2>
+      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Pick any row(s) to run a third, independent comparison alongside the other two.</p>
+      <div class="ms" id="indChart3MS" style="margin-bottom:10px;">
+        <button type="button" class="ms-btn"></button>
+        <div class="ms-panel"></div>
+      </div>
+      <canvas id="indChart3" height="140"></canvas>
+    </div>
+  </div>
+
   <div class="panel">
     <h2>Indirects — By Department</h2>
     <p style="font-size:12px;color:var(--muted);margin-top:-6px">Same rows, same order as the Indirects sheet: Revenue, then % / Hours / #Workers each split into Trend Model, Personnel-Input Forecast, and Comparison, broken out across all 7 departments. Check a row to plot it on the chart above. Click a block's ▾ to roll it up to just Total Monthly.</p>
@@ -361,11 +385,14 @@ const MONTHS = MONTH_ORDER.filter(mo => ER.months.some(m => m.label.startsWith(m
 const LAST_ACTUAL_LABEL = ER.months.reduce((last,m)=> m.type==='Actual' ? m.label : last, null);
 
 // Generic checkbox-dropdown multi-select. items: [{value,label}]. allLabel shown when everything is checked.
-function initMultiSelect(id, items, allLabel, onChange){
+// defaultSelected (optional): an array of item values to start checked instead of "all" — for
+// widgets like the comparison charts' row pickers, where starting with everything checked would
+// be overwhelming.
+function initMultiSelect(id, items, allLabel, onChange, defaultSelected){
   const root = document.getElementById(id);
   const btn = root.querySelector('.ms-btn');
   const panel = root.querySelector('.ms-panel');
-  const selected = new Set(items.map(it=>it.value));
+  const selected = new Set(defaultSelected ? defaultSelected : items.map(it=>it.value));
 
   panel.innerHTML = `
     <div class="ms-actions">
@@ -373,7 +400,7 @@ function initMultiSelect(id, items, allLabel, onChange){
       <button type="button" data-act="none">Clear</button>
     </div>
     <div class="ms-sep"></div>
-    ${items.map(it=>`<label><input type="checkbox" value="${it.value}" checked> ${it.label}</label>`).join('')}
+    ${items.map(it=>`<label><input type="checkbox" value="${it.value}" ${selected.has(it.value)?'checked':''}> ${it.label}</label>`).join('')}
   `;
 
   function updateBtn(){
@@ -934,7 +961,7 @@ function renderAll(){
 
 // ===================== Indirects tab =====================
 
-let indMonthMS, indYearMS, indGroupMS, indDeptFilterMS, indReportMS;
+let indMonthMS, indYearMS, indGroupMS, indDeptFilterMS, indReportMS, indChart2MS, indChart3MS;
 const IND_MONTHS_PRESENT = MONTH_ORDER.filter(mo => IND.months.some(m => m.label.startsWith(mo + ' ')));
 
 // Last month labeled "Actual" in the Indirects data (the rest is trend-model Forecast).
@@ -955,6 +982,16 @@ function populateIndirectsFilters(){
 
   const reports = [...new Set(IND.people.map(p=>p.report).filter(Boolean))].sort();
   indReportMS = initMultiSelect('indReportFilterMS', reports.map(r=>({value:r, label:r})), 'All Reports', renderIndTeamTable);
+
+  // Every row's own label repeats across blocks (e.g. "G&A" appears in A1, A2, B1...), so prefix
+  // each option with its block's short code (A1, B2, ...) to keep the flat dropdown list readable.
+  const chartRowItems = IND_SHEET_ROWS.map(r=>{
+    const codeMatch = r.block.match(/^[A-Z]\d\.\)/);
+    const prefix = codeMatch ? codeMatch[0].replace('.)','') : r.block;
+    return { value:r.key, label:`${prefix} — ${r.label}` };
+  });
+  indChart2MS = initMultiSelect('indChart2MS', chartRowItems, 'Choose rows…', renderIndChart2, []);
+  indChart3MS = initMultiSelect('indChart3MS', chartRowItems, 'Choose rows…', renderIndChart3, []);
 }
 
 function getIndFilteredMonthIdx(){
@@ -1119,6 +1156,8 @@ document.querySelector('#indTeamTable tbody').addEventListener('change', e=>{
   indComputeDeptForecast();
   renderIndKpis();
   renderIndTrendChart();
+  renderIndChart2();
+  renderIndChart3();
   renderIndSelectedTable();
   renderIndSheetTable();
   renderIndTeamTable();
@@ -1137,6 +1176,8 @@ document.getElementById('indTeamTableCopyRow').addEventListener('click', e=>{
   indComputeDeptForecast();
   renderIndKpis();
   renderIndTrendChart();
+  renderIndChart2();
+  renderIndChart3();
   renderIndSelectedTable();
   renderIndSheetTable();
   renderIndTeamTable();
@@ -1214,14 +1255,17 @@ let indTrendSelected = new Set(['revenue']);
 // chevron next to a block's title to roll its 7 department rows up into one line.
 let indCollapsedBlocks = new Set();
 
-function renderIndTrendChart(){
+// Shared renderer behind the main chart and the two extra Comparison Charts below it — each
+// just passes its own canvas id, its own selected-keys Set, and its own indCharts slot, so the
+// three stay fully independent (different rows, different chart instances).
+function indRenderComparisonChart(canvasId, selectedKeys, chartSlot){
   const monthIdx = getIndFilteredMonthIdx();
   const labels = monthIdx.map(i=>IND.months[i].label);
   const isActual = i => IND.months[i].type === 'Actual';
   const boundary = indForecastBoundary(monthIdx);
   const isDark = document.documentElement.getAttribute('data-theme')==='dark';
 
-  const selectedRows = IND_SHEET_ROWS.filter(r=>indTrendSelected.has(r.key));
+  const selectedRows = IND_SHEET_ROWS.filter(r=>selectedKeys.has(r.key));
   const unitsUsed = [...new Set(selectedRows.map(r=>r.unit))];
   const positions = ['left','right','right'];
   const scales = { x:{ ticks:{maxRotation:90,minRotation:45} } };
@@ -1257,9 +1301,9 @@ function renderIndTrendChart(){
     return { type:'bar', label:row.label, data, yAxisID:'y_'+row.unit, backgroundColor:barColors, borderColor:borderColors, borderWidth:1 };
   });
 
-  const ctx = document.getElementById('indTrendChart');
-  if(indCharts.trend) indCharts.trend.destroy();
-  indCharts.trend = new Chart(ctx,{
+  const ctx = document.getElementById(canvasId);
+  if(indCharts[chartSlot]) indCharts[chartSlot].destroy();
+  indCharts[chartSlot] = new Chart(ctx,{
     type:'bar',
     data:{ labels, datasets },
     options:{
@@ -1278,6 +1322,10 @@ function renderIndTrendChart(){
     plugins:[actualForecastBackdrop]
   });
 }
+
+function renderIndTrendChart(){ indRenderComparisonChart('indTrendChart', indTrendSelected, 'trend'); }
+function renderIndChart2(){ if(indChart2MS) indRenderComparisonChart('indChart2', indChart2MS.selected, 'chart2'); }
+function renderIndChart3(){ if(indChart3MS) indRenderComparisonChart('indChart3', indChart3MS.selected, 'chart3'); }
 
 // Live table directly under the chart, showing exact values for whichever rows are currently
 // checked — appears when checked, disappears when unchecked.
@@ -1404,6 +1452,8 @@ function renderIndirectsAll(){
   indComputeDeptForecast();
   renderIndKpis();
   renderIndTrendChart();
+  renderIndChart2();
+  renderIndChart3();
   renderIndSelectedTable();
   renderIndSheetTable();
   renderIndTeamTable();
@@ -1433,7 +1483,7 @@ document.getElementById('darkToggle').addEventListener('click', ()=>{
   html.setAttribute('data-theme', isDark?'light':'dark');
   document.getElementById('darkToggle').textContent = isDark ? '🌙 Dark Mode' : '☀️ Light Mode';
   if(activeTab==='earned'){ renderMainChart(); renderCumChart(); }
-  else { renderIndTrendChart(); renderIndSelectedTable(); }
+  else { renderIndTrendChart(); renderIndChart2(); renderIndChart3(); renderIndSelectedTable(); }
 });
 
 // Collapsible panels on the Indirects tab — click a panel's title to tuck away everything
