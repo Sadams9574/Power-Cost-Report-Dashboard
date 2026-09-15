@@ -268,6 +268,15 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
       </div>
     </div>
     <canvas id="indTrendChart" height="110"></canvas>
+    <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);flex-wrap:wrap;margin:10px 0 0;">
+      <span>Zoom:</span>
+      <span id="indZoomTrendFromLabel" style="min-width:64px;"></span>
+      <input type="range" id="indZoomTrendFrom" min="0" max="59" value="0" style="width:110px;">
+      <span>to</span>
+      <span id="indZoomTrendToLabel" style="min-width:64px;"></span>
+      <input type="range" id="indZoomTrendTo" min="0" max="59" value="59" style="width:110px;">
+      <button type="button" id="indZoomTrendReset" class="copy-prior-btn">Reset Zoom</button>
+    </div>
     <div style="overflow-x:auto;margin-top:14px;">
     <table class="simple" id="indSelectedTable" style="white-space:nowrap;">
       <thead>
@@ -293,7 +302,19 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
           <div class="ms" id="indComp1ForecastMS"><button type="button" class="ms-btn"></button><div class="ms-panel"></div></div>
         </div>
       </div>
+      <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer;margin-bottom:8px;">
+        <input type="checkbox" id="indComp1ShowRevenue"> Show Earned Revenue (chart switches to Revenue + Variance only)
+      </label>
       <canvas id="indComp1Chart" height="140"></canvas>
+      <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);flex-wrap:wrap;margin:10px 0 0;">
+        <span>Zoom:</span>
+        <span id="indZoomComp1FromLabel" style="min-width:64px;"></span>
+        <input type="range" id="indZoomComp1From" min="0" max="59" value="0" style="width:110px;">
+        <span>to</span>
+        <span id="indZoomComp1ToLabel" style="min-width:64px;"></span>
+        <input type="range" id="indZoomComp1To" min="0" max="59" value="59" style="width:110px;">
+        <button type="button" id="indZoomComp1Reset" class="copy-prior-btn">Reset Zoom</button>
+      </div>
       <div style="overflow-x:auto;margin-top:14px;">
       <table class="simple" id="indComp1Table" style="white-space:nowrap;">
         <thead>
@@ -317,7 +338,19 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
           <div class="ms" id="indComp2ForecastMS"><button type="button" class="ms-btn"></button><div class="ms-panel"></div></div>
         </div>
       </div>
+      <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer;margin-bottom:8px;">
+        <input type="checkbox" id="indComp2ShowRevenue"> Show Earned Revenue (chart switches to Revenue + Variance only)
+      </label>
       <canvas id="indComp2Chart" height="140"></canvas>
+      <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);flex-wrap:wrap;margin:10px 0 0;">
+        <span>Zoom:</span>
+        <span id="indZoomComp2FromLabel" style="min-width:64px;"></span>
+        <input type="range" id="indZoomComp2From" min="0" max="59" value="0" style="width:110px;">
+        <span>to</span>
+        <span id="indZoomComp2ToLabel" style="min-width:64px;"></span>
+        <input type="range" id="indZoomComp2To" min="0" max="59" value="59" style="width:110px;">
+        <button type="button" id="indZoomComp2Reset" class="copy-prior-btn">Reset Zoom</button>
+      </div>
       <div style="overflow-x:auto;margin-top:14px;">
       <table class="simple" id="indComp2Table" style="white-space:nowrap;">
         <thead>
@@ -344,7 +377,19 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
           <div class="ms" id="indComp3ForecastMS"><button type="button" class="ms-btn"></button><div class="ms-panel"></div></div>
         </div>
       </div>
+      <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer;margin-bottom:8px;">
+        <input type="checkbox" id="indComp3ShowRevenue"> Show Earned Revenue (chart switches to Revenue + Variance only)
+      </label>
       <canvas id="indComp3Chart" height="140"></canvas>
+      <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);flex-wrap:wrap;margin:10px 0 0;">
+        <span>Zoom:</span>
+        <span id="indZoomComp3FromLabel" style="min-width:64px;"></span>
+        <input type="range" id="indZoomComp3From" min="0" max="59" value="0" style="width:110px;">
+        <span>to</span>
+        <span id="indZoomComp3ToLabel" style="min-width:64px;"></span>
+        <input type="range" id="indZoomComp3To" min="0" max="59" value="59" style="width:110px;">
+        <button type="button" id="indZoomComp3Reset" class="copy-prior-btn">Reset Zoom</button>
+      </div>
       <div style="overflow-x:auto;margin-top:14px;">
       <table class="simple" id="indComp3Table" style="white-space:nowrap;">
         <thead>
@@ -372,7 +417,19 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
           <input type="number" id="indCompRateInput" value="100" min="0" step="1" style="width:90px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);">
         </div>
       </div>
+      <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer;margin-bottom:8px;">
+        <input type="checkbox" id="indComp4ShowRevenue"> Show Earned Revenue (chart switches to Revenue + Variance only)
+      </label>
       <canvas id="indComp4Chart" height="140"></canvas>
+      <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);flex-wrap:wrap;margin:10px 0 0;">
+        <span>Zoom:</span>
+        <span id="indZoomComp4FromLabel" style="min-width:64px;"></span>
+        <input type="range" id="indZoomComp4From" min="0" max="59" value="0" style="width:110px;">
+        <span>to</span>
+        <span id="indZoomComp4ToLabel" style="min-width:64px;"></span>
+        <input type="range" id="indZoomComp4To" min="0" max="59" value="59" style="width:110px;">
+        <button type="button" id="indZoomComp4Reset" class="copy-prior-btn">Reset Zoom</button>
+      </div>
       <div style="overflow-x:auto;margin-top:14px;">
       <table class="simple" id="indComp4Table" style="white-space:nowrap;">
         <thead>
@@ -1181,6 +1238,59 @@ function indForecastBoundary(monthIdx){
   return monthIdx.findIndex(i => IND.months[i].type === 'Forecast');
 }
 
+// Per-chart zoom window — {start,end} are POSITIONS within that chart's own currently-filtered
+// month list (not raw month indices), so each chart can scrub left/right independently of the
+// global Year/Month/Period filter and of every other chart.
+let indChartZoom = {};
+function indZoomedMonthIdx(fullMonthIdx, slot){
+  const len = fullMonthIdx.length;
+  if(len===0) return fullMonthIdx;
+  const maxPos = len-1;
+  const z = indChartZoom[slot];
+  let start = z ? Math.min(Math.max(z.start,0), maxPos) : 0;
+  let end = z ? Math.min(Math.max(z.end,0), maxPos) : maxPos;
+  if(end < start) end = start;
+  return fullMonthIdx.slice(start, end+1);
+}
+const indZoomSliderId = slot => 'indZoom'+slot.charAt(0).toUpperCase()+slot.slice(1);
+// Keeps a chart's zoom slider's range/handles/labels in sync with however many months are
+// currently in play — called every time that chart renders, since the global filter (or a
+// personnel change) can shrink or grow the available month count out from under it.
+function indSyncZoomSlider(slot, fullMonthIdx){
+  const id = indZoomSliderId(slot);
+  const fromInput = document.getElementById(id+'From');
+  const toInput = document.getElementById(id+'To');
+  if(!fromInput || !toInput) return;
+  const maxPos = Math.max(fullMonthIdx.length-1, 0);
+  fromInput.max = maxPos; toInput.max = maxPos;
+  const z = indChartZoom[slot];
+  const start = z ? Math.min(Math.max(z.start,0), maxPos) : 0;
+  const end = z ? Math.min(Math.max(z.end,0), maxPos) : maxPos;
+  fromInput.value = start; toInput.value = end;
+  const fromLabel = document.getElementById(id+'FromLabel');
+  const toLabel = document.getElementById(id+'ToLabel');
+  if(fromLabel) fromLabel.textContent = fullMonthIdx[start]!=null ? IND.months[fullMonthIdx[start]].label : '';
+  if(toLabel) toLabel.textContent = fullMonthIdx[end]!=null ? IND.months[fullMonthIdx[end]].label : '';
+}
+// Wires up one chart's zoom slider once at startup — dragging either handle updates the zoom
+// window and re-renders just that chart; Reset Zoom clears it back to the full month range.
+function indSetupZoomSlider(slot, onZoomChange){
+  const id = indZoomSliderId(slot);
+  const fromInput = document.getElementById(id+'From');
+  const toInput = document.getElementById(id+'To');
+  const resetBtn = document.getElementById(id+'Reset');
+  if(!fromInput || !toInput) return;
+  const commit = ()=>{
+    let f = Number(fromInput.value), t = Number(toInput.value);
+    if(f > t){ fromInput.value = t; toInput.value = f; [f,t] = [t,f]; }
+    indChartZoom[slot] = { start:f, end:t };
+    onZoomChange();
+  };
+  fromInput.addEventListener('input', commit);
+  toInput.addEventListener('input', commit);
+  if(resetBtn) resetBtn.addEventListener('click', ()=>{ delete indChartZoom[slot]; onZoomChange(); });
+}
+
 // % Hours-to-Revenue is a small ratio (often under 0.1%) — 3 decimals so real movement is visible.
 const fmtPct3 = v => (v*100).toFixed(3) + '%';
 const fmtPct2 = v => (v*100).toFixed(2) + '%';
@@ -1589,17 +1699,50 @@ function indExpandWithVariance(selectedKeys){
   return expanded;
 }
 
+// Which side of a Trend-vs-Forecast pairing a row belongs to — Cost uses letters (D=Trend,
+// E=Forecast) while %/Hours/Workers use num (1=Trend, 2=Forecast) under one shared letter.
+function indRowFamily(row){
+  const c = indBlockCode(row);
+  if(!c) return null;
+  if(c.letter==='D') return 'trend';
+  if(c.letter==='E') return 'forecast';
+  if(c.num==='1') return 'trend';
+  if(c.num==='2') return 'forecast';
+  return null;
+}
+
+// One Variance row per matched Trend/Forecast pair among `selectedRows`, matched by label
+// (department name, or the Cost metric name for D/E). Reuses the sheet's own precomputed
+// A3/B3/C3 row when one exists; Cost's D/E pairs have no such row, so synthesizes forecast
+// minus trend on the fly — used only for "Show Earned Revenue" mode's Revenue+Variance view.
+function indComputeAdHocVarianceRows(selectedRows){
+  const trends = selectedRows.filter(r=>indRowFamily(r)==='trend');
+  const forecasts = selectedRows.filter(r=>indRowFamily(r)==='forecast');
+  const out = [];
+  trends.forEach(tr=>{
+    const match = forecasts.find(fr=>fr.label===tr.label);
+    if(!match) return;
+    const existing = indVarianceRowFor(tr);
+    if(existing){ out.push(existing); return; }
+    const values = tr.values.map((v,i)=> match.values[i] - v);
+    out.push({ key:'variance_'+tr.key+'_'+match.key, block:'Variance', label:tr.label, unit:tr.unit, role:'overage', fmt:tr.fmt, values });
+  });
+  return out;
+}
+
 // Shared renderer behind the main chart and the extra Comparison charts below it — each just
 // passes its own canvas id, its own selected-keys Set, and its own indCharts slot, so they stay
 // fully independent (different rows, different chart instances).
-function indRenderComparisonChart(canvasId, selectedKeys, chartSlot){
-  const monthIdx = getIndFilteredMonthIdx();
+function indRenderComparisonChart(canvasId, selectedKeys, chartSlot, extraRows){
+  const fullMonthIdx = getIndFilteredMonthIdx();
+  indSyncZoomSlider(chartSlot, fullMonthIdx);
+  const monthIdx = indZoomedMonthIdx(fullMonthIdx, chartSlot);
   const labels = monthIdx.map(i=>IND.months[i].label);
   const isActual = i => IND.months[i].type === 'Actual';
   const boundary = indForecastBoundary(monthIdx);
   const isDark = document.documentElement.getAttribute('data-theme')==='dark';
 
-  const selectedRows = IND_SHEET_ROWS.filter(r=>selectedKeys.has(r.key));
+  const selectedRows = [...IND_SHEET_ROWS.filter(r=>selectedKeys.has(r.key)), ...(extraRows||[])];
   const unitsUsed = [...new Set(selectedRows.map(r=>r.unit))];
   const positions = ['left','right','right'];
   const scales = { x:{ ticks:{maxRotation:90,minRotation:45} } };
@@ -1672,37 +1815,48 @@ function renderIndTrendChart(){ indRenderComparisonChart('indTrendChart', indMai
 // Variance row never appears on the chart itself — but its table gets indExpandWithVariance()'s
 // expanded set, which adds in the matching department's Variance (delta) row automatically
 // whenever both a Trend Model and an Input Forecast row are picked for it.
-function renderIndComp1(){
-  if(!indComp1TrendMS || !indComp1ForecastMS) return;
-  const combined = new Set([...indComp1TrendMS.selected, ...indComp1ForecastMS.selected]);
-  indRenderComparisonChart('indComp1Chart', combined, 'comp1');
-  indRenderMiniTable('indComp1Table', indExpandWithVariance(combined));
+// "Show Earned Revenue" per Comparison chart — when on, the chart drops the raw Trend/Forecast
+// rows and shows only Earned Revenue plus the Variance (delta) between whatever pair is picked,
+// so adding Revenue doesn't just pile a 3rd/4th line onto an already-busy chart. The table below
+// still shows everything (Trend, Forecast, Variance, and Revenue) regardless.
+let indShowRevenue = { comp1:false, comp2:false, comp3:false, comp4:false };
+
+function indRenderComparisonPanel(chartId, tableId, slot, trendMS, forecastMS){
+  if(!trendMS || !forecastMS) return;
+  const combined = new Set([...trendMS.selected, ...forecastMS.selected]);
+  const tableKeys = indExpandWithVariance(combined);
+  if(indShowRevenue[slot]){
+    const selectedRows = IND_SHEET_ROWS.filter(r=>combined.has(r.key));
+    // A precomputed variance row (A3/B3/C3) already lives in IND_SHEET_ROWS — and tableKeys
+    // already has its key via indExpandWithVariance() above — so only rows indComputeAdHoc-
+    // VarianceRows() had to synthesize itself (Cost's D/E pairs) need passing as extraRows;
+    // adding a precomputed one there too would render it twice.
+    const chartKeys = new Set(['revenue']);
+    const extraRows = [];
+    indComputeAdHocVarianceRows(selectedRows).forEach(vr=>{
+      if(IND_SHEET_ROWS.includes(vr)){ chartKeys.add(vr.key); }
+      else { extraRows.push(vr); }
+    });
+    tableKeys.add('revenue');
+    indRenderComparisonChart(chartId, chartKeys, slot, extraRows);
+    indRenderMiniTable(tableId, tableKeys, slot, extraRows);
+  } else {
+    indRenderComparisonChart(chartId, combined, slot);
+    indRenderMiniTable(tableId, tableKeys, slot);
+  }
 }
-function renderIndComp2(){
-  if(!indComp2TrendMS || !indComp2ForecastMS) return;
-  const combined = new Set([...indComp2TrendMS.selected, ...indComp2ForecastMS.selected]);
-  indRenderComparisonChart('indComp2Chart', combined, 'comp2');
-  indRenderMiniTable('indComp2Table', indExpandWithVariance(combined));
-}
-function renderIndComp3(){
-  if(!indComp3TrendMS || !indComp3ForecastMS) return;
-  const combined = new Set([...indComp3TrendMS.selected, ...indComp3ForecastMS.selected]);
-  indRenderComparisonChart('indComp3Chart', combined, 'comp3');
-  indRenderMiniTable('indComp3Table', indExpandWithVariance(combined));
-}
-function renderIndComp4(){
-  if(!indComp4TrendMS || !indComp4ForecastMS) return;
-  const combined = new Set([...indComp4TrendMS.selected, ...indComp4ForecastMS.selected]);
-  indRenderComparisonChart('indComp4Chart', combined, 'comp4');
-  indRenderMiniTable('indComp4Table', indExpandWithVariance(combined));
-}
+function renderIndComp1(){ indRenderComparisonPanel('indComp1Chart', 'indComp1Table', 'comp1', indComp1TrendMS, indComp1ForecastMS); }
+function renderIndComp2(){ indRenderComparisonPanel('indComp2Chart', 'indComp2Table', 'comp2', indComp2TrendMS, indComp2ForecastMS); }
+function renderIndComp3(){ indRenderComparisonPanel('indComp3Chart', 'indComp3Table', 'comp3', indComp3TrendMS, indComp3ForecastMS); }
+function renderIndComp4(){ indRenderComparisonPanel('indComp4Chart', 'indComp4Table', 'comp4', indComp4TrendMS, indComp4ForecastMS); }
 
 // Live table builder shared by the main chart's table and every Comparison chart's table below
 // it — fills in the Actual/Forecast group header, the month header, and one row per currently-
 // selected key, showing exact values for whatever's plotted above it (plus, for the Comparison
 // charts, any auto-added Variance rows from indExpandWithVariance()).
-function indRenderMiniTable(tableId, selectedKeys){
-  const monthIdx = getIndFilteredMonthIdx();
+function indRenderMiniTable(tableId, selectedKeys, chartSlot, extraRows){
+  const fullMonthIdx = getIndFilteredMonthIdx();
+  const monthIdx = chartSlot ? indZoomedMonthIdx(fullMonthIdx, chartSlot) : fullMonthIdx;
   const isActual = i => IND.months[i].type === 'Actual';
   const boundaryPos = indForecastBoundary(monthIdx);
   const colClass = pos => {
@@ -1724,7 +1878,7 @@ function indRenderMiniTable(tableId, selectedKeys){
   const head = `<th>Metric</th>` + monthIdx.map((mi,pos)=>`<th class="${colClass(pos)}">${IND.months[mi].label}</th>`).join('');
   document.getElementById(tableId+'Head').innerHTML = head;
 
-  const selectedRows = IND_SHEET_ROWS.filter(r=>selectedKeys.has(r.key));
+  const selectedRows = [...IND_SHEET_ROWS.filter(r=>selectedKeys.has(r.key)), ...(extraRows||[])];
   document.querySelector('#'+tableId+' tbody').innerHTML = selectedRows.map(row=>{
     const vals = monthIdx.map(i=>{
       const v = row.values[i];
@@ -1738,7 +1892,7 @@ function indRenderMiniTable(tableId, selectedKeys){
 
 // Live table directly under the main chart, showing exact values for whichever rows are
 // currently checked — appears when checked, disappears when unchecked.
-function renderIndSelectedTable(){ indRenderMiniTable('indSelectedTable', indMainSelectedKeys()); }
+function renderIndSelectedTable(){ indRenderMiniTable('indSelectedTable', indMainSelectedKeys(), 'trend'); }
 
 function renderIndSheetTable(){
   const monthIdx = getIndFilteredMonthIdx();
@@ -1848,6 +2002,19 @@ document.getElementById('indCompRateInput').addEventListener('change', e=>{
   e.target.value = indCompRate;
   indRefreshAfterPersonnelChange();
 });
+
+// "Show Earned Revenue" checkboxes — one per Comparison chart.
+document.getElementById('indComp1ShowRevenue').addEventListener('change', e=>{ indShowRevenue.comp1 = e.target.checked; renderIndComp1(); });
+document.getElementById('indComp2ShowRevenue').addEventListener('change', e=>{ indShowRevenue.comp2 = e.target.checked; renderIndComp2(); });
+document.getElementById('indComp3ShowRevenue').addEventListener('change', e=>{ indShowRevenue.comp3 = e.target.checked; renderIndComp3(); });
+document.getElementById('indComp4ShowRevenue').addEventListener('change', e=>{ indShowRevenue.comp4 = e.target.checked; renderIndComp4(); });
+
+// Zoom sliders — one per chart, wired once; each just re-renders its own chart on drag.
+indSetupZoomSlider('trend', ()=>{ renderIndTrendChart(); renderIndSelectedTable(); });
+indSetupZoomSlider('comp1', renderIndComp1);
+indSetupZoomSlider('comp2', renderIndComp2);
+indSetupZoomSlider('comp3', renderIndComp3);
+indSetupZoomSlider('comp4', renderIndComp4);
 
 let activeTab = 'earned';
 function switchTab(tab){
