@@ -357,7 +357,7 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
     </div>
     <div class="panel" style="margin-bottom:0;">
       <h2>Comparison 4 — Cost</h2>
-      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Cost data only — pick Trend Model Monthly Cost (D1) and Input Forecast Monthly Cost (D2), both plot together on this one chart. Pick both and the Variance (delta) shows up in the table below — not on the chart itself.</p>
+      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Cost data only — pick any Trend Model row(s) (D1 Monthly, D2 Cumulative, D3 % of Monthly, D4 % of Cumulative) and any Input Forecast row(s) (E1-E4, same 4 metrics), both plot together on this one chart.</p>
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
         <div>
           <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Trend Model</label>
@@ -471,15 +471,25 @@ for(let indTbdI=1; indTbdI<=50; indTbdI++){
   IND.people.push({ name:`TBD ${indTbdI}`, group:'', report:'', hours:new Array(IND.months.length).fill(0), placeholder:true, id:'tbd'+indTbdI });
 }
 
-// New Cost section from the sheet (rows 99-106, D1/E1 — Trend Model Monthly Cost & Input
-// Forecast Monthly Cost). Flat, company-wide totals — no per-department breakdown like the
-// %/Hours/Workers blocks have. Input Forecast Cost for Forecast months starts at 0 here (the
-// cached value from the sheet, since nobody was checked into the Personnel Model when it was
-// exported) — indComputeDeptForecast() below makes it live, recalculating it from whoever's
-// actually checked in ($100/person/month, same as the sheet's own K108*100 formula).
+// New Cost section from the sheet (rows 99-106) — the sheet's own D1-D4 (Trend Model) and
+// E1-E4 (Input Forecast) codes, all flat company-wide totals with no per-department breakdown
+// like the %/Hours/Workers blocks have:
+//   D1/E1 = Monthly Cost, D2/E2 = Cumulative Cost, D3/E3 = % of Monthly Cost/Revenue,
+//   D4/E4 = % of Cumulative Cost/Revenue.
+// D1-D4 (Trend Model) are pure trend-curve outputs — static, extracted straight from the sheet.
+// E1-E4 (Input Forecast) start at their cached values (all 0 past the last Actual month, since
+// nobody was checked into the Personnel Model when the sheet was exported) — indComputeDept-
+// Forecast() below makes them live, recalculating from whoever's actually checked in
+// ($100/person/month for E1, same as the sheet's own K108*100 formula, then E2/E3/E4 derive
+// from E1 exactly the way the sheet's own formulas derive them from row 101).
 IND.costTrendMonthly = [1288414, 1103753, 1300171, 1353909, 1424359, 1726613, 1967972, 1982709.1153481065, 2072160.856699983, 2202892.74434397, 2347460.284135958, 2507504.550085913, 2541037.649612344, 2639343.196142959, 2660214.999715932, 2731287.673579584, 3010167.073473507, 2674475.5179519737, 3057999.2547981306, 2697384.649741036, 2973601.1710696244, 3276131.428244602, 3386846.9058634117, 3642467.3811022555, 3954288.3922116817, 3900408.767818283, 3911475.0507734474, 3906559.4443103443, 3613134.45156222, 3680909.964355325, 3717499.417604109, 3642873.8593544057, 3533368.4029226317, 3464319.736398958, 3377064.697568075, 3203114.4332799674, 3014769.4409596566, 2766162.315726973, 2405878.4002443054, 2042227.187797951, 1716079.5204505837, 1459604.4231879262, 1204144.027505986, 1036018.2774092031, 816111.3326480269, 679598.7376956687, 461830.2653660776, 338112.3915951549, 253418.8233520569, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+IND.costTrendCumulative = [1288414, 2392167, 3692338, 5046247, 6470606, 8197219, 10165191, 12147900.115348106, 14220060.972048089, 16422953.716392059, 18770414.000528015, 21277918.55061393, 23818956.200226273, 26458299.396369234, 29118514.396085165, 31849802.06966475, 34859969.14313826, 37534444.66109023, 40592443.91588836, 43289828.5656294, 46263429.73669902, 49539561.16494362, 52926408.07080703, 56568875.45190929, 60523163.84412097, 64423572.61193925, 68335047.6627127, 72241607.10702303, 75854741.55858526, 79535651.52294058, 83253150.94054468, 86896024.79989909, 90429393.20282172, 93893712.93922068, 97270777.63678876, 100473892.07006872, 103488661.51102838, 106254823.82675534, 108660702.22699966, 110702929.4147976, 112419008.93524818, 113878613.35843611, 115082757.38594209, 116118775.66335128, 116934886.9959993, 117614485.73369497, 118076315.99906105, 118414428.3906562, 118667847.21400826, 118667847.21400826, 118667847.21400826, 118667847.21400826, 118667847.21400826, 118667847.21400826, 118667847.21400826, 118667847.21400826, 118667847.21400826, 118667847.21400826, 118667847.21400826, 118667847.21400826];
+IND.costTrendPctMonthly = [0.12637225100374155, 0.08353668651762881, 0.09727536896643943, 0.058575721448632566, 0.08119126718073823, 0.06890977283691468, 0.07361221648261491, 0.07287040463694279, 0.06865375767612092, 0.06326184020533633, 0.05816793413643863, 0.053374215889772765, 0.05246460970582768, 0.04996246064721578, 0.04946062453188257, 0.04782265301970334, 0.04230141711678324, 0.049123320314705926, 0.04147738773841592, 0.048590678104180225, 0.04295329896983265, 0.03808753927325563, 0.03656802330461723, 0.03348087628557572, 0.030353936620386282, 0.03085169244763327, 0.030748123993297537, 0.030794042366737155, 0.03380851942583486, 0.033060956095406505, 0.03267093699568007, 0.03347638050312105, 0.03473268983644951, 0.03557425533457805, 0.03669742945111166, 0.03915978681823712, 0.042220737996410934, 0.04705681605499232, 0.05632561035377179, 0.07001252938876626, 0.08888901422505553, 0.11181401042078809, 0.1482716542881557, 0.18623739876535494, 0.2710975468141772, 0.3659124082169148, 0.7141223750947104, 1.2723442071737703, 2.242655776550456, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+IND.costTrendPctCumulative = [0.12637225100374155, 0.10219363227192504, 0.10040604289434076, 0.08426156365894844, 0.08356593926757895, 0.07998279247064645, 0.07866480092213377, 0.07765695266762875, 0.07620077706444371, 0.07416605983104209, 0.07169986049101068, 0.06891160414593543, 0.06668155620223637, 0.06452754459416604, 0.06278037008874474, 0.06114045624960948, 0.058876292221220365, 0.05805500035147343, 0.05635808949370834, 0.05580227195752512, 0.05474958886749808, 0.053210195802846826, 0.05170442324817406, 0.04995368293121144, 0.04793157718192548, 0.046377132907026455, 0.045065964288903554, 0.04396411763351554, 0.04334394980588797, 0.04272888751888267, 0.042149471802547155, 0.04169659483264937, 0.041372475281239676, 0.04112516171424151, 0.040953610067324446, 0.040893890453966714, 0.04093136296057775, 0.04107054241296191, 0.04131831428386401, 0.04163309069134133, 0.041973721003745336, 0.04231246462761676, 0.0426312339915891, 0.042926556951144695, 0.04318020107616299, 0.04340138855841225, 0.04356141466000062, 0.04368187059328202, 0.043773529532949884, 0.043773529532949884, 0.043773529532949884, 0.043773529532949884, 0.043773529532949884, 0.043773529532949884, 0.043773529532949884, 0.043773529532949884, 0.043773529532949884, 0.043773529532949884, 0.043773529532949884, 0.043773529532949884];
 IND.costForecastMonthly = IND.costTrendMonthly.map((v,i)=> IND.months[i].type==='Actual' ? v : 0);
-IND.costVarianceMonthly = new Array(IND.months.length).fill(0);
+IND.costForecastCumulative = new Array(IND.months.length).fill(0);
+IND.costForecastPctMonthly = new Array(IND.months.length).fill(0);
+IND.costForecastPctCumulative = new Array(IND.months.length).fill(0);
 
 const fmtMoney = v => '$' + Number(v).toLocaleString(undefined,{maximumFractionDigits:0});
 const fmtMoneyM = v => '$' + (Number(v)/1e6).toFixed(1) + 'M';
@@ -1123,20 +1133,25 @@ function populateIndirectsFilters(){
   indComp3TrendMS = initMultiSelect('indComp3TrendMS', c1Items, 'Choose rows…', renderIndComp3, indDefaultTotal(c1Items));
   indComp3ForecastMS = initMultiSelect('indComp3ForecastMS', c2Items, 'Choose rows…', renderIndComp3, indDefaultTotal(c2Items));
 
-  // Comparison 4 = Cost only (D1 Trend Model / D2 Input Forecast) — same single-metric pattern
-  // as Comparison 1/2/3, just for the newer Cost section (rows 99-106). Stays empty on first
-  // load per your last request, rather than auto-selecting the one available row.
-  const d1Items = indChartRowItems(r=>/^D1\.\)/.test(r.block));
-  const d2Items = indChartRowItems(r=>/^D2\.\)/.test(r.block));
-  indComp4TrendMS = initMultiSelect('indComp4TrendMS', d1Items, 'Choose rows…', renderIndComp4, []);
-  indComp4ForecastMS = initMultiSelect('indComp4ForecastMS', d2Items, 'Choose rows…', renderIndComp4, []);
+  // Comparison 4 = Cost only, for the newer Cost section (rows 99-106) — Trend Model picker
+  // lists all 4 of the sheet's D rows (D1 Monthly, D2 Cumulative, D3 % Monthly, D4 %
+  // Cumulative) and Input Forecast lists all 4 E rows, so every metric from the sheet is
+  // reachable, not just the Monthly Cost pairing. Stays empty on first load per your last
+  // request, rather than auto-selecting a row.
+  const dItems = indChartRowItems(r=>/^D\d\.\)/.test(r.block));
+  const eItems = indChartRowItems(r=>/^E\d\.\)/.test(r.block));
+  indComp4TrendMS = initMultiSelect('indComp4TrendMS', dItems, 'Choose rows…', renderIndComp4, []);
+  indComp4ForecastMS = initMultiSelect('indComp4ForecastMS', eItems, 'Choose rows…', renderIndComp4, []);
 
   // The main chart's own Trend Model / Input Forecast pickers add rows the same way the
   // Comparison charts do — quicker than scrolling the big table below to find a checkbox —
   // and cover every metric (%, Hours, #Workers, Cost) since the main chart already supports
   // mixed units on separate axes.
+  // Cost's Forecast family uses the letter E, not a "2" suffix like A/B/C do (D1-D4 are all
+  // Trend Model, E1-E4 are all Input Forecast) — so the Forecast picker takes A2/B2/C2 plus
+  // E1 (Monthly Forecast Cost) specifically, not D2 (which is a Trend metric, Cumulative Cost).
   const allTrendItems = indChartRowItems(r=>/^[A-D]1\.\)/.test(r.block));
-  const allForecastItems = indChartRowItems(r=>/^[A-D]2\.\)/.test(r.block));
+  const allForecastItems = indChartRowItems(r=>/^([A-C]2|E1)\.\)/.test(r.block));
   const indMainRender = ()=>{ renderIndTrendChart(); renderIndSelectedTable(); };
   indMainTrendMS = initMultiSelect('indMainTrendMS', allTrendItems, 'Choose rows…', indMainRender, indDefaultTotal(allTrendItems));
   indMainForecastMS = initMultiSelect('indMainForecastMS', allForecastItems, 'Choose rows…', indMainRender, indDefaultTotal(allForecastItems));
@@ -1237,10 +1252,18 @@ function indComputeDeptForecast(){
     // the Personnel-Input Forecast's Total Monthly #Workers exactly once people are checked in.
     IND.subtotalManpower[i] = IND.workersForecast['Total Monthly'][i];
     // Input Forecast Monthly Cost (E1, row 101) — same formula the sheet uses: headcount
-    // checked in for the month × $100/person (K108*100). Variance is forecast minus trend,
-    // synthesized here since the sheet has no cost-variance row of its own.
+    // checked in for the month × $100/person (K108*100).
     IND.costForecastMonthly[i] = IND.subtotalManpower[i] * 100;
-    IND.costVarianceMonthly[i] = IND.costForecastMonthly[i] - IND.costTrendMonthly[i];
+  }
+  // E2/E3/E4 all derive from E1 the same way the sheet's own formulas derive them from row 101
+  // (running cumulative, then cost ÷ revenue) — recomputed across every month, cheap at 60
+  // elements, and always exactly consistent with whatever E1 just became.
+  let costForecastCum = 0;
+  for(let i=0;i<n;i++){
+    costForecastCum += IND.costForecastMonthly[i];
+    IND.costForecastCumulative[i] = costForecastCum;
+    IND.costForecastPctMonthly[i] = IND.revenue[i] ? IND.costForecastMonthly[i]/IND.revenue[i] : 0;
+    IND.costForecastPctCumulative[i] = IND.cumRevenue[i] ? costForecastCum/IND.cumRevenue[i] : 0;
   }
 }
 
@@ -1446,11 +1469,18 @@ const IND_SHEET_ROWS = [
   { key:'subtotalManpower', block:'Personnel Data Collected', label:'Subtotal Manpower (Headcount)', unit:'workers', role:'actual', fmt:fmtWorkers, values: IND.subtotalManpower },
 
   // Cost — new from the sheet's rows 99-106, flat company-wide totals (no per-department
-  // breakdown like %/Hours/Workers have). D3 (Variance) is synthesized here — the sheet has no
-  // cost-variance row of its own — kept live in indComputeDeptForecast() the same way B2/C2 are.
-  { key:'costTrendMonthly', block:'D1.) Trend Model Monthly Cost', label:'Monthly Cost', unit:'cost', role:'actual', fmt:fmtMoney, values: IND.costTrendMonthly },
-  { key:'costForecastMonthly', block:'D2.) Input Forecast Monthly Cost', label:'Monthly Cost', unit:'cost', role:'input', fmt:fmtMoney, values: IND.costForecastMonthly },
-  { key:'costVarianceMonthly', block:'D3.) Variance Monthly Cost', label:'Monthly Cost', unit:'cost', role:'overage', fmt:fmtMoney, values: IND.costVarianceMonthly },
+  // breakdown like %/Hours/Workers have). Uses the sheet's own D1-D4 (Trend Model) / E1-E4
+  // (Input Forecast) codes rather than a made-up letter, so they match exactly what's on the
+  // sheet: 1=Monthly Cost, 2=Cumulative Cost, 3=% of Monthly Cost/Revenue, 4=% of Cumulative
+  // Cost/Revenue. E1-E4 are kept live in indComputeDeptForecast() the same way B2/C2 are.
+  { key:'costTrendMonthly', block:'D1.) Trend Model Monthly Cost & Actual', label:'Monthly Cost', unit:'cost', role:'actual', fmt:fmtMoney, values: IND.costTrendMonthly },
+  { key:'costTrendCumulative', block:'D2.) Trend Model Cumulative Cost & Actual', label:'Cumulative Cost', unit:'cost', role:'actual', fmt:fmtMoney, values: IND.costTrendCumulative },
+  { key:'costTrendPctMonthly', block:'D3.) Trend Model % of Monthly Cost/Revenue', label:'% of Monthly Cost/Revenue', unit:'pct', role:'actual', fmt:fmtPct4, values: IND.costTrendPctMonthly },
+  { key:'costTrendPctCumulative', block:'D4.) Trend Model % of Cumulative Cost/Revenue', label:'% of Cumulative Cost/Revenue', unit:'pct', role:'actual', fmt:fmtPct4, values: IND.costTrendPctCumulative },
+  { key:'costForecastMonthly', block:'E1.) Input Forecast Monthly Cost & Actual', label:'Monthly Cost', unit:'cost', role:'input', fmt:fmtMoney, values: IND.costForecastMonthly },
+  { key:'costForecastCumulative', block:'E2.) Input Forecast Cumulative Cost & Actual', label:'Cumulative Cost', unit:'cost', role:'input', fmt:fmtMoney, values: IND.costForecastCumulative },
+  { key:'costForecastPctMonthly', block:'E3.) Input Forecast % of Monthly Cost/Revenue', label:'% of Monthly Cost/Revenue', unit:'pct', role:'input', fmt:fmtPct4, values: IND.costForecastPctMonthly },
+  { key:'costForecastPctCumulative', block:'E4.) Input Forecast % of Cumulative Cost/Revenue', label:'% of Cumulative Cost/Revenue', unit:'pct', role:'input', fmt:fmtPct4, values: IND.costForecastPctCumulative },
 
   // A3/B3/C3 (Trend Model Vs Personnel-Input Forecast variance) moved to their own area at the
   // end of the table, out of the way of the main A1/A2, B1/B2, C1/C2 rows above.
@@ -1491,7 +1521,8 @@ const IND_BLOCK_MEANING = {
   A1:'Trend Model %', A2:'Input Forecast %', A3:'Variance %',
   B1:'Trend Model Hours', B2:'Input Forecast Hours', B3:'Variance Hours',
   C1:'Trend Model Workers', C2:'Input Forecast Workers', C3:'Variance Workers',
-  D1:'Trend Model Cost', D2:'Input Forecast Cost', D3:'Variance Cost',
+  D1:'Trend Model Cost', D2:'Trend Model Cost', D3:'Trend Model Cost', D4:'Trend Model Cost',
+  E1:'Input Forecast Cost', E2:'Input Forecast Cost', E3:'Input Forecast Cost', E4:'Input Forecast Cost',
 };
 function indRowDisplayLabel(row){
   const codeMatch = row.block.match(/^([A-Z]\d)\.\)/);
