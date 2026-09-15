@@ -443,6 +443,35 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
   </div>
 
   <div class="panel">
+    <h2>Indirect Hours by Category</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">New from the sheet (rows 263-282, pulled from the Pivot Coins tab) — a point-in-time breakdown of hours by department and charge category, not month-by-month like the rest of this tab. "G&A" appears twice: once as a department (row) and once as a category (column) — they're independent, e.g. the Engineering row's G&A column is hours Engineering itself logged to the G&A category.</p>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Chart shows</label>
+      <select id="indCategoryViewMode" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);">
+        <option value="hours">Hours</option>
+        <option value="pct">% of Total</option>
+      </select>
+    </div>
+    <canvas id="indCategoryChart" height="120"></canvas>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:18px;">
+      <div style="flex:1;min-width:280px;overflow-x:auto;">
+        <h3 style="font-size:13px;margin:0 0 6px;">Hours</h3>
+        <table class="simple" id="indCategoryHoursTable" style="white-space:nowrap;">
+          <thead><tr id="indCategoryHoursHead"></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div style="flex:1;min-width:280px;overflow-x:auto;">
+        <h3 style="font-size:13px;margin:0 0 6px;">% of Total</h3>
+        <table class="simple" id="indCategoryPctTable" style="white-space:nowrap;">
+          <thead><tr id="indCategoryPctHead"></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
     <h2>Indirects — By Department</h2>
     <p style="font-size:12px;color:var(--muted);margin-top:-6px">Same rows, same order as the Indirects sheet: Revenue, then % / Hours / #Workers each split into Trend Model, Personnel-Input Forecast, and Comparison, broken out across all 7 departments. Check a row to plot it on the chart above. Click a block's ▾ to roll it up to just Total Monthly.</p>
     <div style="margin-bottom:12px;">
@@ -491,35 +520,6 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
       </thead>
       <tbody></tbody>
     </table>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h2>Indirect Hours by Category</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px">New from the sheet (rows 263-282, pulled from the Pivot Coins tab) — a point-in-time breakdown of hours by department and charge category, not month-by-month like the rest of this tab. "G&A" appears twice: once as a department (row) and once as a category (column) — they're independent, e.g. the Engineering row's G&A column is hours Engineering itself logged to the G&A category.</p>
-    <div style="margin-bottom:10px;">
-      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Chart shows</label>
-      <select id="indCategoryViewMode" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);">
-        <option value="hours">Hours</option>
-        <option value="pct">% of Total</option>
-      </select>
-    </div>
-    <canvas id="indCategoryChart" height="120"></canvas>
-    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:18px;">
-      <div style="flex:1;min-width:280px;overflow-x:auto;">
-        <h3 style="font-size:13px;margin:0 0 6px;">Hours</h3>
-        <table class="simple" id="indCategoryHoursTable" style="white-space:nowrap;">
-          <thead><tr id="indCategoryHoursHead"></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div style="flex:1;min-width:280px;overflow-x:auto;">
-        <h3 style="font-size:13px;margin:0 0 6px;">% of Total</h3>
-        <table class="simple" id="indCategoryPctTable" style="white-space:nowrap;">
-          <thead><tr id="indCategoryPctHead"></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
     </div>
   </div>
 
