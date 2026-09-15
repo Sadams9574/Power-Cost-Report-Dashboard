@@ -357,8 +357,8 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
     </div>
     <div class="panel" style="margin-bottom:0;">
       <h2>Comparison 4 — Cost</h2>
-      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Cost data only — pick any Trend Model row(s) (D1 Monthly, D2 Cumulative, D3 % of Monthly, D4 % of Cumulative) and any Input Forecast row(s) (E1-E4, same 4 metrics), both plot together on this one chart.</p>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+      <p style="font-size:12px;color:var(--muted);margin-top:-6px">Cost data only — pick any Trend Model row(s) (D1 Monthly, D2 Cumulative, D3 % of Monthly, D4 % of Cumulative) and any Input Forecast row(s) (E1-E4, same 4 metrics), both plot together on this one chart. Cost = Comp Rate × Hours, for both Trend Model and Input Forecast.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;align-items:flex-end;">
         <div>
           <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Trend Model</label>
           <div class="ms" id="indComp4TrendMS"><button type="button" class="ms-btn"></button><div class="ms-panel"></div></div>
@@ -366,6 +366,10 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
         <div>
           <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Input Forecast</label>
           <div class="ms" id="indComp4ForecastMS"><button type="button" class="ms-btn"></button><div class="ms-panel"></div></div>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Comp Rate ($/hr)</label>
+          <input type="number" id="indCompRateInput" value="100" min="0" step="1" style="width:90px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);">
         </div>
       </div>
       <canvas id="indComp4Chart" height="140"></canvas>
@@ -1148,10 +1152,10 @@ function populateIndirectsFilters(){
   // and cover every metric (%, Hours, #Workers, Cost) since the main chart already supports
   // mixed units on separate axes.
   // Cost's Forecast family uses the letter E, not a "2" suffix like A/B/C do (D1-D4 are all
-  // Trend Model, E1-E4 are all Input Forecast) — so the Forecast picker takes A2/B2/C2 plus
-  // E1 (Monthly Forecast Cost) specifically, not D2 (which is a Trend metric, Cumulative Cost).
-  const allTrendItems = indChartRowItems(r=>/^[A-D]1\.\)/.test(r.block));
-  const allForecastItems = indChartRowItems(r=>/^([A-C]2|E1)\.\)/.test(r.block));
+  // Trend Model, E1-E4 are all Input Forecast) — so the Trend picker takes A1/B1/C1 plus all of
+  // D1-D4, and Forecast takes A2/B2/C2 plus all of E1-E4, covering every Cost metric here too.
+  const allTrendItems = indChartRowItems(r=>/^([A-C]1|D\d)\.\)/.test(r.block));
+  const allForecastItems = indChartRowItems(r=>/^([A-C]2|E\d)\.\)/.test(r.block));
   const indMainRender = ()=>{ renderIndTrendChart(); renderIndSelectedTable(); };
   indMainTrendMS = initMultiSelect('indMainTrendMS', allTrendItems, 'Choose rows…', indMainRender, indDefaultTotal(allTrendItems));
   indMainForecastMS = initMultiSelect('indMainForecastMS', allForecastItems, 'Choose rows…', indMainRender, indDefaultTotal(allForecastItems));
@@ -1251,19 +1255,30 @@ function indComputeDeptForecast(){
     // Subtotal Manpower (row 105) is the sheet's headcount across every department — matches
     // the Personnel-Input Forecast's Total Monthly #Workers exactly once people are checked in.
     IND.subtotalManpower[i] = IND.workersForecast['Total Monthly'][i];
-    // Input Forecast Monthly Cost (E1, row 101) — same formula the sheet uses: headcount
-    // checked in for the month × $100/person (K108*100).
-    IND.costForecastMonthly[i] = IND.subtotalManpower[i] * 100;
   }
-  // E2/E3/E4 all derive from E1 the same way the sheet's own formulas derive them from row 101
-  // (running cumulative, then cost ÷ revenue) — recomputed across every month, cheap at 60
-  // elements, and always exactly consistent with whatever E1 just became.
-  let costForecastCum = 0;
+  indRecomputeCost();
+}
+
+// Comp Rate ($/hr) — verified against the sheet's own Trend Model Cost: D1 (row 99) equals
+// exactly $100 × Hours Trend Total Monthly (row 47) for every month, so Cost = Comp Rate ×
+// Hours is the sheet's real formula, not headcount-based. Editable so both Trend and Forecast
+// cost respond to a different rate; D2-D4/E2-E4 all derive from D1/E1 the same way the sheet's
+// own formulas do (running cumulative, then cost ÷ revenue).
+let indCompRate = 100;
+function indRecomputeCost(){
+  const n = IND.months.length;
+  let trendCum = 0, forecastCum = 0;
   for(let i=0;i<n;i++){
-    costForecastCum += IND.costForecastMonthly[i];
-    IND.costForecastCumulative[i] = costForecastCum;
+    IND.costTrendMonthly[i] = indCompRate * IND.hoursTrend['Total Monthly'][i];
+    IND.costForecastMonthly[i] = indCompRate * IND.hoursForecast['Total Monthly'][i];
+    trendCum += IND.costTrendMonthly[i];
+    forecastCum += IND.costForecastMonthly[i];
+    IND.costTrendCumulative[i] = trendCum;
+    IND.costForecastCumulative[i] = forecastCum;
+    IND.costTrendPctMonthly[i] = IND.revenue[i] ? IND.costTrendMonthly[i]/IND.revenue[i] : 0;
     IND.costForecastPctMonthly[i] = IND.revenue[i] ? IND.costForecastMonthly[i]/IND.revenue[i] : 0;
-    IND.costForecastPctCumulative[i] = IND.cumRevenue[i] ? costForecastCum/IND.cumRevenue[i] : 0;
+    IND.costTrendPctCumulative[i] = IND.cumRevenue[i] ? trendCum/IND.cumRevenue[i] : 0;
+    IND.costForecastPctCumulative[i] = IND.cumRevenue[i] ? forecastCum/IND.cumRevenue[i] : 0;
   }
 }
 
@@ -1822,6 +1837,15 @@ function renderIndirectsAll(){
 
 ['indPeriodFilter'].forEach(id=>
   document.getElementById(id).addEventListener('change', renderIndirectsAll));
+
+// Comp Rate ($/hr) drives both Trend Model and Input Forecast cost (Cost = Comp Rate × Hours),
+// so changing it needs the same full recompute + redraw as a personnel change.
+document.getElementById('indCompRateInput').addEventListener('change', e=>{
+  const v = Number(e.target.value);
+  indCompRate = Number.isFinite(v) && v >= 0 ? v : indCompRate;
+  e.target.value = indCompRate;
+  indRefreshAfterPersonnelChange();
+});
 
 let activeTab = 'earned';
 function switchTab(tab){
