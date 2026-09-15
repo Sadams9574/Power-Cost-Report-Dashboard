@@ -452,7 +452,9 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
         <option value="pct">% of Total</option>
       </select>
     </div>
-    <canvas id="indCategoryChart" height="120"></canvas>
+    <div style="max-width:640px;">
+      <canvas id="indCategoryChart" height="120"></canvas>
+    </div>
     <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:18px;">
       <div style="flex:1;min-width:280px;overflow-x:auto;">
         <h3 style="font-size:13px;margin:0 0 6px;">Hours</h3>
@@ -2064,7 +2066,7 @@ function renderIndCategoryChart(){
     type:'bar',
     data:{ labels: IND_DEPTS, datasets },
     options:{
-      aspectRatio: 2.2,
+      aspectRatio: 1.8,
       plugins:{
         legend:{ position:'top' },
         tooltip:{ callbacks:{ label:c=>
