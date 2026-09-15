@@ -1154,8 +1154,10 @@ function populateIndirectsFilters(){
   // Cost's Forecast family uses the letter E, not a "2" suffix like A/B/C do (D1-D4 are all
   // Trend Model, E1-E4 are all Input Forecast) — so the Trend picker takes A1/B1/C1 plus all of
   // D1-D4, and Forecast takes A2/B2/C2 plus all of E1-E4, covering every Cost metric here too.
-  const allTrendItems = indChartRowItems(r=>/^([A-C]1|D\d)\.\)/.test(r.block));
-  const allForecastItems = indChartRowItems(r=>/^([A-C]2|E\d)\.\)/.test(r.block));
+  // Cost goes FIRST in each list — the %/Hours/Workers rows repeat 7 departments each (24 rows
+  // before you'd ever reach Cost otherwise), so without this Cost is easy to scroll past.
+  const allTrendItems = [...indChartRowItems(r=>/^D\d\.\)/.test(r.block)), ...indChartRowItems(r=>/^[A-C]1\.\)/.test(r.block))];
+  const allForecastItems = [...indChartRowItems(r=>/^E\d\.\)/.test(r.block)), ...indChartRowItems(r=>/^[A-C]2\.\)/.test(r.block))];
   const indMainRender = ()=>{ renderIndTrendChart(); renderIndSelectedTable(); };
   indMainTrendMS = initMultiSelect('indMainTrendMS', allTrendItems, 'Choose rows…', indMainRender, indDefaultTotal(allTrendItems));
   indMainForecastMS = initMultiSelect('indMainForecastMS', allForecastItems, 'Choose rows…', indMainRender, indDefaultTotal(allForecastItems));
