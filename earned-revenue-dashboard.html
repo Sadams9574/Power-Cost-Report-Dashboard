@@ -495,6 +495,35 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
   </div>
 
   <div class="panel">
+    <h2>Indirect Hours by Category</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">New from the sheet (rows 263-282, pulled from the Pivot Coins tab) — a point-in-time breakdown of hours by department and charge category, not month-by-month like the rest of this tab. "G&A" appears twice: once as a department (row) and once as a category (column) — they're independent, e.g. the Engineering row's G&A column is hours Engineering itself logged to the G&A category.</p>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Chart shows</label>
+      <select id="indCategoryViewMode" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);">
+        <option value="hours">Hours</option>
+        <option value="pct">% of Total</option>
+      </select>
+    </div>
+    <canvas id="indCategoryChart" height="120"></canvas>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:18px;">
+      <div style="flex:1;min-width:280px;overflow-x:auto;">
+        <h3 style="font-size:13px;margin:0 0 6px;">Hours</h3>
+        <table class="simple" id="indCategoryHoursTable" style="white-space:nowrap;">
+          <thead><tr id="indCategoryHoursHead"></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div style="flex:1;min-width:280px;overflow-x:auto;">
+        <h3 style="font-size:13px;margin:0 0 6px;">% of Total</h3>
+        <table class="simple" id="indCategoryPctTable" style="white-space:nowrap;">
+          <thead><tr id="indCategoryPctHead"></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
     <h2>How the Trend Model Works</h2>
     <div id="indModelNotes" class="model-notes"></div>
   </div>
@@ -551,6 +580,22 @@ IND.costForecastMonthly = IND.costTrendMonthly.map((v,i)=> IND.months[i].type===
 IND.costForecastCumulative = new Array(IND.months.length).fill(0);
 IND.costForecastPctMonthly = new Array(IND.months.length).fill(0);
 IND.costForecastPctCumulative = new Array(IND.months.length).fill(0);
+
+// New section from the sheet (rows 263-282) — a point-in-time (not monthly) cross-tab of hours
+// by department × charge category, pulled straight from the Pivot Coins tab (='Pivot Coins'!AG7
+// etc.). "Total" here is the company-wide row/column, same idea as "Total Monthly" elsewhere.
+IND.categoryHours = {
+  'G&A': { 'G&A':3864, 'Indirect/Hold':296, 'Project':588, 'Estimation':0, 'Total':4748 },
+  'Estimating': { 'G&A':0, 'Indirect/Hold':1656, 'Project':0, 'Estimation':4673.25, 'Total':6329.25 },
+  'Engineering': { 'G&A':570, 'Indirect/Hold':2864.9700000000003, 'Project':7893.23, 'Estimation':2048.85, 'Total':13377.050000000001 },
+  'Procurement': { 'G&A':0, 'Indirect/Hold':1293, 'Project':7577.5, 'Estimation':2449.5, 'Total':11320 },
+  'Project Engineer': { 'G&A':0, 'Indirect/Hold':455.5, 'Project':12633, 'Estimation':17, 'Total':13105.5 },
+  'Construction': { 'G&A':426, 'Indirect/Hold':5289.5, 'Project':46196.5, 'Estimation':8, 'Total':51920 },
+  'Project Management': { 'G&A':48, 'Indirect/Hold':800, 'Project':16815.5, 'Estimation':560, 'Total':18223.5 },
+  'Total': { 'G&A':4908, 'Indirect/Hold':12654.970000000001, 'Project':91703.73, 'Estimation':9756.6, 'Total':119023.3 },
+};
+const IND_CATEGORIES = ['G&A','Indirect/Hold','Project','Estimation'];
+const IND_CATEGORY_COLORS = { 'G&A':'#2563eb', 'Indirect/Hold':'#d93025', 'Project':'#16a34a', 'Estimation':'#9333ea' };
 
 const fmtMoney = v => '$' + Number(v).toLocaleString(undefined,{maximumFractionDigits:0});
 const fmtMoneyM = v => '$' + (Number(v)/1e6).toFixed(1) + 'M';
@@ -1998,6 +2043,59 @@ function renderIndModelNotes(){
     `<p><b>${title}.</b> ${body}</p>`).join('');
 }
 
+// "Indirect Hours by Category" — a static department × category cross-tab (rows 263-282), not
+// a month-indexed chart like everything else on this tab, so it gets its own small renderer
+// rather than reusing indRenderComparisonChart.
+let indCategoryViewMode = 'hours';
+function renderIndCategoryChart(){
+  const grandTotal = IND.categoryHours['Total'].Total;
+  const datasets = IND_CATEGORIES.map(cat=>({
+    label: cat,
+    data: IND_DEPTS.map(d=>{
+      const v = IND.categoryHours[d][cat];
+      return indCategoryViewMode==='pct' ? (grandTotal ? v/grandTotal : 0) : v;
+    }),
+    backgroundColor: IND_CATEGORY_COLORS[cat],
+    stack: 'total',
+  }));
+  const ctx = document.getElementById('indCategoryChart');
+  if(indCharts['category']) indCharts['category'].destroy();
+  indCharts['category'] = new Chart(ctx, {
+    type:'bar',
+    data:{ labels: IND_DEPTS, datasets },
+    options:{
+      aspectRatio: 2.2,
+      plugins:{
+        legend:{ position:'top' },
+        tooltip:{ callbacks:{ label:c=>
+          indCategoryViewMode==='pct' ? `${c.dataset.label}: ${(c.raw*100).toFixed(2)}%` : `${c.dataset.label}: ${Math.round(c.raw).toLocaleString()} hrs`
+        }},
+      },
+      scales:{
+        x:{ stacked:true, ticks:{ maxRotation:45, minRotation:0 } },
+        y:{ stacked:true, ticks:{ callback:v => indCategoryViewMode==='pct' ? (v*100).toFixed(0)+'%' : v.toLocaleString() } },
+      },
+    },
+  });
+}
+function renderIndCategoryTables(){
+  const grandTotal = IND.categoryHours['Total'].Total;
+  const head = `<th>Department</th>${IND_CATEGORIES.map(c=>`<th>${c}</th>`).join('')}<th>Total</th>`;
+  document.getElementById('indCategoryHoursHead').innerHTML = head;
+  document.getElementById('indCategoryPctHead').innerHTML = head;
+
+  const rowsFor = fmt => [...IND_DEPTS, 'Total'].map(d=>{
+    const row = IND.categoryHours[d];
+    const strong = d==='Total' ? 'font-weight:700;border-top:2px solid var(--border);' : '';
+    const cells = IND_CATEGORIES.map(c=>`<td>${fmt(row[c])}</td>`).join('');
+    return `<tr style="${strong}"><td>${d}</td>${cells}<td style="font-weight:700">${fmt(row.Total)}</td></tr>`;
+  }).join('');
+
+  document.querySelector('#indCategoryHoursTable tbody').innerHTML = rowsFor(v=>Math.round(v).toLocaleString());
+  document.querySelector('#indCategoryPctTable tbody').innerHTML = rowsFor(v=>(grandTotal ? v/grandTotal*100 : 0).toFixed(2)+'%');
+}
+function renderIndCategorySection(){ renderIndCategoryChart(); renderIndCategoryTables(); }
+
 function renderIndirectsAll(){
   renderIndirectsCaptions();
   indComputeDeptForecast();
@@ -2010,6 +2108,7 @@ function renderIndirectsAll(){
   renderIndSheetTable();
   renderIndTeamTable();
   renderIndModelNotes();
+  renderIndCategorySection();
 }
 
 ['indPeriodFilter'].forEach(id=>
@@ -2057,7 +2156,12 @@ document.getElementById('darkToggle').addEventListener('click', ()=>{
   html.setAttribute('data-theme', isDark?'light':'dark');
   document.getElementById('darkToggle').textContent = isDark ? '🌙 Dark Mode' : '☀️ Light Mode';
   if(activeTab==='earned'){ renderMainChart(); renderCumChart(); }
-  else { renderIndTrendChart(); renderIndComp1(); renderIndComp2(); renderIndComp3(); renderIndComp4(); renderIndSelectedTable(); }
+  else { renderIndTrendChart(); renderIndComp1(); renderIndComp2(); renderIndComp3(); renderIndComp4(); renderIndSelectedTable(); renderIndCategoryChart(); }
+});
+
+document.getElementById('indCategoryViewMode').addEventListener('change', e=>{
+  indCategoryViewMode = e.target.value;
+  renderIndCategoryChart();
 });
 
 // Collapsible panels on the Indirects tab — click a panel's title to tuck away everything
