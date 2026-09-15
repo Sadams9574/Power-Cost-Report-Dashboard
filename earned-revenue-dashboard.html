@@ -456,14 +456,14 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
       <canvas id="indCategoryChart" height="120"></canvas>
     </div>
     <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:18px;">
-      <div style="flex:1;min-width:280px;overflow-x:auto;">
+      <div id="indCategoryHoursWrap" style="flex:1;min-width:280px;overflow-x:auto;">
         <h3 style="font-size:13px;margin:0 0 6px;">Hours</h3>
         <table class="simple" id="indCategoryHoursTable" style="white-space:nowrap;">
           <thead><tr id="indCategoryHoursHead"></tr></thead>
           <tbody></tbody>
         </table>
       </div>
-      <div style="flex:1;min-width:280px;overflow-x:auto;">
+      <div id="indCategoryPctWrap" style="flex:1;min-width:280px;overflow-x:auto;">
         <h3 style="font-size:13px;margin:0 0 6px;">% of Total</h3>
         <table class="simple" id="indCategoryPctTable" style="white-space:nowrap;">
           <thead><tr id="indCategoryPctHead"></tr></thead>
@@ -2095,6 +2095,11 @@ function renderIndCategoryTables(){
 
   document.querySelector('#indCategoryHoursTable tbody').innerHTML = rowsFor(v=>Math.round(v).toLocaleString());
   document.querySelector('#indCategoryPctTable tbody').innerHTML = rowsFor(v=>(grandTotal ? v/grandTotal*100 : 0).toFixed(2)+'%');
+
+  // Only the table matching the chart's current view shows — picking Hours means just Hours,
+  // picking % of Total means just that, not both side by side.
+  document.getElementById('indCategoryHoursWrap').hidden = indCategoryViewMode !== 'hours';
+  document.getElementById('indCategoryPctWrap').hidden = indCategoryViewMode !== 'pct';
 }
 function renderIndCategorySection(){ renderIndCategoryChart(); renderIndCategoryTables(); }
 
@@ -2164,6 +2169,7 @@ document.getElementById('darkToggle').addEventListener('click', ()=>{
 document.getElementById('indCategoryViewMode').addEventListener('change', e=>{
   indCategoryViewMode = e.target.value;
   renderIndCategoryChart();
+  renderIndCategoryTables();
 });
 
 // Collapsible panels on the Indirects tab — click a panel's title to tuck away everything
