@@ -590,6 +590,25 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
       </div>
     </div>
   </div>
+
+  <div class="panel">
+    <h2>Project Schedule</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">
+      Every Earned Revenue project's active date range, left to right on the same month timeline as
+      the manpower chart above, colored by status.
+    </p>
+    <div style="display:flex;gap:16px;font-size:12px;margin:10px 0;">
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#2563eb;margin-right:5px;"></span>Secured</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#d93025;margin-right:5px;"></span>Anticipated</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#9333ea;margin-right:5px;"></span>Possible</span>
+    </div>
+    <button type="button" id="overviewGanttToggle" style="margin-bottom:12px;padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;">Hide Project Schedule</button>
+    <div id="overviewGanttWrap" style="overflow-x:auto;">
+      <div style="min-width:1400px;">
+        <canvas id="overviewGanttChart"></canvas>
+      </div>
+    </div>
+  </div>
 </div>
 </main>
 
@@ -2385,6 +2404,51 @@ function renderOverviewForecastGrid(){
   });
 }
 
+// Project Schedule — a Gantt chart of every Earned Revenue project's active date range, left to
+// right on the same month timeline the manpower chart uses. ER.projects' startIdx/endIdx are
+// already 0-indexed against IND.months (stripLeaderColumns() lines them up at load), so no
+// conversion is needed — a floating horizontal bar per project runs from [startIdx, endIdx+1)
+// (the +1 so a single-month project still renders a visible sliver instead of a zero-width bar).
+function renderOverviewGanttChart(){
+  const sorted = [...ER.projects].sort((a,b)=> a.startIdx - b.startIdx || a.code.localeCompare(b.code));
+  const labels = sorted.map(p=> `${p.code} — ${p.client}`);
+  const data = sorted.map(p=> [p.startIdx, p.endIdx + 1]);
+  const backgroundColor = sorted.map(p=> STATUS_COLORS[p.status]);
+  const boundary = IND_LAST_ACTUAL_IDX>=0 ? IND_LAST_ACTUAL_IDX+1 : -1;
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+
+  const wrap = document.getElementById('overviewGanttChart').parentElement;
+  wrap.style.height = (sorted.length * 22 + 60) + 'px';
+
+  const ctx = document.getElementById('overviewGanttChart');
+  if(overviewCharts.gantt) overviewCharts.gantt.destroy();
+  overviewCharts.gantt = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[{ data, backgroundColor, borderSkipped:false }] },
+    options:{
+      indexAxis:'y',
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>{
+          const p = sorted[c.dataIndex];
+          return `${p.status}: ${IND.months[p.startIdx].label} – ${IND.months[p.endIdx].label} (TCV ${fmtMoney(p.tcv)})`;
+        }}},
+        actualForecastBackdrop:{boundary, isDark},
+      },
+      scales:{
+        // stepSize:1 forces a tick candidate at every month index (the linear x-axis otherwise
+        // picks "nice" round numbers unrelated to month boundaries); autoSkip then thins them to
+        // fit, same as the category-scale month charts elsewhere on this tab.
+        x:{ min:0, max:IND.months.length, ticks:{ stepSize:1, autoSkip:true, maxRotation:90, minRotation:45,
+          callback:v=> IND.months[v] ? IND.months[v].label : '' } },
+        y:{ ticks:{ autoSkip:false, font:{size:10} } },
+      },
+    },
+    plugins:[actualForecastBackdrop],
+  });
+}
+
 function renderOverviewAll(){
   renderOverviewManpowerChart();
   renderOverviewDeptRoster();
@@ -2392,6 +2456,7 @@ function renderOverviewAll(){
   renderOverviewPctTable();
   renderOverviewHoursTable();
   renderOverviewForecastGrid();
+  renderOverviewGanttChart();
 }
 
 let activeTab = 'earned';
@@ -2418,7 +2483,7 @@ document.getElementById('darkToggle').addEventListener('click', ()=>{
   document.getElementById('darkToggle').textContent = isDark ? '🌙 Dark Mode' : '☀️ Light Mode';
   if(activeTab==='earned'){ renderMainChart(); renderCumChart(); }
   else if(activeTab==='indirects'){ renderIndTrendChart(); renderIndComp1(); renderIndComp2(); renderIndComp3(); renderIndComp4(); renderIndSelectedTable(); renderIndCategoryCharts(); }
-  else { renderOverviewManpowerChart(); }
+  else { renderOverviewManpowerChart(); renderOverviewGanttChart(); }
 });
 
 // Collapsible panels on the Indirects tab — click a panel's title to tuck away everything
@@ -2436,6 +2501,13 @@ document.getElementById('overviewExtraTablesToggle').addEventListener('click', e
   const hidden = wrap.style.display === 'none';
   wrap.style.display = hidden ? '' : 'none';
   e.target.textContent = hidden ? 'Hide Trend Model % & Hours tables' : 'Show Trend Model % & Hours tables';
+});
+
+document.getElementById('overviewGanttToggle').addEventListener('click', e=>{
+  const wrap = document.getElementById('overviewGanttWrap');
+  const hidden = wrap.style.display === 'none';
+  wrap.style.display = hidden ? '' : 'none';
+  e.target.textContent = hidden ? 'Hide Project Schedule' : 'Show Project Schedule';
 });
 
 populateFilters();
