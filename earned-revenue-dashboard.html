@@ -568,24 +568,18 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
         <canvas id="overviewManpowerChart" height="110"></canvas>
       </div>
     </div>
-    <p style="font-size:12px;color:var(--muted);margin:14px 0 0;">Trend Model — # of Workers by month, so the chart above has the numbers behind it to look at.</p>
-    <div style="overflow-x:auto;margin-top:8px;">
-      <table class="simple overview-month-table" id="overviewManpowerTable" style="white-space:nowrap;">
-        <thead><tr id="overviewManpowerTableHead"></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <p style="font-size:13px;font-weight:700;margin:20px 0 0;">Type In Your Forecast by Month</p>
+    <p style="font-size:13px;font-weight:700;margin:14px 0 0;"># of Workers — Trend Model vs. Forecast</p>
     <p style="font-size:12px;color:var(--muted);margin-top:4px">
-      Right under the Trend Model's own numbers above, so you can compare the two directly, row for
-      row. Enter a headcount for any department/month below and it also plots as a dotted line on
-      the manpower chart, next to the Trend Model's own dashed forecast. Only months after the
-      latest actual month (<span id="overviewLastActualLabel"></span>) are editable.
+      Each department together in one place: Trend Model, then Forecast (type a headcount into any
+      Forecast cell — it also plots as a dotted line on the chart above, next to the Trend Model's
+      dashed forecast; Actual columns just echo the Trend Model since only months after the latest
+      actual month, <span id="overviewLastActualLabel"></span>, are editable), then the Delta
+      between them. Total at the bottom blends your typed forecasts with the Trend Model for
+      whatever you haven't typed yet.
     </p>
     <div style="overflow-x:auto;margin-top:8px;">
-      <table class="simple overview-month-table" id="overviewForecastTable" style="white-space:nowrap;">
-        <thead><tr id="overviewForecastHead"></tr></thead>
+      <table class="simple overview-month-table" id="overviewWorkersTable" style="white-space:nowrap;">
+        <thead><tr id="overviewWorkersTableHead"></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -2235,7 +2229,7 @@ IND_DEPTS.forEach(d => { overviewForecastInput[d] = new Array(IND.months.length)
 let overviewDeptMS;
 function populateOverviewFilters(){
   const items = [...IND_DEPTS, 'Total Monthly'].map(d=>({ value:d, label:d, color:IND_DEPT_COLORS[d] }));
-  const onChange = ()=>{ renderOverviewManpowerChart(); renderOverviewDeptRoster(); renderOverviewManpowerTable(); renderOverviewMpRevTable(); renderOverviewForecastGrid(); };
+  const onChange = ()=>{ renderOverviewManpowerChart(); renderOverviewGanttChart(); renderOverviewDeptRoster(); renderOverviewWorkersTable(); renderOverviewMpRevTable(); };
   overviewDeptMS = initMultiSelect('overviewDeptFilterMS', items, 'All Departments', onChange, IND_DEPTS);
 }
 
@@ -2314,31 +2308,6 @@ function renderOverviewDeptRoster(){
   }).join('');
 }
 
-// Shared renderer for the three read-only reference tables under the manpower chart (Workers,
-// % of Hours, Hours) — same department filtering and Actual/Forecast column shading throughout,
-// just a different data source and number format per table.
-function renderOverviewDataTable(headId, tableId, dataDict, fmt){
-  const boundaryPos = IND_LAST_ACTUAL_IDX>=0 ? IND_LAST_ACTUAL_IDX+1 : -1;
-  const colClass = i => (boundaryPos>=0 && i>=boundaryPos) ? 'col-forecast' : 'col-actual';
-  document.getElementById(headId).innerHTML =
-    `<th>Department</th>${IND.months.map((m,i)=>`<th class="${colClass(i)}">${m.label}</th>`).join('')}`;
-
-  const selected = overviewDeptMS ? overviewDeptMS.selected : new Set([...IND_DEPTS,'Total Monthly']);
-  const rows = overviewShownDepts();
-  if(selected.has('Total Monthly')) rows.push('Total Monthly');
-
-  const rowsHtml = rows.map(d=>{
-    const strong = d==='Total Monthly' ? 'font-weight:700;border-top:2px solid var(--border);' : '';
-    const cells = IND.months.map((m,i)=>`<td class="${colClass(i)}">${fmt(dataDict[d][i])}</td>`).join('');
-    return `<tr style="${strong}"><td style="font-weight:600">${d}</td>${cells}</tr>`;
-  }).join('');
-  document.querySelector(`#${tableId} tbody`).innerHTML = rowsHtml ||
-    `<tr><td colspan="${IND.months.length+1}" style="color:var(--muted)">No departments selected above.</td></tr>`;
-}
-
-function renderOverviewManpowerTable(){
-  renderOverviewDataTable('overviewManpowerTableHead', 'overviewManpowerTable', IND.workersTrend, v=>Math.round(v).toLocaleString());
-}
 // Manpower ÷ Earned Revenue, Trend Model side: each department's Trend Model headcount divided
 // by that month's total Earned Revenue.
 // Workers per $1M of Earned Revenue reads much better than a percentage here — the raw ratio
@@ -2386,46 +2355,72 @@ function renderOverviewMpRevTable(){
     `<tr><td colspan="${IND.months.length+1}" style="color:var(--muted)">No departments selected above.</td></tr>`;
 }
 
-// Total row across every month: Actual columns sum the Trend Model's own numbers (so the row
-// reads continuously left to right), Forecast columns sum whatever's been typed in so far.
-function overviewTotalCellsHtml(depts, boundaryPos){
-  return IND.months.map((m,i)=>{
-    const isForecastCol = boundaryPos>=0 && i>=boundaryPos;
-    if(!isForecastCol){
-      const sum = depts.reduce((s,d)=> s + IND.workersTrend[d][i], 0);
-      return `<td class="col-actual" style="font-weight:700;color:var(--muted)">${Math.round(sum).toLocaleString()}</td>`;
-    }
-    const any = depts.some(d=>overviewForecastInput[d][i]!=null);
-    const sum = depts.reduce((s,d)=> s + (overviewForecastInput[d][i]||0), 0);
-    return `<td class="col-forecast" style="font-weight:700">${any?sum.toLocaleString():''}</td>`;
-  }).join('');
-}
-
-// Same month columns (all of IND.months, Jan 2026 - Dec 2030) as the numbers table above, so Sept
-// lines up under Sept when the two tables are scrolled together — Actual columns just echo the
-// Trend Model's own number as a fixed reference cell, only Forecast columns are editable.
-function renderOverviewForecastGrid(){
+// # of Workers — Trend Model, Forecast and Delta together per department (plus a blended Total
+// group at the bottom), all in one table so filtering to a department shows every row about it
+// at once instead of splitting Trend/Forecast across separate tables. The Forecast row is where
+// the actual <input> cells live (Actual columns just echo the Trend Model, only Forecast columns
+// are editable); Delta is Forecast minus Trend, blank wherever nothing's been typed. Total blends
+// each department's typed forecast with its own Trend Model number wherever nothing's been typed
+// yet, so the Total row is always a complete company-wide figure rather than going blank.
+function renderOverviewWorkersTable(){
   const boundaryPos = IND_LAST_ACTUAL_IDX + 1;
   const colClass = i => (boundaryPos>=0 && i>=boundaryPos) ? 'col-forecast' : 'col-actual';
   document.getElementById('overviewLastActualLabel').textContent = IND_LAST_ACTUAL_LABEL || '—';
-
-  document.getElementById('overviewForecastHead').innerHTML =
+  document.getElementById('overviewWorkersTableHead').innerHTML =
     `<th>Department</th>${IND.months.map((m,i)=>`<th class="${colClass(i)}">${m.label}</th>`).join('')}`;
 
   const depts = overviewShownDepts();
-  const tbody = document.querySelector('#overviewForecastTable tbody');
-  const rowsHtml = depts.map(d=>{
-    const cells = IND.months.map((m,i)=>{
-      if(i < boundaryPos){
-        return `<td class="col-actual" style="color:var(--muted)">${Math.round(IND.workersTrend[d][i]).toLocaleString()}</td>`;
-      }
+  const tbody = document.querySelector('#overviewWorkersTable tbody');
+
+  const blankCell = i => `<td class="${colClass(i)}" data-idx="${i}"></td>`;
+  const deltaCellHtml = (i, delta) => {
+    const color = delta > 0 ? '#16a34a' : delta < 0 ? '#d93025' : 'var(--muted)';
+    return `<td class="${colClass(i)}" data-idx="${i}" style="color:${color};font-weight:600">${delta>0?'+':''}${Math.round(delta).toLocaleString()}</td>`;
+  };
+  const deptDeltaAt = (d,i) => {
+    const v = overviewForecastInput[d][i];
+    return v==null ? null : v - IND.workersTrend[d][i];
+  };
+  const totalTrendAt = i => depts.reduce((s,d)=> s + IND.workersTrend[d][i], 0);
+  const totalForecastAt = i => depts.reduce((s,d)=>
+    s + (overviewForecastInput[d][i]!=null ? overviewForecastInput[d][i] : IND.workersTrend[d][i]), 0);
+
+  const deptBlockHtml = d => {
+    const trendCells = IND.months.map((m,i)=>
+      `<td class="${colClass(i)}">${Math.round(IND.workersTrend[d][i]).toLocaleString()}</td>`).join('');
+    const forecastCells = IND.months.map((m,i)=>{
+      if(i < boundaryPos) return `<td class="${colClass(i)}" style="color:var(--muted)">${Math.round(IND.workersTrend[d][i]).toLocaleString()}</td>`;
       const v = overviewForecastInput[d][i];
-      return `<td class="col-forecast"><input type="number" min="0" step="1" data-dept="${d}" data-idx="${i}" value="${v==null?'':v}" style="width:64px;"></td>`;
+      return `<td class="${colClass(i)}"><input type="number" min="0" step="1" data-dept="${d}" data-idx="${i}" value="${v==null?'':v}" style="width:64px;"></td>`;
     }).join('');
-    return `<tr><td style="font-weight:600">${d}</td>${cells}</tr>`;
-  }).join('');
-  tbody.innerHTML = (rowsHtml || `<tr><td colspan="${IND.months.length+1}" style="color:var(--muted)">No departments selected above.</td></tr>`)
-    + (depts.length ? `<tr style="border-top:2px solid var(--border)"><td style="font-weight:700">Total</td>${overviewTotalCellsHtml(depts, boundaryPos)}</tr>` : '');
+    const deltaCells = IND.months.map((m,i)=>{
+      if(i < boundaryPos) return blankCell(i);
+      const delta = deptDeltaAt(d,i);
+      return delta==null ? blankCell(i) : deltaCellHtml(i, delta);
+    }).join('');
+    return `<tr><td style="font-weight:600">${d} — Trend Model</td>${trendCells}</tr>`
+      + `<tr><td style="font-weight:600">${d} — Forecast</td>${forecastCells}</tr>`
+      + `<tr data-role="delta" data-dept="${d}" style="border-bottom:2px solid var(--border)"><td style="font-weight:600;font-style:italic">${d} — Delta</td>${deltaCells}</tr>`;
+  };
+
+  const totalBlockHtml = () => {
+    const trendCells = IND.months.map((m,i)=>`<td class="${colClass(i)}">${Math.round(totalTrendAt(i)).toLocaleString()}</td>`).join('');
+    const forecastCells = IND.months.map((m,i)=>
+      i < boundaryPos
+        ? `<td class="${colClass(i)}" data-idx="${i}" style="color:var(--muted)">${Math.round(totalTrendAt(i)).toLocaleString()}</td>`
+        : `<td class="${colClass(i)}" data-idx="${i}">${Math.round(totalForecastAt(i)).toLocaleString()}</td>`
+    ).join('');
+    const deltaCells = IND.months.map((m,i)=>
+      i < boundaryPos ? blankCell(i) : deltaCellHtml(i, totalForecastAt(i) - totalTrendAt(i))
+    ).join('');
+    return `<tr style="border-top:3px double var(--border)"><td style="font-weight:700">Total — Trend Model</td>${trendCells}</tr>`
+      + `<tr data-role="total-forecast"><td style="font-weight:700">Total — Forecast</td>${forecastCells}</tr>`
+      + `<tr data-role="total-delta"><td style="font-weight:700;font-style:italic">Total — Delta</td>${deltaCells}</tr>`;
+  };
+
+  tbody.innerHTML = depts.length
+    ? depts.map(deptBlockHtml).join('') + totalBlockHtml()
+    : `<tr><td colspan="${IND.months.length+1}" style="color:var(--muted)">No departments selected above.</td></tr>`;
 
   tbody.querySelectorAll('input[data-dept]').forEach(inp=>{
     inp.addEventListener('input', e=>{
@@ -2434,8 +2429,23 @@ function renderOverviewForecastGrid(){
       overviewForecastInput[d][i] = raw==='' ? null : Number(raw);
       renderOverviewManpowerChart();
       renderOverviewMpRevTable();
-      const totalRow = tbody.querySelector('tr:last-child');
-      if(totalRow) totalRow.innerHTML = `<td style="font-weight:700">Total</td>${overviewTotalCellsHtml(depts, boundaryPos)}`;
+
+      // Patch just this department's Delta cell and the Total row's Forecast/Delta cells at
+      // column i, rather than rebuilding the whole table (which would drop input focus mid-type).
+      const deltaRow = tbody.querySelector(`tr[data-role="delta"][data-dept="${d}"]`);
+      if(deltaRow){
+        const delta = deptDeltaAt(d, i);
+        deltaRow.querySelector(`td[data-idx="${i}"]`).outerHTML = delta==null ? blankCell(i) : deltaCellHtml(i, delta);
+      }
+      const totalForecastRow = tbody.querySelector('tr[data-role="total-forecast"]');
+      if(totalForecastRow){
+        totalForecastRow.querySelector(`td[data-idx="${i}"]`).outerHTML =
+          `<td class="${colClass(i)}" data-idx="${i}">${Math.round(totalForecastAt(i)).toLocaleString()}</td>`;
+      }
+      const totalDeltaRow = tbody.querySelector('tr[data-role="total-delta"]');
+      if(totalDeltaRow){
+        totalDeltaRow.querySelector(`td[data-idx="${i}"]`).outerHTML = deltaCellHtml(i, totalForecastAt(i) - totalTrendAt(i));
+      }
     });
   });
 }
@@ -2445,6 +2455,18 @@ function renderOverviewForecastGrid(){
 // already 0-indexed against IND.months (stripLeaderColumns() lines them up at load), so no
 // conversion is needed — a floating horizontal bar per project runs from [startIdx, endIdx+1)
 // (the +1 so a single-month project still renders a visible sliver instead of a zero-width bar).
+// The Manpower chart's plot area starts further right than a plain full-width chart would,
+// because its roster column (flex:0 0 260px + 20px gap, see the HTML) sits to its left. To make
+// Jan 2026 land in the same on-page spot on both charts, force the Gantt's own y-axis (its
+// project-name labels) to whatever width puts its plot area at that same absolute position —
+// read live off the already-rendered Manpower chart rather than a hardcoded guess, so it keeps
+// working if that chart's own y-axis width ever shifts.
+const OVERVIEW_ROSTER_COL_PX = 280; // must match the roster wrapper's flex-basis(260) + gap(20)
+function overviewGanttTargetYWidth(){
+  const mp = overviewCharts.manpower;
+  return mp && mp.chartArea ? OVERVIEW_ROSTER_COL_PX + mp.chartArea.left : null;
+}
+
 function renderOverviewGanttChart(){
   const sorted = [...ER.projects].sort((a,b)=> a.startIdx - b.startIdx || a.code.localeCompare(b.code));
   const labels = sorted.map(p=> `${p.code} — ${p.client}`);
@@ -2452,6 +2474,7 @@ function renderOverviewGanttChart(){
   const backgroundColor = sorted.map(p=> STATUS_COLORS[p.status]);
   const boundary = IND_LAST_ACTUAL_IDX>=0 ? IND_LAST_ACTUAL_IDX+1 : -1;
   const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  const targetYWidth = overviewGanttTargetYWidth();
 
   const wrap = document.getElementById('overviewGanttChart').parentElement;
   wrap.style.height = (sorted.length * 22 + 60) + 'px';
@@ -2478,7 +2501,8 @@ function renderOverviewGanttChart(){
         // fit, same as the category-scale month charts elsewhere on this tab.
         x:{ min:0, max:IND.months.length, ticks:{ stepSize:1, autoSkip:true, maxRotation:90, minRotation:45,
           callback:v=> IND.months[v] ? IND.months[v].label : '' } },
-        y:{ ticks:{ autoSkip:false, font:{size:10} } },
+        y:{ ticks:{ autoSkip:false, font:{size:10} },
+          afterFit: targetYWidth!=null ? scale=>{ scale.width = targetYWidth; } : undefined },
       },
     },
     plugins:[actualForecastBackdrop],
@@ -2488,9 +2512,8 @@ function renderOverviewGanttChart(){
 function renderOverviewAll(){
   renderOverviewManpowerChart();
   renderOverviewDeptRoster();
-  renderOverviewManpowerTable();
+  renderOverviewWorkersTable();
   renderOverviewMpRevTable();
-  renderOverviewForecastGrid();
   renderOverviewGanttChart();
 }
 
