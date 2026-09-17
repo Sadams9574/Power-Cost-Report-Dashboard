@@ -80,12 +80,10 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
 [data-theme="dark"] #tabIndirects table.simple td.col-forecast,[data-theme="dark"] #tabIndirects table.simple th.col-forecast,[data-theme="dark"] #tabOverview table.simple td.col-forecast,[data-theme="dark"] #tabOverview table.simple th.col-forecast{background:rgba(234,88,12,.18);}
 [data-theme="dark"] #tabIndirects table.simple tr.grp-head th.grp-actual{color:#7db8ff;}
 [data-theme="dark"] #tabIndirects table.simple tr.grp-head th.grp-forecast{color:#ffb27a;}
-/* Overview tab: the read-only numbers table and the editable forecast grid share the same month
-   columns, so give both the same column widths to keep Sept lined up under Sept when you scroll. */
-#overviewManpowerTable th:first-child,#overviewManpowerTable td:first-child,
-#overviewForecastTable th:first-child,#overviewForecastTable td:first-child{min-width:140px;}
-#overviewManpowerTable th:not(:first-child),#overviewManpowerTable td:not(:first-child),
-#overviewForecastTable th:not(:first-child),#overviewForecastTable td:not(:first-child){min-width:72px;}
+/* Overview tab: every read-only numbers table and the editable forecast grid share the same month
+   columns, so give them all the same column widths to keep Sept lined up under Sept when scrolled. */
+.overview-month-table th:first-child,.overview-month-table td:first-child{min-width:140px;}
+.overview-month-table th:not(:first-child),.overview-month-table td:not(:first-child){min-width:72px;}
 /* Collapsible panels (Indirects tab): a chevron to the left of the title toggles the rest of
    the panel's content, so long sections (like the Team-Level Workforce Forecast list) can be
    tucked away without leaving the tab. */
@@ -553,8 +551,24 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
     <canvas id="overviewManpowerChart" height="110"></canvas>
     <p style="font-size:12px;color:var(--muted);margin:14px 0 0;">Trend Model — # of Workers by month, so the chart above has the numbers behind it to look at.</p>
     <div style="overflow-x:auto;margin-top:8px;">
-      <table class="simple" id="overviewManpowerTable" style="white-space:nowrap;">
+      <table class="simple overview-month-table" id="overviewManpowerTable" style="white-space:nowrap;">
         <thead><tr id="overviewManpowerTableHead"></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <p style="font-size:12px;color:var(--muted);margin:20px 0 0;">Trend Model — % of Hours / Earned Revenue by month (not graphed above, numbers only).</p>
+    <div style="overflow-x:auto;margin-top:8px;">
+      <table class="simple overview-month-table" id="overviewPctTable" style="white-space:nowrap;">
+        <thead><tr id="overviewPctTableHead"></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <p style="font-size:12px;color:var(--muted);margin:20px 0 0;">Trend Model — Hours Worked by month (not graphed above, numbers only).</p>
+    <div style="overflow-x:auto;margin-top:8px;">
+      <table class="simple overview-month-table" id="overviewHoursTable" style="white-space:nowrap;">
+        <thead><tr id="overviewHoursTableHead"></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -568,7 +582,7 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
       two directly. Only months after the latest actual month (<span id="overviewLastActualLabel"></span>) are editable.
     </p>
     <div style="overflow-x:auto;margin-top:14px;">
-      <table class="simple" id="overviewForecastTable" style="white-space:nowrap;">
+      <table class="simple overview-month-table" id="overviewForecastTable" style="white-space:nowrap;">
         <thead><tr id="overviewForecastHead"></tr></thead>
         <tbody></tbody>
       </table>
@@ -2205,7 +2219,7 @@ IND_DEPTS.forEach(d => { overviewForecastInput[d] = new Array(IND.months.length)
 let overviewDeptMS;
 function populateOverviewFilters(){
   const items = [...IND_DEPTS, 'Total Monthly'].map(d=>({ value:d, label:d, color:IND_DEPT_COLORS[d] }));
-  const onChange = ()=>{ renderOverviewManpowerChart(); renderOverviewManpowerTable(); renderOverviewForecastGrid(); };
+  const onChange = ()=>{ renderOverviewManpowerChart(); renderOverviewManpowerTable(); renderOverviewPctTable(); renderOverviewHoursTable(); renderOverviewForecastGrid(); };
   overviewDeptMS = initMultiSelect('overviewDeptFilterMS', items, 'All Departments', onChange, IND_DEPTS);
 }
 
@@ -2297,11 +2311,14 @@ function overviewShownDepts(){
 // Read-only reference table under the manpower chart — the Trend Model's own # of Workers
 // numbers for every month, so the chart above has the underlying figures to look at directly
 // (separate from the editable "Type In Your Forecast" grid, which only covers future months).
-function renderOverviewManpowerTable(){
+// Shared renderer for the three read-only reference tables under the manpower chart (Workers,
+// % of Hours, Hours) — same department filtering and Actual/Forecast column shading throughout,
+// just a different data source and number format per table.
+function renderOverviewDataTable(headId, tableId, dataDict, fmt){
   const boundaryPos = IND_LAST_ACTUAL_IDX>=0 ? IND_LAST_ACTUAL_IDX+1 : -1;
   const colClass = i => (boundaryPos>=0 && i>=boundaryPos) ? 'col-forecast' : 'col-actual';
-  const head = `<th>Department</th>${IND.months.map((m,i)=>`<th class="${colClass(i)}">${m.label}</th>`).join('')}`;
-  document.getElementById('overviewManpowerTableHead').innerHTML = head;
+  document.getElementById(headId).innerHTML =
+    `<th>Department</th>${IND.months.map((m,i)=>`<th class="${colClass(i)}">${m.label}</th>`).join('')}`;
 
   const selected = overviewDeptMS ? overviewDeptMS.selected : new Set([...IND_DEPTS,'Total Monthly']);
   const rows = overviewShownDepts();
@@ -2309,11 +2326,21 @@ function renderOverviewManpowerTable(){
 
   const rowsHtml = rows.map(d=>{
     const strong = d==='Total Monthly' ? 'font-weight:700;border-top:2px solid var(--border);' : '';
-    const cells = IND.months.map((m,i)=>`<td class="${colClass(i)}">${Math.round(IND.workersTrend[d][i]).toLocaleString()}</td>`).join('');
+    const cells = IND.months.map((m,i)=>`<td class="${colClass(i)}">${fmt(dataDict[d][i])}</td>`).join('');
     return `<tr style="${strong}"><td style="font-weight:600">${d}</td>${cells}</tr>`;
   }).join('');
-  document.querySelector('#overviewManpowerTable tbody').innerHTML = rowsHtml ||
+  document.querySelector(`#${tableId} tbody`).innerHTML = rowsHtml ||
     `<tr><td colspan="${IND.months.length+1}" style="color:var(--muted)">No departments selected above.</td></tr>`;
+}
+
+function renderOverviewManpowerTable(){
+  renderOverviewDataTable('overviewManpowerTableHead', 'overviewManpowerTable', IND.workersTrend, v=>Math.round(v).toLocaleString());
+}
+function renderOverviewPctTable(){
+  renderOverviewDataTable('overviewPctTableHead', 'overviewPctTable', IND.pctTrend, fmtPct4);
+}
+function renderOverviewHoursTable(){
+  renderOverviewDataTable('overviewHoursTableHead', 'overviewHoursTable', IND.hoursTrend, v=>Math.round(v).toLocaleString());
 }
 
 // Total row across every month: Actual columns sum the Trend Model's own numbers (so the row
@@ -2373,6 +2400,8 @@ function renderOverviewAll(){
   renderOverviewRevenueChart();
   renderOverviewManpowerChart();
   renderOverviewManpowerTable();
+  renderOverviewPctTable();
+  renderOverviewHoursTable();
   renderOverviewForecastGrid();
 }
 
