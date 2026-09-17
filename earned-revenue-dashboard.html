@@ -115,8 +115,8 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
 
 <nav class="tabs" id="tabNav">
   <button type="button" class="tab-btn active" data-tab="earned">Earned Revenue</button>
-  <button type="button" class="tab-btn" data-tab="indirects">Indirects</button>
-  <button type="button" class="tab-btn" data-tab="overview">Overview</button>
+  <button type="button" class="tab-btn" data-tab="indirects">Indirect Data</button>
+  <button type="button" class="tab-btn" data-tab="overview">Overview Manpower</button>
 </nav>
 
 <main>
@@ -548,6 +548,7 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
         <div class="ms-panel"></div>
       </div>
     </div>
+    <div id="overviewDeptRoster" style="font-size:12px;line-height:1.6;margin-bottom:14px;"></div>
     <canvas id="overviewManpowerChart" height="110"></canvas>
     <p style="font-size:12px;color:var(--muted);margin:14px 0 0;">Trend Model — # of Workers by month, so the chart above has the numbers behind it to look at.</p>
     <div style="overflow-x:auto;margin-top:8px;">
@@ -2219,7 +2220,7 @@ IND_DEPTS.forEach(d => { overviewForecastInput[d] = new Array(IND.months.length)
 let overviewDeptMS;
 function populateOverviewFilters(){
   const items = [...IND_DEPTS, 'Total Monthly'].map(d=>({ value:d, label:d, color:IND_DEPT_COLORS[d] }));
-  const onChange = ()=>{ renderOverviewManpowerChart(); renderOverviewManpowerTable(); renderOverviewPctTable(); renderOverviewHoursTable(); renderOverviewForecastGrid(); };
+  const onChange = ()=>{ renderOverviewManpowerChart(); renderOverviewDeptRoster(); renderOverviewManpowerTable(); renderOverviewPctTable(); renderOverviewHoursTable(); renderOverviewForecastGrid(); };
   overviewDeptMS = initMultiSelect('overviewDeptFilterMS', items, 'All Departments', onChange, IND_DEPTS);
 }
 
@@ -2308,9 +2309,20 @@ function overviewShownDepts(){
   return IND_DEPTS.filter(d=>selected.has(d));
 }
 
-// Read-only reference table under the manpower chart — the Trend Model's own # of Workers
-// numbers for every month, so the chart above has the underlying figures to look at directly
-// (separate from the editable "Type In Your Forecast" grid, which only covers future months).
+// Who actually logged hours in each shown department during the latest actual month — so
+// picking a department shows you who's really behind that headcount before you type a forecast
+// number for it.
+function renderOverviewDeptRoster(){
+  const el = document.getElementById('overviewDeptRoster');
+  const depts = overviewShownDepts();
+  if(IND_LAST_ACTUAL_IDX < 0 || depts.length === 0){ el.innerHTML = ''; return; }
+  el.innerHTML = depts.map(d=>{
+    const names = IND.people.filter(p=>p.group===d && p.hours[IND_LAST_ACTUAL_IDX] > 0).map(p=>p.name);
+    const who = names.length ? names.join(', ') : '<span style="font-style:italic">nobody logged hours that month</span>';
+    return `<div><b style="color:${IND_DEPT_COLORS[d]}">${d}</b> — ${names.length} ${names.length===1?'person':'people'} in ${IND_LAST_ACTUAL_LABEL}: ${who}</div>`;
+  }).join('');
+}
+
 // Shared renderer for the three read-only reference tables under the manpower chart (Workers,
 // % of Hours, Hours) — same department filtering and Actual/Forecast column shading throughout,
 // just a different data source and number format per table.
@@ -2399,6 +2411,7 @@ function renderOverviewForecastGrid(){
 function renderOverviewAll(){
   renderOverviewRevenueChart();
   renderOverviewManpowerChart();
+  renderOverviewDeptRoster();
   renderOverviewManpowerTable();
   renderOverviewPctTable();
   renderOverviewHoursTable();
@@ -2412,7 +2425,7 @@ function switchTab(tab){
   document.getElementById('tabEarned').hidden = tab!=='earned';
   document.getElementById('tabIndirects').hidden = tab!=='indirects';
   document.getElementById('tabOverview').hidden = tab!=='overview';
-  document.getElementById('pageTitle').textContent = tab==='earned' ? 'Earned Revenue Dashboard' : tab==='indirects' ? 'Indirects Dashboard' : 'Overview Dashboard';
+  document.getElementById('pageTitle').textContent = tab==='earned' ? 'Earned Revenue Dashboard' : tab==='indirects' ? 'Indirect Data Dashboard' : 'Overview Manpower Dashboard';
   if(tab==='earned') renderAll();
   else if(tab==='indirects') renderIndirectsAll();
   else renderOverviewAll();
