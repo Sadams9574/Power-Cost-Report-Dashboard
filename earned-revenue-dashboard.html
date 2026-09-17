@@ -535,6 +535,25 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
 
 <div id="tabOverview" class="tab-panel" hidden>
   <div class="panel">
+    <h2>Project Schedule</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">
+      Every Earned Revenue project's active date range, left to right on the same month timeline as
+      the manpower chart above, colored by status.
+    </p>
+    <div style="display:flex;gap:16px;font-size:12px;margin:10px 0;">
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#2563eb;margin-right:5px;"></span>Secured</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#d93025;margin-right:5px;"></span>Anticipated</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#9333ea;margin-right:5px;"></span>Possible</span>
+    </div>
+    <button type="button" id="overviewGanttToggle" style="margin-bottom:12px;padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;">Hide Project Schedule</button>
+    <div id="overviewGanttWrap" style="overflow-x:auto;">
+      <div style="min-width:1400px;">
+        <canvas id="overviewGanttChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
     <h2>Trend Model Manpower — All Categories</h2>
     <div style="margin-bottom:12px;">
       <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Show Departments</label>
@@ -587,25 +606,6 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
           <thead><tr id="overviewHoursTableHead"></tr></thead>
           <tbody></tbody>
         </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h2>Project Schedule</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px">
-      Every Earned Revenue project's active date range, left to right on the same month timeline as
-      the manpower chart above, colored by status.
-    </p>
-    <div style="display:flex;gap:16px;font-size:12px;margin:10px 0;">
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#2563eb;margin-right:5px;"></span>Secured</span>
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#d93025;margin-right:5px;"></span>Anticipated</span>
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#9333ea;margin-right:5px;"></span>Possible</span>
-    </div>
-    <button type="button" id="overviewGanttToggle" style="margin-bottom:12px;padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;">Hide Project Schedule</button>
-    <div id="overviewGanttWrap" style="overflow-x:auto;">
-      <div style="min-width:1400px;">
-        <canvas id="overviewGanttChart"></canvas>
       </div>
     </div>
   </div>
