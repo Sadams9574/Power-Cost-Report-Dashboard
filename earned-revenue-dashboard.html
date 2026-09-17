@@ -590,23 +590,18 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
       </table>
     </div>
 
-    <button type="button" id="overviewExtraTablesToggle" style="margin:20px 0 0;padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;">Hide Trend Model % &amp; Hours tables</button>
-    <div id="overviewExtraTablesWrap">
-      <p style="font-size:12px;color:var(--muted);margin:14px 0 0;">Trend Model — % of Hours / Earned Revenue by month (not graphed above, numbers only).</p>
-      <div style="overflow-x:auto;margin-top:8px;">
-        <table class="simple overview-month-table" id="overviewPctTable" style="white-space:nowrap;">
-          <thead><tr id="overviewPctTableHead"></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-
-      <p style="font-size:12px;color:var(--muted);margin:20px 0 0;">Trend Model — Hours Worked by month (not graphed above, numbers only).</p>
-      <div style="overflow-x:auto;margin-top:8px;">
-        <table class="simple overview-month-table" id="overviewHoursTable" style="white-space:nowrap;">
-          <thead><tr id="overviewHoursTableHead"></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
+    <p style="font-size:13px;font-weight:700;margin:20px 0 0;">Manpower ÷ Earned Revenue</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:4px">
+      Workers per $1M of that month's Earned Revenue, for whichever departments are checked above.
+      Each department gets three rows here together — Trend Model, then the same ratio recomputed
+      from whatever you've typed into the forecast grid above, then the Delta between them (blank
+      where nothing's been typed yet) — so filtering to a department shows all three at once.
+    </p>
+    <div style="overflow-x:auto;margin-top:8px;">
+      <table class="simple overview-month-table" id="overviewMpRevTable" style="white-space:nowrap;">
+        <thead><tr id="overviewMpRevTableHead"></tr></thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -2240,7 +2235,7 @@ IND_DEPTS.forEach(d => { overviewForecastInput[d] = new Array(IND.months.length)
 let overviewDeptMS;
 function populateOverviewFilters(){
   const items = [...IND_DEPTS, 'Total Monthly'].map(d=>({ value:d, label:d, color:IND_DEPT_COLORS[d] }));
-  const onChange = ()=>{ renderOverviewManpowerChart(); renderOverviewDeptRoster(); renderOverviewManpowerTable(); renderOverviewPctTable(); renderOverviewHoursTable(); renderOverviewForecastGrid(); };
+  const onChange = ()=>{ renderOverviewManpowerChart(); renderOverviewDeptRoster(); renderOverviewManpowerTable(); renderOverviewMpRevTable(); renderOverviewForecastGrid(); };
   overviewDeptMS = initMultiSelect('overviewDeptFilterMS', items, 'All Departments', onChange, IND_DEPTS);
 }
 
@@ -2344,11 +2339,51 @@ function renderOverviewDataTable(headId, tableId, dataDict, fmt){
 function renderOverviewManpowerTable(){
   renderOverviewDataTable('overviewManpowerTableHead', 'overviewManpowerTable', IND.workersTrend, v=>Math.round(v).toLocaleString());
 }
-function renderOverviewPctTable(){
-  renderOverviewDataTable('overviewPctTableHead', 'overviewPctTable', IND.pctTrend, fmtPct4);
-}
-function renderOverviewHoursTable(){
-  renderOverviewDataTable('overviewHoursTableHead', 'overviewHoursTable', IND.hoursTrend, v=>Math.round(v).toLocaleString());
+// Manpower ÷ Earned Revenue, Trend Model side: each department's Trend Model headcount divided
+// by that month's total Earned Revenue.
+// Workers per $1M of Earned Revenue reads much better than a percentage here — the raw ratio
+// (headcount ÷ dollars) is tiny enough that a percentage rounds to 0.0000% at 4 decimals.
+const fmtPerM = v => (v*1e6).toFixed(2);
+
+// Manpower ÷ Earned Revenue: for each shown department, three rows together — Trend Model, then
+// the same ratio recomputed from whatever's typed into the forecast grid above (Actual columns
+// just echo the Trend Model ratio there, nothing to forecast), then the Delta between them
+// (blank wherever nothing's been typed yet) — grouped per department rather than split across
+// separate tables, so filtering to one department shows all three rows right together.
+function renderOverviewMpRevTable(){
+  const boundaryPos = IND_LAST_ACTUAL_IDX>=0 ? IND_LAST_ACTUAL_IDX+1 : -1;
+  const colClass = i => (boundaryPos>=0 && i>=boundaryPos) ? 'col-forecast' : 'col-actual';
+  document.getElementById('overviewMpRevTableHead').innerHTML =
+    `<th>Department</th>${IND.months.map((m,i)=>`<th class="${colClass(i)}">${m.label}</th>`).join('')}`;
+
+  const depts = overviewShownDepts();
+  const rowsHtml = depts.map(d=>{
+    const trendRatioAt = i => IND.revenue[i] ? IND.workersTrend[d][i]/IND.revenue[i] : 0;
+
+    const trendCells = IND.months.map((m,i)=>
+      `<td class="${colClass(i)}">${fmtPerM(trendRatioAt(i))}</td>`).join('');
+
+    const forecastCells = IND.months.map((m,i)=>{
+      if(!(boundaryPos>=0 && i>=boundaryPos)) return `<td class="${colClass(i)}" style="color:var(--muted)">${fmtPerM(trendRatioAt(i))}</td>`;
+      const v = overviewForecastInput[d][i];
+      if(v==null) return `<td class="${colClass(i)}"></td>`;
+      return `<td class="${colClass(i)}">${fmtPerM(IND.revenue[i] ? v/IND.revenue[i] : 0)}</td>`;
+    }).join('');
+
+    const deltaCells = IND.months.map((m,i)=>{
+      const v = overviewForecastInput[d][i];
+      if(!(boundaryPos>=0 && i>=boundaryPos) || v==null) return `<td class="${colClass(i)}"></td>`;
+      const delta = (IND.revenue[i] ? v/IND.revenue[i] : 0) - trendRatioAt(i);
+      const color = delta > 0 ? '#16a34a' : delta < 0 ? '#d93025' : 'var(--muted)';
+      return `<td class="${colClass(i)}" style="color:${color};font-weight:600">${delta>0?'+':''}${fmtPerM(delta)}</td>`;
+    }).join('');
+
+    return `<tr><td style="font-weight:600">${d} — Trend Model</td>${trendCells}</tr>`
+      + `<tr><td style="font-weight:600">${d} — Forecast</td>${forecastCells}</tr>`
+      + `<tr style="border-bottom:2px solid var(--border)"><td style="font-weight:600;font-style:italic">${d} — Delta</td>${deltaCells}</tr>`;
+  }).join('');
+  document.querySelector('#overviewMpRevTable tbody').innerHTML = rowsHtml ||
+    `<tr><td colspan="${IND.months.length+1}" style="color:var(--muted)">No departments selected above.</td></tr>`;
 }
 
 // Total row across every month: Actual columns sum the Trend Model's own numbers (so the row
@@ -2398,6 +2433,7 @@ function renderOverviewForecastGrid(){
       const raw = e.target.value;
       overviewForecastInput[d][i] = raw==='' ? null : Number(raw);
       renderOverviewManpowerChart();
+      renderOverviewMpRevTable();
       const totalRow = tbody.querySelector('tr:last-child');
       if(totalRow) totalRow.innerHTML = `<td style="font-weight:700">Total</td>${overviewTotalCellsHtml(depts, boundaryPos)}`;
     });
@@ -2453,8 +2489,7 @@ function renderOverviewAll(){
   renderOverviewManpowerChart();
   renderOverviewDeptRoster();
   renderOverviewManpowerTable();
-  renderOverviewPctTable();
-  renderOverviewHoursTable();
+  renderOverviewMpRevTable();
   renderOverviewForecastGrid();
   renderOverviewGanttChart();
 }
@@ -2494,13 +2529,6 @@ document.querySelectorAll('#tabIndirects .panel > h2').forEach(h2=>{
   chev.textContent = '▾';
   h2.prepend(chev);
   h2.addEventListener('click', ()=> h2.parentElement.classList.toggle('collapsed'));
-});
-
-document.getElementById('overviewExtraTablesToggle').addEventListener('click', e=>{
-  const wrap = document.getElementById('overviewExtraTablesWrap');
-  const hidden = wrap.style.display === 'none';
-  wrap.style.display = hidden ? '' : 'none';
-  e.target.textContent = hidden ? 'Hide Trend Model % & Hours tables' : 'Show Trend Model % & Hours tables';
 });
 
 document.getElementById('overviewGanttToggle').addEventListener('click', e=>{
