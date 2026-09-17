@@ -558,35 +558,37 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
       </table>
     </div>
 
-    <p style="font-size:12px;color:var(--muted);margin:20px 0 0;">Trend Model — % of Hours / Earned Revenue by month (not graphed above, numbers only).</p>
-    <div style="overflow-x:auto;margin-top:8px;">
-      <table class="simple overview-month-table" id="overviewPctTable" style="white-space:nowrap;">
-        <thead><tr id="overviewPctTableHead"></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <p style="font-size:12px;color:var(--muted);margin:20px 0 0;">Trend Model — Hours Worked by month (not graphed above, numbers only).</p>
-    <div style="overflow-x:auto;margin-top:8px;">
-      <table class="simple overview-month-table" id="overviewHoursTable" style="white-space:nowrap;">
-        <thead><tr id="overviewHoursTableHead"></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h2>Type In Your Forecast by Month</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px">
-      Enter a headcount for any department/month below and it plots as a dotted line on the
-      manpower chart above, next to the Trend Model's own dashed forecast, so you can compare the
-      two directly. Only months after the latest actual month (<span id="overviewLastActualLabel"></span>) are editable.
+    <p style="font-size:13px;font-weight:700;margin:20px 0 0;">Type In Your Forecast by Month</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:4px">
+      Right under the Trend Model's own numbers above, so you can compare the two directly, row for
+      row. Enter a headcount for any department/month below and it also plots as a dotted line on
+      the manpower chart, next to the Trend Model's own dashed forecast. Only months after the
+      latest actual month (<span id="overviewLastActualLabel"></span>) are editable.
     </p>
-    <div style="overflow-x:auto;margin-top:14px;">
+    <div style="overflow-x:auto;margin-top:8px;">
       <table class="simple overview-month-table" id="overviewForecastTable" style="white-space:nowrap;">
         <thead><tr id="overviewForecastHead"></tr></thead>
         <tbody></tbody>
       </table>
+    </div>
+
+    <button type="button" id="overviewExtraTablesToggle" style="margin:20px 0 0;padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;">Hide Trend Model % &amp; Hours tables</button>
+    <div id="overviewExtraTablesWrap">
+      <p style="font-size:12px;color:var(--muted);margin:14px 0 0;">Trend Model — % of Hours / Earned Revenue by month (not graphed above, numbers only).</p>
+      <div style="overflow-x:auto;margin-top:8px;">
+        <table class="simple overview-month-table" id="overviewPctTable" style="white-space:nowrap;">
+          <thead><tr id="overviewPctTableHead"></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <p style="font-size:12px;color:var(--muted);margin:20px 0 0;">Trend Model — Hours Worked by month (not graphed above, numbers only).</p>
+      <div style="overflow-x:auto;margin-top:8px;">
+        <table class="simple overview-month-table" id="overviewHoursTable" style="white-space:nowrap;">
+          <thead><tr id="overviewHoursTableHead"></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -2453,6 +2455,13 @@ document.querySelectorAll('#tabIndirects .panel > h2').forEach(h2=>{
   chev.textContent = '▾';
   h2.prepend(chev);
   h2.addEventListener('click', ()=> h2.parentElement.classList.toggle('collapsed'));
+});
+
+document.getElementById('overviewExtraTablesToggle').addEventListener('click', e=>{
+  const wrap = document.getElementById('overviewExtraTablesWrap');
+  const hidden = wrap.style.display === 'none';
+  wrap.style.display = hidden ? '' : 'none';
+  e.target.textContent = hidden ? 'Hide Trend Model % & Hours tables' : 'Show Trend Model % & Hours tables';
 });
 
 populateFilters();
