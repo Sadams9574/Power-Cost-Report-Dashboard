@@ -543,8 +543,12 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
         <div class="ms-panel"></div>
       </div>
     </div>
-    <div id="overviewDeptRoster" style="font-size:12px;line-height:1.6;margin-bottom:14px;"></div>
-    <canvas id="overviewManpowerChart" height="110"></canvas>
+    <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:14px;">
+      <div id="overviewDeptRoster" style="font-size:12px;line-height:1.6;flex:0 0 260px;max-height:420px;overflow-y:auto;"></div>
+      <div style="flex:1;min-width:0;">
+        <canvas id="overviewManpowerChart" height="110"></canvas>
+      </div>
+    </div>
     <p style="font-size:12px;color:var(--muted);margin:14px 0 0;">Trend Model — # of Workers by month, so the chart above has the numbers behind it to look at.</p>
     <div style="overflow-x:auto;margin-top:8px;">
       <table class="simple overview-month-table" id="overviewManpowerTable" style="white-space:nowrap;">
