@@ -71,12 +71,12 @@ table.simple tr.group-sep td{padding:0;height:8px;border:none;background:var(--b
 table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;letter-spacing:.02em;color:var(--accent);background:var(--bg);border-bottom:1px solid var(--border);text-align:left;}
 /* Indirects tab only: Actual/Forecast column colors match the source workbook's own conditional
    formatting on the Indirects sheet (light blue for Actual columns, light peach for Forecast). */
-#tabIndirects table.simple td.col-actual,#tabIndirects table.simple th.col-actual{background:#DDEBF7;}
-#tabIndirects table.simple td.col-forecast,#tabIndirects table.simple th.col-forecast{background:#FCE4D6;}
+#tabIndirects table.simple td.col-actual,#tabIndirects table.simple th.col-actual,#tabOverview table.simple td.col-actual,#tabOverview table.simple th.col-actual{background:#DDEBF7;}
+#tabIndirects table.simple td.col-forecast,#tabIndirects table.simple th.col-forecast,#tabOverview table.simple td.col-forecast,#tabOverview table.simple th.col-forecast{background:#FCE4D6;}
 #tabIndirects table.simple tr.grp-head th.grp-actual{color:#2E74B5;}
 #tabIndirects table.simple tr.grp-head th.grp-forecast{color:#C55A11;}
-[data-theme="dark"] #tabIndirects table.simple td.col-actual,[data-theme="dark"] #tabIndirects table.simple th.col-actual{background:rgba(91,154,255,.16);}
-[data-theme="dark"] #tabIndirects table.simple td.col-forecast,[data-theme="dark"] #tabIndirects table.simple th.col-forecast{background:rgba(234,88,12,.18);}
+[data-theme="dark"] #tabIndirects table.simple td.col-actual,[data-theme="dark"] #tabIndirects table.simple th.col-actual,[data-theme="dark"] #tabOverview table.simple td.col-actual,[data-theme="dark"] #tabOverview table.simple th.col-actual{background:rgba(91,154,255,.16);}
+[data-theme="dark"] #tabIndirects table.simple td.col-forecast,[data-theme="dark"] #tabIndirects table.simple th.col-forecast,[data-theme="dark"] #tabOverview table.simple td.col-forecast,[data-theme="dark"] #tabOverview table.simple th.col-forecast{background:rgba(234,88,12,.18);}
 [data-theme="dark"] #tabIndirects table.simple tr.grp-head th.grp-actual{color:#7db8ff;}
 [data-theme="dark"] #tabIndirects table.simple tr.grp-head th.grp-forecast{color:#ffb27a;}
 /* Collapsible panels (Indirects tab): a chevron to the left of the title toggles the rest of
@@ -537,6 +537,13 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
   <div class="panel">
     <h2>Trend Model Manpower — All Categories</h2>
     <canvas id="overviewManpowerChart" height="110"></canvas>
+    <p style="font-size:12px;color:var(--muted);margin:14px 0 0;">Trend Model — # of Workers by month, so the chart above has the numbers behind it to look at.</p>
+    <div style="overflow-x:auto;margin-top:8px;">
+      <table class="simple" id="overviewManpowerTable" style="white-space:nowrap;">
+        <thead><tr id="overviewManpowerTableHead"></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="panel">
@@ -2184,14 +2191,14 @@ function renderOverviewRevenueChart(){
   const labels = IND.months.map(m=>m.label);
   const boundary = IND_LAST_ACTUAL_IDX>=0 ? IND_LAST_ACTUAL_IDX+1 : -1;
   const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  const isActual = i => boundary<0 || i<boundary;
   const ctx = document.getElementById('overviewRevenueChart');
   if(overviewCharts.revenue) overviewCharts.revenue.destroy();
   overviewCharts.revenue = new Chart(ctx, {
-    type:'line',
+    type:'bar',
     data:{ labels, datasets:[{
-      label:'Monthly Earned Revenue', data: IND.revenue, borderColor:'#2563eb', backgroundColor:withAlpha('#2563eb',0.15), fill:true, tension:.25,
-      segment:{ borderDash: c => (boundary>=0 && c.p1DataIndex>=boundary) ? [6,4] : undefined },
-      pointRadius:2,
+      label:'Monthly Earned Revenue', data: IND.revenue,
+      backgroundColor: IND.months.map((m,i)=> isActual(i) ? '#2563eb' : withAlpha('#2563eb',0.45)),
     }]},
     options:{
       plugins:{
@@ -2212,15 +2219,16 @@ function renderOverviewManpowerChart(){
   const trendDatasets = IND_DEPTS.map(d=>{
     const color = IND_DEPT_COLORS[d];
     return {
+      type:'bar', stack:'workers',
       label: d + ' — Trend Model',
       data: IND.workersTrend[d],
-      borderColor: color, backgroundColor:'transparent', tension:.25, pointRadius:1.5,
-      segment:{ borderDash: c => (boundary>=0 && c.p1DataIndex>=boundary) ? [6,4] : undefined },
+      backgroundColor: IND.months.map((m,i)=> (boundary>=0 && i>=boundary) ? withAlpha(color,0.45) : color),
     };
   });
   const manualDatasets = IND_DEPTS.filter(d=>overviewForecastInput[d].some(v=>v!=null)).map(d=>{
     const color = IND_DEPT_COLORS[d];
     return {
+      type:'line',
       label: d + ' — Your Forecast',
       data: overviewForecastInput[d].slice(),
       borderColor: color, backgroundColor:'transparent', borderDash:[2,2], pointStyle:'rectRot', pointRadius:4, spanGaps:false,
@@ -2229,7 +2237,7 @@ function renderOverviewManpowerChart(){
   const ctx = document.getElementById('overviewManpowerChart');
   if(overviewCharts.manpower) overviewCharts.manpower.destroy();
   overviewCharts.manpower = new Chart(ctx, {
-    type:'line',
+    type:'bar',
     data:{ labels, datasets:[...trendDatasets, ...manualDatasets] },
     options:{
       plugins:{
@@ -2237,10 +2245,27 @@ function renderOverviewManpowerChart(){
         tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${Math.round(c.raw).toLocaleString()}`}},
         actualForecastBackdrop:{boundary, isDark},
       },
-      scales:{ x:{ticks:{maxRotation:90,minRotation:45}}, y:{ticks:{callback:v=>v.toLocaleString()}, title:{display:true,text:'# of Workers'}} },
+      scales:{ x:{stacked:true, ticks:{maxRotation:90,minRotation:45}}, y:{stacked:true, ticks:{callback:v=>v.toLocaleString()}, title:{display:true,text:'# of Workers'}} },
     },
     plugins:[actualForecastBackdrop],
   });
+}
+
+// Read-only reference table under the manpower chart — the Trend Model's own # of Workers
+// numbers for every month, so the chart above has the underlying figures to look at directly
+// (separate from the editable "Type In Your Forecast" grid, which only covers future months).
+function renderOverviewManpowerTable(){
+  const boundaryPos = IND_LAST_ACTUAL_IDX>=0 ? IND_LAST_ACTUAL_IDX+1 : -1;
+  const colClass = i => (boundaryPos>=0 && i>=boundaryPos) ? 'col-forecast' : 'col-actual';
+  const head = `<th>Department</th>${IND.months.map((m,i)=>`<th class="${colClass(i)}">${m.label}</th>`).join('')}`;
+  document.getElementById('overviewManpowerTableHead').innerHTML = head;
+
+  const rowsHtml = [...IND_DEPTS, 'Total Monthly'].map(d=>{
+    const strong = d==='Total Monthly' ? 'font-weight:700;border-top:2px solid var(--border);' : '';
+    const cells = IND.months.map((m,i)=>`<td class="${colClass(i)}">${Math.round(IND.workersTrend[d][i]).toLocaleString()}</td>`).join('');
+    return `<tr style="${strong}"><td style="font-weight:600">${d}</td>${cells}</tr>`;
+  }).join('');
+  document.querySelector('#overviewManpowerTable tbody').innerHTML = rowsHtml;
 }
 
 function overviewTotalCellsHtml(monthIdx){
@@ -2283,6 +2308,7 @@ function renderOverviewForecastGrid(){
 function renderOverviewAll(){
   renderOverviewRevenueChart();
   renderOverviewManpowerChart();
+  renderOverviewManpowerTable();
   renderOverviewForecastGrid();
 }
 
