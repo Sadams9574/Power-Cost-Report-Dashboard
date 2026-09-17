@@ -2377,7 +2377,31 @@ function renderOverviewMpRevTable(){
       + `<tr><td style="font-weight:600">${d} — Forecast</td>${forecastCells}</tr>`
       + `<tr style="border-bottom:2px solid var(--border)"><td style="font-weight:600;font-style:italic">${d} — Delta</td>${deltaCells}</tr>`;
   }).join('');
-  document.querySelector('#overviewMpRevTable tbody').innerHTML = rowsHtml ||
+
+  // Total group: same blend as the Workers table — each department's typed forecast where
+  // present, its own Trend Model headcount otherwise — summed, then divided by revenue.
+  const totalTrendAt = i => depts.reduce((s,d)=> s + IND.workersTrend[d][i], 0) / (IND.revenue[i] || 1);
+  const totalForecastAt = i => depts.reduce((s,d)=>
+    s + (overviewForecastInput[d][i]!=null ? overviewForecastInput[d][i] : IND.workersTrend[d][i]), 0) / (IND.revenue[i] || 1);
+  const totalHtml = depts.length ? (()=>{
+    const trendCells = IND.months.map((m,i)=>`<td class="${colClass(i)}">${fmtMpRevPct(totalTrendAt(i))}</td>`).join('');
+    const forecastCells = IND.months.map((m,i)=>
+      !(boundaryPos>=0 && i>=boundaryPos)
+        ? `<td class="${colClass(i)}" style="color:var(--muted)">${fmtMpRevPct(totalTrendAt(i))}</td>`
+        : `<td class="${colClass(i)}">${fmtMpRevPct(totalForecastAt(i))}</td>`
+    ).join('');
+    const deltaCells = IND.months.map((m,i)=>{
+      if(!(boundaryPos>=0 && i>=boundaryPos)) return `<td class="${colClass(i)}"></td>`;
+      const delta = totalForecastAt(i) - totalTrendAt(i);
+      const color = delta > 0 ? '#16a34a' : delta < 0 ? '#d93025' : 'var(--muted)';
+      return `<td class="${colClass(i)}" style="color:${color};font-weight:600">${delta>0?'+':''}${fmtMpRevPct(delta)}</td>`;
+    }).join('');
+    return `<tr style="border-top:3px double var(--border)"><td style="font-weight:700">Total — Trend Model</td>${trendCells}</tr>`
+      + `<tr><td style="font-weight:700">Total — Forecast</td>${forecastCells}</tr>`
+      + `<tr><td style="font-weight:700;font-style:italic">Total — Delta</td>${deltaCells}</tr>`;
+  })() : '';
+
+  document.querySelector('#overviewMpRevTable tbody').innerHTML = (rowsHtml + totalHtml) ||
     `<tr><td colspan="${IND.months.length+1}" style="color:var(--muted)">No departments selected above.</td></tr>`;
 }
 
