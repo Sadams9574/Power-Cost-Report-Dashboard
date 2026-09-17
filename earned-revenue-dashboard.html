@@ -111,6 +111,7 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
 <nav class="tabs" id="tabNav">
   <button type="button" class="tab-btn active" data-tab="earned">Earned Revenue</button>
   <button type="button" class="tab-btn" data-tab="indirects">Indirects</button>
+  <button type="button" class="tab-btn" data-tab="overview">Overview</button>
 </nav>
 
 <main>
@@ -524,6 +525,33 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
   <div class="panel">
     <h2>How the Trend Model Works</h2>
     <div id="indModelNotes" class="model-notes"></div>
+  </div>
+</div>
+
+<div id="tabOverview" class="tab-panel" hidden>
+  <div class="panel">
+    <h2>Earned Revenue</h2>
+    <canvas id="overviewRevenueChart" height="90"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>Trend Model Manpower — All Categories</h2>
+    <canvas id="overviewManpowerChart" height="110"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>Type In Your Forecast by Month</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">
+      Enter a headcount for any department/month below and it plots as a dotted line on the
+      manpower chart above, next to the Trend Model's own dashed forecast, so you can compare the
+      two directly. Only months after the latest actual month (<span id="overviewLastActualLabel"></span>) are editable.
+    </p>
+    <div style="overflow-x:auto;margin-top:14px;">
+      <table class="simple" id="overviewForecastTable" style="white-space:nowrap;">
+        <thead><tr id="overviewForecastHead"></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 </div>
 </main>
@@ -2138,14 +2166,137 @@ indSetupZoomSlider('comp2', renderIndComp2);
 indSetupZoomSlider('comp3', renderIndComp3);
 indSetupZoomSlider('comp4', renderIndComp4);
 
+// Overview tab: a high-level combined view (Earned Revenue + Manpower by every department) plus
+// a manual "type in a headcount by month" forecast grid that overlays its own dotted lines onto
+// the manpower chart next to the Trend Model's dashed ones — independent of the Indirects tab's
+// personnel-checkbox forecast mechanism, so it's a quick what-if tool rather than a replacement.
+const IND_DEPT_COLORS = {
+  'G&A':'#2563eb', 'Estimating':'#9333ea', 'Engineering':'#16a34a',
+  'Project Engineer':'#f59e0b', 'Procurement':'#db2777',
+  'Construction':'#0891b2', 'Project Management':'#64748b',
+};
+
+let overviewCharts = {};
+let overviewForecastInput = {};
+IND_DEPTS.forEach(d => { overviewForecastInput[d] = new Array(IND.months.length).fill(null); });
+
+function renderOverviewRevenueChart(){
+  const labels = IND.months.map(m=>m.label);
+  const boundary = IND_LAST_ACTUAL_IDX>=0 ? IND_LAST_ACTUAL_IDX+1 : -1;
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  const ctx = document.getElementById('overviewRevenueChart');
+  if(overviewCharts.revenue) overviewCharts.revenue.destroy();
+  overviewCharts.revenue = new Chart(ctx, {
+    type:'line',
+    data:{ labels, datasets:[{
+      label:'Monthly Earned Revenue', data: IND.revenue, borderColor:'#2563eb', backgroundColor:withAlpha('#2563eb',0.15), fill:true, tension:.25,
+      segment:{ borderDash: c => (boundary>=0 && c.p1DataIndex>=boundary) ? [6,4] : undefined },
+      pointRadius:2,
+    }]},
+    options:{
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>`${fmtMoney(c.raw)} (${IND.months[c.dataIndex].type})`}},
+        actualForecastBackdrop:{boundary, isDark},
+      },
+      scales:{ x:{ticks:{maxRotation:90,minRotation:45}}, y:{ticks:{callback:v=>fmtMoneyM(v)}} },
+    },
+    plugins:[actualForecastBackdrop],
+  });
+}
+
+function renderOverviewManpowerChart(){
+  const labels = IND.months.map(m=>m.label);
+  const boundary = IND_LAST_ACTUAL_IDX>=0 ? IND_LAST_ACTUAL_IDX+1 : -1;
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  const trendDatasets = IND_DEPTS.map(d=>{
+    const color = IND_DEPT_COLORS[d];
+    return {
+      label: d + ' — Trend Model',
+      data: IND.workersTrend[d],
+      borderColor: color, backgroundColor:'transparent', tension:.25, pointRadius:1.5,
+      segment:{ borderDash: c => (boundary>=0 && c.p1DataIndex>=boundary) ? [6,4] : undefined },
+    };
+  });
+  const manualDatasets = IND_DEPTS.filter(d=>overviewForecastInput[d].some(v=>v!=null)).map(d=>{
+    const color = IND_DEPT_COLORS[d];
+    return {
+      label: d + ' — Your Forecast',
+      data: overviewForecastInput[d].slice(),
+      borderColor: color, backgroundColor:'transparent', borderDash:[2,2], pointStyle:'rectRot', pointRadius:4, spanGaps:false,
+    };
+  });
+  const ctx = document.getElementById('overviewManpowerChart');
+  if(overviewCharts.manpower) overviewCharts.manpower.destroy();
+  overviewCharts.manpower = new Chart(ctx, {
+    type:'line',
+    data:{ labels, datasets:[...trendDatasets, ...manualDatasets] },
+    options:{
+      plugins:{
+        legend:{position:'top', labels:{boxWidth:12, font:{size:10}}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${Math.round(c.raw).toLocaleString()}`}},
+        actualForecastBackdrop:{boundary, isDark},
+      },
+      scales:{ x:{ticks:{maxRotation:90,minRotation:45}}, y:{ticks:{callback:v=>v.toLocaleString()}, title:{display:true,text:'# of Workers'}} },
+    },
+    plugins:[actualForecastBackdrop],
+  });
+}
+
+function overviewTotalCellsHtml(monthIdx){
+  return monthIdx.map(i=>{
+    const any = IND_DEPTS.some(d=>overviewForecastInput[d][i]!=null);
+    const sum = IND_DEPTS.reduce((s,d)=> s + (overviewForecastInput[d][i]||0), 0);
+    return `<td style="font-weight:700">${any?sum.toLocaleString():''}</td>`;
+  }).join('');
+}
+
+function renderOverviewForecastGrid(){
+  const startIdx = IND_LAST_ACTUAL_IDX + 1;
+  const monthIdx = IND.months.map((m,i)=>i).slice(startIdx);
+  document.getElementById('overviewLastActualLabel').textContent = IND_LAST_ACTUAL_LABEL || '—';
+
+  document.getElementById('overviewForecastHead').innerHTML =
+    `<th>Department</th>${monthIdx.map(i=>`<th>${IND.months[i].label}</th>`).join('')}`;
+
+  const tbody = document.querySelector('#overviewForecastTable tbody');
+  const rowsHtml = IND_DEPTS.map(d=>{
+    const cells = monthIdx.map(i=>{
+      const v = overviewForecastInput[d][i];
+      return `<td><input type="number" min="0" step="1" data-dept="${d}" data-idx="${i}" value="${v==null?'':v}" style="width:64px;"></td>`;
+    }).join('');
+    return `<tr><td style="font-weight:600">${d}</td>${cells}</tr>`;
+  }).join('');
+  tbody.innerHTML = rowsHtml + `<tr style="border-top:2px solid var(--border)"><td style="font-weight:700">Total</td>${overviewTotalCellsHtml(monthIdx)}</tr>`;
+
+  tbody.querySelectorAll('input[data-dept]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const d = e.target.dataset.dept, i = Number(e.target.dataset.idx);
+      const raw = e.target.value;
+      overviewForecastInput[d][i] = raw==='' ? null : Number(raw);
+      renderOverviewManpowerChart();
+      tbody.querySelector('tr:last-child').innerHTML = `<td style="font-weight:700">Total</td>${overviewTotalCellsHtml(monthIdx)}`;
+    });
+  });
+}
+
+function renderOverviewAll(){
+  renderOverviewRevenueChart();
+  renderOverviewManpowerChart();
+  renderOverviewForecastGrid();
+}
+
 let activeTab = 'earned';
 function switchTab(tab){
   activeTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
   document.getElementById('tabEarned').hidden = tab!=='earned';
   document.getElementById('tabIndirects').hidden = tab!=='indirects';
-  document.getElementById('pageTitle').textContent = tab==='earned' ? 'Earned Revenue Dashboard' : 'Indirects Dashboard';
-  if(tab==='earned') renderAll(); else renderIndirectsAll();
+  document.getElementById('tabOverview').hidden = tab!=='overview';
+  document.getElementById('pageTitle').textContent = tab==='earned' ? 'Earned Revenue Dashboard' : tab==='indirects' ? 'Indirects Dashboard' : 'Overview Dashboard';
+  if(tab==='earned') renderAll();
+  else if(tab==='indirects') renderIndirectsAll();
+  else renderOverviewAll();
 }
 document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click', ()=>switchTab(b.dataset.tab)));
 
@@ -2158,7 +2309,8 @@ document.getElementById('darkToggle').addEventListener('click', ()=>{
   html.setAttribute('data-theme', isDark?'light':'dark');
   document.getElementById('darkToggle').textContent = isDark ? '🌙 Dark Mode' : '☀️ Light Mode';
   if(activeTab==='earned'){ renderMainChart(); renderCumChart(); }
-  else { renderIndTrendChart(); renderIndComp1(); renderIndComp2(); renderIndComp3(); renderIndComp4(); renderIndSelectedTable(); renderIndCategoryCharts(); }
+  else if(activeTab==='indirects'){ renderIndTrendChart(); renderIndComp1(); renderIndComp2(); renderIndComp3(); renderIndComp4(); renderIndSelectedTable(); renderIndCategoryCharts(); }
+  else { renderOverviewRevenueChart(); renderOverviewManpowerChart(); }
 });
 
 // Collapsible panels on the Indirects tab — click a panel's title to tuck away everything
