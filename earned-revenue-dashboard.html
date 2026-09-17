@@ -535,11 +535,6 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
 
 <div id="tabOverview" class="tab-panel" hidden>
   <div class="panel">
-    <h2>Earned Revenue</h2>
-    <canvas id="overviewRevenueChart" height="90"></canvas>
-  </div>
-
-  <div class="panel">
     <h2>Trend Model Manpower — All Categories</h2>
     <div style="margin-bottom:12px;">
       <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Show Departments</label>
@@ -2226,34 +2221,6 @@ function populateOverviewFilters(){
   overviewDeptMS = initMultiSelect('overviewDeptFilterMS', items, 'All Departments', onChange, IND_DEPTS);
 }
 
-function renderOverviewRevenueChart(){
-  const labels = IND.months.map(m=>m.label);
-  const boundary = IND_LAST_ACTUAL_IDX>=0 ? IND_LAST_ACTUAL_IDX+1 : -1;
-  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
-  const isActual = i => boundary<0 || i<boundary;
-  const ctx = document.getElementById('overviewRevenueChart');
-  if(overviewCharts.revenue) overviewCharts.revenue.destroy();
-  overviewCharts.revenue = new Chart(ctx, {
-    type:'bar',
-    data:{ labels, datasets:[{
-      label:'Monthly Earned Revenue', data: IND.revenue,
-      backgroundColor: IND.months.map((m,i)=> isActual(i) ? '#2563eb' : withAlpha('#2563eb',0.45)),
-    }]},
-    options:{
-      plugins:{
-        legend:{display:false},
-        tooltip:{callbacks:{label:c=>`${fmtMoney(c.raw)} (${IND.months[c.dataIndex].type})`}},
-        actualForecastBackdrop:{boundary, isDark},
-      },
-      // offset:false keeps the category scale's pixel math identical to the line charts elsewhere
-      // (bar charts default offset:true, half a slot of padding at each end) so the boundary line
-      // the actualForecastBackdrop plugin draws lines up with the Actual/Forecast bar edge exactly.
-      scales:{ x:{offset:false, ticks:{maxRotation:90,minRotation:45}}, y:{ticks:{callback:v=>fmtMoneyM(v)}} },
-    },
-    plugins:[actualForecastBackdrop],
-  });
-}
-
 function renderOverviewManpowerChart(){
   const labels = IND.months.map(m=>m.label);
   const boundary = IND_LAST_ACTUAL_IDX>=0 ? IND_LAST_ACTUAL_IDX+1 : -1;
@@ -2297,7 +2264,9 @@ function renderOverviewManpowerChart(){
         tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${Math.round(c.raw).toLocaleString()}`}},
         actualForecastBackdrop:{boundary, isDark},
       },
-      // See renderOverviewRevenueChart for why offset:false matters here too.
+      // offset:false keeps the category scale's pixel math identical to the line charts elsewhere
+      // (bar charts default offset:true, half a slot of padding at each end) so the boundary line
+      // the actualForecastBackdrop plugin draws lines up with the Actual/Forecast bar edge exactly.
       scales:{ x:{offset:false, stacked:true, ticks:{maxRotation:90,minRotation:45}}, y:{stacked:true, ticks:{callback:v=>v.toLocaleString()}, title:{display:true,text:'# of Workers'}} },
     },
     plugins:[actualForecastBackdrop],
@@ -2320,8 +2289,10 @@ function renderOverviewDeptRoster(){
   if(IND_LAST_ACTUAL_IDX < 0 || depts.length === 0){ el.innerHTML = ''; return; }
   el.innerHTML = depts.map(d=>{
     const names = IND.people.filter(p=>p.group===d && p.hours[IND_LAST_ACTUAL_IDX] > 0).map(p=>p.name);
-    const who = names.length ? names.join(', ') : '<span style="font-style:italic">nobody logged hours that month</span>';
-    return `<div><b style="color:${IND_DEPT_COLORS[d]}">${d}</b> — ${names.length} ${names.length===1?'person':'people'} in ${IND_LAST_ACTUAL_LABEL}: ${who}</div>`;
+    const list = names.length
+      ? `<ol style="margin:4px 0 0 20px;padding:0;">${names.map(n=>`<li>${n}</li>`).join('')}</ol>`
+      : `<div style="font-style:italic;margin-top:4px;">nobody logged hours that month</div>`;
+    return `<div style="margin-bottom:14px;"><b style="color:${IND_DEPT_COLORS[d]}">${d}</b> — ${names.length} ${names.length===1?'person':'people'} in ${IND_LAST_ACTUAL_LABEL}:${list}</div>`;
   }).join('');
 }
 
@@ -2411,7 +2382,6 @@ function renderOverviewForecastGrid(){
 }
 
 function renderOverviewAll(){
-  renderOverviewRevenueChart();
   renderOverviewManpowerChart();
   renderOverviewDeptRoster();
   renderOverviewManpowerTable();
@@ -2444,7 +2414,7 @@ document.getElementById('darkToggle').addEventListener('click', ()=>{
   document.getElementById('darkToggle').textContent = isDark ? '🌙 Dark Mode' : '☀️ Light Mode';
   if(activeTab==='earned'){ renderMainChart(); renderCumChart(); }
   else if(activeTab==='indirects'){ renderIndTrendChart(); renderIndComp1(); renderIndComp2(); renderIndComp3(); renderIndComp4(); renderIndSelectedTable(); renderIndCategoryCharts(); }
-  else { renderOverviewRevenueChart(); renderOverviewManpowerChart(); }
+  else { renderOverviewManpowerChart(); }
 });
 
 // Collapsible panels on the Indirects tab — click a panel's title to tuck away everything
