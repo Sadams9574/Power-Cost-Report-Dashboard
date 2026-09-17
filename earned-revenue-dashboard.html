@@ -32,6 +32,7 @@ main{padding:20px 24px 60px;max-width:1500px;margin:0 auto;}
 .ms-panel label{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;font-size:13px;cursor:pointer;white-space:nowrap;}
 .ms-panel label:hover{background:var(--bg);}
 .ms-panel input[type="checkbox"]{accent-color:var(--accent);width:14px;height:14px;cursor:pointer;}
+.ms-swatch{width:10px;height:10px;border-radius:2px;display:inline-block;flex:none;}
 .ms-panel .ms-sep{border-top:1px solid var(--border);margin:4px 0;}
 .ms-panel .ms-actions{display:flex;gap:6px;padding:4px 8px 6px;}
 .ms-panel .ms-actions button{flex:1;font-size:11px;padding:4px 6px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;}
@@ -536,6 +537,13 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
 
   <div class="panel">
     <h2>Trend Model Manpower — All Categories</h2>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Show Departments</label>
+      <div class="ms" id="overviewDeptFilterMS">
+        <button type="button" class="ms-btn"></button>
+        <div class="ms-panel"></div>
+      </div>
+    </div>
     <canvas id="overviewManpowerChart" height="110"></canvas>
     <p style="font-size:12px;color:var(--muted);margin:14px 0 0;">Trend Model — # of Workers by month, so the chart above has the numbers behind it to look at.</p>
     <div style="overflow-x:auto;margin-top:8px;">
@@ -658,7 +666,7 @@ function initMultiSelect(id, items, allLabel, onChange, defaultSelected){
       <button type="button" data-act="none">Clear</button>
     </div>
     <div class="ms-sep"></div>
-    ${items.map(it=>`<label><input type="checkbox" value="${it.value}" ${selected.has(it.value)?'checked':''}> ${it.label}</label>`).join('')}
+    ${items.map(it=>`<label><input type="checkbox" value="${it.value}" ${selected.has(it.value)?'checked':''}> ${it.color?`<span class="ms-swatch" style="background:${it.color}"></span>`:''}${it.label}</label>`).join('')}
   `;
 
   function updateBtn(){
@@ -2181,11 +2189,18 @@ const IND_DEPT_COLORS = {
   'G&A':'#2563eb', 'Estimating':'#9333ea', 'Engineering':'#16a34a',
   'Project Engineer':'#f59e0b', 'Procurement':'#db2777',
   'Construction':'#0891b2', 'Project Management':'#64748b',
+  'Total Monthly':'#111827',
 };
 
 let overviewCharts = {};
 let overviewForecastInput = {};
 IND_DEPTS.forEach(d => { overviewForecastInput[d] = new Array(IND.months.length).fill(null); });
+
+let overviewDeptMS;
+function populateOverviewFilters(){
+  const items = [...IND_DEPTS, 'Total Monthly'].map(d=>({ value:d, label:d, color:IND_DEPT_COLORS[d] }));
+  overviewDeptMS = initMultiSelect('overviewDeptFilterMS', items, 'All Departments', renderOverviewManpowerChart, IND_DEPTS);
+}
 
 function renderOverviewRevenueChart(){
   const labels = IND.months.map(m=>m.label);
@@ -2206,7 +2221,10 @@ function renderOverviewRevenueChart(){
         tooltip:{callbacks:{label:c=>`${fmtMoney(c.raw)} (${IND.months[c.dataIndex].type})`}},
         actualForecastBackdrop:{boundary, isDark},
       },
-      scales:{ x:{ticks:{maxRotation:90,minRotation:45}}, y:{ticks:{callback:v=>fmtMoneyM(v)}} },
+      // offset:false keeps the category scale's pixel math identical to the line charts elsewhere
+      // (bar charts default offset:true, half a slot of padding at each end) so the boundary line
+      // the actualForecastBackdrop plugin draws lines up with the Actual/Forecast bar edge exactly.
+      scales:{ x:{offset:false, ticks:{maxRotation:90,minRotation:45}}, y:{ticks:{callback:v=>fmtMoneyM(v)}} },
     },
     plugins:[actualForecastBackdrop],
   });
@@ -2216,7 +2234,9 @@ function renderOverviewManpowerChart(){
   const labels = IND.months.map(m=>m.label);
   const boundary = IND_LAST_ACTUAL_IDX>=0 ? IND_LAST_ACTUAL_IDX+1 : -1;
   const isDark = document.documentElement.getAttribute('data-theme')==='dark';
-  const trendDatasets = IND_DEPTS.map(d=>{
+  const selected = overviewDeptMS ? overviewDeptMS.selected : new Set(IND_DEPTS);
+  const shownDepts = IND_DEPTS.filter(d=>selected.has(d));
+  const trendDatasets = shownDepts.map(d=>{
     const color = IND_DEPT_COLORS[d];
     return {
       type:'bar', stack:'workers',
@@ -2225,7 +2245,7 @@ function renderOverviewManpowerChart(){
       backgroundColor: IND.months.map((m,i)=> (boundary>=0 && i>=boundary) ? withAlpha(color,0.45) : color),
     };
   });
-  const manualDatasets = IND_DEPTS.filter(d=>overviewForecastInput[d].some(v=>v!=null)).map(d=>{
+  const manualDatasets = shownDepts.filter(d=>overviewForecastInput[d].some(v=>v!=null)).map(d=>{
     const color = IND_DEPT_COLORS[d];
     return {
       type:'line',
@@ -2234,18 +2254,27 @@ function renderOverviewManpowerChart(){
       borderColor: color, backgroundColor:'transparent', borderDash:[2,2], pointStyle:'rectRot', pointRadius:4, spanGaps:false,
     };
   });
+  // "Total Monthly" is a sum of the other departments, so it renders as its own line on top of
+  // the stack rather than as another stacked bar (which would double-count it).
+  const totalDataset = selected.has('Total Monthly') ? [{
+    type:'line',
+    label:'Total Monthly — Trend Model',
+    data: IND.workersTrend['Total Monthly'],
+    borderColor: IND_DEPT_COLORS['Total Monthly'], backgroundColor:'transparent', borderWidth:2, pointRadius:2,
+  }] : [];
   const ctx = document.getElementById('overviewManpowerChart');
   if(overviewCharts.manpower) overviewCharts.manpower.destroy();
   overviewCharts.manpower = new Chart(ctx, {
     type:'bar',
-    data:{ labels, datasets:[...trendDatasets, ...manualDatasets] },
+    data:{ labels, datasets:[...trendDatasets, ...totalDataset, ...manualDatasets] },
     options:{
       plugins:{
         legend:{position:'top', labels:{boxWidth:12, font:{size:10}}},
         tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${Math.round(c.raw).toLocaleString()}`}},
         actualForecastBackdrop:{boundary, isDark},
       },
-      scales:{ x:{stacked:true, ticks:{maxRotation:90,minRotation:45}}, y:{stacked:true, ticks:{callback:v=>v.toLocaleString()}, title:{display:true,text:'# of Workers'}} },
+      // See renderOverviewRevenueChart for why offset:false matters here too.
+      scales:{ x:{offset:false, stacked:true, ticks:{maxRotation:90,minRotation:45}}, y:{stacked:true, ticks:{callback:v=>v.toLocaleString()}, title:{display:true,text:'# of Workers'}} },
     },
     plugins:[actualForecastBackdrop],
   });
@@ -2351,6 +2380,7 @@ document.querySelectorAll('#tabIndirects .panel > h2').forEach(h2=>{
 
 populateFilters();
 populateIndirectsFilters();
+populateOverviewFilters();
 switchTab('earned');
 </script>
 </body>
