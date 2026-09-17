@@ -600,8 +600,8 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
 
     <p style="font-size:13px;font-weight:700;margin:20px 0 0;">Manpower ÷ Earned Revenue</p>
     <p style="font-size:12px;color:var(--muted);margin-top:4px">
-      Each department's headcount as a percentage of that month's total Earned Revenue, for
-      whichever departments are checked above.
+      Each department's headcount per $1M of that month's total Earned Revenue, for whichever
+      departments are checked above.
       Each department gets three rows here together — Trend Model, then the same ratio recomputed
       from whatever you've typed into the forecast grid above, then the Delta between them (blank
       where nothing's been typed yet) — so filtering to a department shows all three at once.
@@ -2333,9 +2333,9 @@ function renderOverviewDeptRoster(){
 
 // Manpower ÷ Earned Revenue, Trend Model side: each department's Trend Model headcount divided
 // by that month's total Earned Revenue.
-// The raw ratio (headcount ÷ dollars) is small enough that it needs 6 decimal places as a
-// percentage to show anything other than 0.0000% — fmtPct4's usual 4 decimals isn't enough here.
-const fmtMpRevPct = v => (v*100).toFixed(6) + '%';
+// A plain decimal (workers per $1M of revenue) reads better than the raw ratio, which is small
+// enough (order 1e-7) that a percentage needs 6 decimal places just to show a nonzero digit.
+const fmtMpRevPct = v => (v*1e6).toFixed(2);
 
 // Manpower ÷ Earned Revenue: for each shown department, three rows together — Trend Model, then
 // the same ratio recomputed from whatever's typed into the forecast grid above (Actual columns
