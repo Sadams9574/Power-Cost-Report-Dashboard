@@ -545,9 +545,15 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
       <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#d93025;margin-right:5px;"></span>Anticipated</span>
       <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#9333ea;margin-right:5px;"></span>Possible</span>
     </div>
-    <button type="button" id="overviewGanttToggle" style="margin-bottom:12px;padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;">Hide Project Schedule</button>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+      <button type="button" id="overviewGanttToggle" style="padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;cursor:pointer;">Hide Project Schedule</button>
+      <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;">
+        Highlight month:
+        <select id="overviewGanttHighlightMonth" style="font-size:12px;padding:4px 6px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);"></select>
+      </label>
+    </div>
     <div id="overviewGanttWrap" style="overflow-x:auto;">
-      <div style="min-width:1400px;">
+      <div style="min-width:1800px;">
         <canvas id="overviewGanttChart"></canvas>
       </div>
     </div>
@@ -2232,6 +2238,14 @@ function populateOverviewFilters(){
   const items = [...IND_DEPTS, 'Total Monthly'].map(d=>({ value:d, label:d, color:IND_DEPT_COLORS[d] }));
   const onChange = ()=>{ renderOverviewManpowerChart(); renderOverviewGanttChart(); renderOverviewDeptRoster(); renderOverviewWorkersTable(); renderOverviewMpRevTable(); };
   overviewDeptMS = initMultiSelect('overviewDeptFilterMS', items, 'All Departments', onChange, IND_DEPTS);
+
+  const highlightSelect = document.getElementById('overviewGanttHighlightMonth');
+  highlightSelect.innerHTML = `<option value="">None</option>` +
+    IND.months.map((m,i)=>`<option value="${i}">${m.label}</option>`).join('');
+  highlightSelect.addEventListener('change', e=>{
+    overviewGanttHighlightIdx = e.target.value === '' ? null : Number(e.target.value);
+    renderOverviewGanttChart();
+  });
 }
 
 function renderOverviewManpowerChart(){
@@ -2468,6 +2482,26 @@ function overviewGanttTargetYWidth(){
   return mp && mp.chartArea ? OVERVIEW_ROSTER_COL_PX + mp.chartArea.left : null;
 }
 
+// Shades one month's full-height column on the Gantt chart — for calling out a specific month
+// while presenting — via the "Highlight month" dropdown next to the chart.
+const overviewColumnHighlight = {
+  id: 'overviewColumnHighlight',
+  beforeDatasetsDraw(chart, args, opts){
+    if(opts.idx == null) return;
+    const {ctx, chartArea:{top,bottom}, scales:{x}} = chart;
+    const left = x.getPixelForValue(opts.idx);
+    const right = x.getPixelForValue(opts.idx + 1);
+    ctx.save();
+    ctx.fillStyle = opts.isDark ? 'rgba(250,204,21,0.28)' : 'rgba(250,204,21,0.4)';
+    ctx.fillRect(left, top, right - left, bottom - top);
+    ctx.strokeStyle = opts.isDark ? 'rgba(250,204,21,0.9)' : 'rgba(202,138,4,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(left, top, right - left, bottom - top);
+    ctx.restore();
+  }
+};
+let overviewGanttHighlightIdx = null;
+
 function renderOverviewGanttChart(){
   const sorted = [...ER.projects].sort((a,b)=> a.startIdx - b.startIdx || a.code.localeCompare(b.code));
   const labels = sorted.map(p=> `${p.code} — ${p.client}`);
@@ -2495,18 +2529,19 @@ function renderOverviewGanttChart(){
           return `${p.status}: ${IND.months[p.startIdx].label} – ${IND.months[p.endIdx].label} (TCV ${fmtMoney(p.tcv)})`;
         }}},
         actualForecastBackdrop:{boundary, isDark},
+        overviewColumnHighlight:{idx: overviewGanttHighlightIdx, isDark},
       },
       scales:{
         // stepSize:1 forces a tick candidate at every month index (the linear x-axis otherwise
-        // picks "nice" round numbers unrelated to month boundaries); autoSkip then thins them to
-        // fit, same as the category-scale month charts elsewhere on this tab.
-        x:{ min:0, max:IND.months.length, ticks:{ stepSize:1, autoSkip:true, maxRotation:90, minRotation:45,
+        // picks "nice" round numbers unrelated to month boundaries); autoSkip:false shows every
+        // one of them, same as the wide month tables elsewhere on this tab.
+        x:{ min:0, max:IND.months.length, ticks:{ stepSize:1, autoSkip:false, maxRotation:90, minRotation:45,
           callback:v=> IND.months[v] ? IND.months[v].label : '' } },
         y:{ ticks:{ autoSkip:false, font:{size:10} },
           afterFit: targetYWidth!=null ? scale=>{ scale.width = targetYWidth; } : undefined },
       },
     },
-    plugins:[actualForecastBackdrop],
+    plugins:[actualForecastBackdrop, overviewColumnHighlight],
   });
 }
 
