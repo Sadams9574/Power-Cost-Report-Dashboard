@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Productivity Forecast Planner</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root{--bg:#0f1720;--card:#1b2530;--card2:#212d3a;--card3:#182330;--accent:#3b9eff;--accent2:#e7a23b;--good:#2ecc71;--bad:#e74c3c;--muted:#8aa0b4;--text:#e7eef5;--input-border:#3b9eff;--input-bg:#132436;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:20px 28px;border-bottom:1px solid #2a3744;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+  header h1{margin:0;font-size:22px;}
+  header .sub{color:var(--muted);font-size:13px;}
+  nav a{color:var(--muted);text-decoration:none;font-size:13px;margin-right:16px;padding-bottom:4px;}
+  nav a.active{color:var(--text);border-bottom:2px solid var(--accent);}
+  nav a:hover{color:var(--text);}
+  .container{padding:0 28px 48px;}
+  .legend-note{margin:16px 28px 0;font-size:12px;color:var(--muted);display:flex;gap:18px;align-items:center;flex-wrap:wrap;}
+  .legend-note .chip{display:inline-flex;align-items:center;gap:6px;}
+  .legend-note .swatch{width:12px;height:12px;border-radius:3px;display:inline-block;}
+  .swatch.input{background:var(--input-bg);border:1.5px solid var(--input-border);}
+  .swatch.calc{background:var(--card2);border:1px solid #2a3744;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;padding:20px 28px;}
+  .kpi{background:var(--card);border-radius:10px;padding:16px 18px;}
+  .kpi .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em;}
+  .kpi .value{font-size:24px;font-weight:600;margin-top:6px;}
+  .kpi .value.good{color:var(--good);}
+  .kpi .value.bad{color:var(--bad);}
+  .panel{background:var(--card);border-radius:10px;padding:16px 18px;margin-bottom:16px;}
+  .panel h2{margin:0 0 4px;font-size:15px;color:var(--text);font-weight:600;}
+  .panel .panel-sub{margin:0 0 14px;font-size:12px;color:var(--muted);}
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{padding:7px 8px;text-align:right;border-bottom:1px solid #2a3744;white-space:nowrap;}
+  th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--card);}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em;}
+  thead tr:first-child th{border-bottom:none;padding-bottom:2px;}
+  tbody tr{cursor:pointer;}
+  tbody tr.selected{background:#1f3a52;}
+  tbody tr:hover{background:#22303d;}
+  td.calc{color:var(--muted);}
+  td input[type=number], td input[type=text], td input[type=date]{
+    width:88px;background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);
+    padding:5px 6px;border-radius:5px;font-size:12.5px;text-align:right;
+  }
+  td input[type=text]{text-align:left;width:120px;}
+  td input[type=date]{width:130px;}
+  .rowdel{background:none;border:none;color:var(--bad);cursor:pointer;font-size:16px;padding:0 6px;}
+  .addrow-btn, .reset-btn{background:var(--card2);border:1px solid #33465a;color:var(--text);padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12.5px;margin-top:12px;margin-right:8px;}
+  .addrow-btn:hover, .reset-btn:hover{border-color:var(--accent);}
+  .scenario-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:1100px){.scenario-grid{grid-template-columns:1fr;}}
+  .scenario-card{background:var(--card2);border-radius:8px;padding:16px;}
+  .scenario-card h3{margin:0 0 4px;font-size:14px;}
+  .scenario-card .desc{color:var(--muted);font-size:12px;margin:0 0 14px;}
+  .manpower-row{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+  .manpower-row label{font-size:12px;color:var(--muted);white-space:nowrap;}
+  .manpower-row input[type=number]{width:80px;background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);padding:7px 8px;border-radius:5px;font-size:14px;text-align:center;font-weight:600;}
+  .manpower-row input[type=range]{flex:1;accent-color:var(--accent);}
+  .outputs{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+  .out-tile{background:var(--card);border-radius:6px;padding:10px 12px;}
+  .out-tile .l{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+  .out-tile .v{font-size:16px;font-weight:600;margin-top:4px;}
+  .out-tile .v.good{color:var(--good);}
+  .out-tile .v.bad{color:var(--bad);}
+  .out-tile.highlight{border:1px solid var(--accent);grid-column:1/-1;}
+  select#commoditySelect{background:var(--card2);border:1px solid #33465a;color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;margin-bottom:16px;}
+  select.curve-select{background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);padding:6px 8px;border-radius:5px;font-size:12px;}
+  .chart-wrap{margin-top:6px;}
+  .empty-msg{color:var(--muted);font-size:13px;padding:20px;text-align:center;}
+  .scenario-body{display:grid;grid-template-columns:1fr 1.15fr;gap:16px;align-items:start;}
+  @media(max-width:1500px){.scenario-body{grid-template-columns:1fr;}}
+  .dist-col{background:var(--card3);border-radius:8px;padding:12px 14px;}
+  .dist-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;}
+  .dist-head .peak{font-size:11.5px;color:var(--muted);}
+  .dist-head .peak b{color:var(--text);}
+  .mini-chart-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin:10px 0 4px;}
+  .mini-chart{height:150px;}
+  .curve-legend{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5;}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Productivity &amp; Forecast Planner</h1>
+    <div class="sub" id="asOf">Loading…</div>
+    <nav style="margin-top:8px;">
+      <a href="index.html">Cost Report</a>
+      <a href="forecast.html" class="active">Forecast Planner</a>
+    </nav>
+  </div>
+</header>
+
+<div class="legend-note">
+  <span class="chip"><span class="swatch input"></span> Blue-outlined fields = type your own numbers</span>
+  <span class="chip"><span class="swatch calc"></span> Gray fields = calculated automatically (same formulas as the workbook)</span>
+</div>
+
+<div class="kpis" id="kpis"></div>
+
+<div class="container">
+
+  <div class="panel">
+    <h2>Commodities / Scope Items</h2>
+    <p class="panel-sub">Enter baseline hours, baseline quantity, hours spent to date, and % complete earned for each line item. Everything else recalculates automatically. Click a row to open its scenario planner below.</p>
+    <div class="table-wrap">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th rowspan="2">Commodity</th>
+            <th colspan="4">Inputs</th>
+            <th colspan="10">Calculated</th>
+            <th rowspan="2"></th>
+          </tr>
+          <tr>
+            <th>Baseline Hrs</th><th>Baseline Qty</th><th>Spent Hrs</th><th>% Complete Earned</th>
+            <th>Baseline UR</th><th>Earned Hrs</th><th>Earned Qty</th><th>Remaining Earned Hrs</th><th>Remaining Hrs (Budget)</th><th>Remaining Qty</th>
+            <th>% Spent Hrs</th><th>JTD PF</th><th>Actual UR</th><th>UR Needed for PF 1.0</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <button class="addrow-btn" id="addRowBtn">+ Add Commodity</button>
+    <button class="reset-btn" id="resetBtn">Reset to Example (Racking)</button>
+  </div>
+
+  <div class="panel" id="scenarioPanel">
+    <h2>Scenario Planner</h2>
+    <p class="panel-sub" id="scenarioSub">Select a commodity above to plan crew size and see the forecasted finish date.</p>
+    <div id="scenarioSelectWrap" style="display:none;">
+      <select id="commoditySelect"></select>
+
+      <div class="scenario-grid">
+        <div class="scenario-card" id="card1">
+          <h3>Forecast 1 — At Current Productivity</h3>
+          <p class="desc">Type in a crew size. Finish date is calculated using the unit rate you are actually running today, 6-day work week.</p>
+          <div class="manpower-row">
+            <label>Manpower FC</label>
+            <input type="number" id="mp1" min="1" step="1">
+            <input type="range" id="mp1Range" min="1" max="200" step="1">
+          </div>
+          <div class="scenario-body">
+            <div class="outputs" id="out1"></div>
+            <div class="dist-col">
+              <div class="dist-head">
+                <select class="curve-select" id="curve1">
+                  <option value="flat">Flat — even pace</option>
+                  <option value="bell">Bell — ramp up / ramp down</option>
+                  <option value="back">Back-End Loaded — push at the finish</option>
+                  <option value="front">Front-End Loaded — hit hard now</option>
+                </select>
+                <span class="peak" id="peak1"></span>
+              </div>
+              <div class="mini-chart-title">Manpower per Day</div>
+              <div class="mini-chart"><canvas id="mpChart1"></canvas></div>
+              <div class="mini-chart-title">Qty per Day</div>
+              <div class="mini-chart"><canvas id="qtyChart1"></canvas></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="scenario-card" id="card2">
+          <h3>Forecast 2 — At Target PF of 1.0</h3>
+          <p class="desc">Type in a crew size. Finish date is calculated assuming productivity improves to hit an overall Productivity Factor of 1.0, 6-day work week.</p>
+          <div class="manpower-row">
+            <label>Manpower FC</label>
+            <input type="number" id="mp2" min="1" step="1">
+            <input type="range" id="mp2Range" min="1" max="200" step="1">
+          </div>
+          <div class="scenario-body">
+            <div class="outputs" id="out2"></div>
+            <div class="dist-col">
+              <div class="dist-head">
+                <select class="curve-select" id="curve2">
+                  <option value="flat">Flat — even pace</option>
+                  <option value="bell">Bell — ramp up / ramp down</option>
+                  <option value="back">Back-End Loaded — push at the finish</option>
+                  <option value="front">Front-End Loaded — hit hard now</option>
+                </select>
+                <span class="peak" id="peak2"></span>
+              </div>
+              <div class="mini-chart-title">Manpower per Day</div>
+              <div class="mini-chart"><canvas id="mpChart2"></canvas></div>
+              <div class="mini-chart-title">Qty per Day</div>
+              <div class="mini-chart"><canvas id="qtyChart2"></canvas></div>
+            </div>
+          </div>
+          <div class="curve-legend">Same total remaining hours and the same finish date either way — the curve only changes how the crew and daily output are spread between today and the finish date, so you can see the peak headcount each strategy needs.</div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:16px;background:var(--card2);">
+        <h2 style="font-size:13px;">Manpower Sensitivity — Days Remaining by Crew Size</h2>
+        <p class="panel-sub">Both forecast methods recomputed across a range of crew sizes, so you can see the trade-off before committing headcount.</p>
+        <div class="chart-wrap"><canvas id="sensChart" height="90"></canvas></div>
+      </div>
+
+      <div class="panel" style="margin-top:16px;background:var(--card2);">
+        <h2 style="font-size:13px;">Target Finish Date Check</h2>
+        <p class="panel-sub">Optional: set a contractual or planned finish date to see how many working days remain from today (6-day week).</p>
+        <div class="manpower-row">
+          <label>Target Finish Date</label>
+          <input type="date" id="targetDate">
+        </div>
+        <div class="outputs" id="targetOut"></div>
+      </div>
+    </div>
+    <div class="empty-msg" id="emptyMsg">No commodity selected.</div>
+  </div>
+
+</div>
+
+<script>
+/* ---------- date helpers: Excel WORKDAY.INTL / NETWORKDAYS.INTL, weekend code 11 (Sunday only) ---------- */
+function isWorkday(d){ return d.getDay() !== 0; }
+function workdayIntl(start, days){
+  days = Math.round(days);
+  if(!isFinite(days)) return null;
+  let d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const step = days >= 0 ? 1 : -1;
+  let count = 0;
+  const n = Math.abs(days);
+  while(count < n){
+    d.setDate(d.getDate() + step);
+    if(isWorkday(d)) count++;
+  }
+  return d;
+}
+function networkdaysIntl(start, end){
+  let d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const e = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  const step = e >= d ? 1 : -1;
+  let count = 0;
+  while((step > 0 && d <= e) || (step < 0 && d >= e)){
+    if(isWorkday(d)) count++;
+    d.setDate(d.getDate() + step);
+  }
+  return step > 0 ? count : -count;
+}
+// n consecutive future workdays starting the day after `start`
+function workdaySequence(start, n){
+  const dates = [];
+  let d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  let count = 0;
+  while(count < n){
+    d.setDate(d.getDate() + 1);
+    if(isWorkday(d)){ dates.push(new Date(d)); count++; }
+  }
+  return dates;
+}
+function fmtDate(d){
+  if(!d || isNaN(d)) return '—';
+  return d.toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'});
+}
+function fmtDateShort(d){
+  return d.toLocaleDateString('en-US',{month:'numeric',day:'numeric'});
+}
+
+/* ---------- formatting ---------- */
+const fmtInt = n => (isFinite(n) ? Math.round(n).toLocaleString('en-US') : '—');
+const fmt2 = n => (isFinite(n) ? n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—');
+const fmt1 = n => (isFinite(n) ? n.toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1}) : '—');
+const fmtPct = n => (isFinite(n) ? (n*100).toFixed(1)+'%' : '—');
+const fmtPF = n => (isFinite(n) ? n.toFixed(3) : '—');
+
+/* ---------- model: mirrors the workbook's Sheet1 formulas exactly ---------- */
+function computeRow(r){
+  const baselineUR = r.baselineQty ? r.baselineHrs / r.baselineQty : NaN;
+  const earnedHrs = r.pctComplete * r.baselineHrs;
+  const earnedQty = r.pctComplete * r.baselineQty;
+  const remainingEarnedHrs = r.baselineHrs - earnedHrs;
+  const remainingBudgetHrs = r.baselineHrs - r.spentHrs;   // "Remaining Spent Hours" (J) in the workbook
+  const remainingQty = r.baselineQty - earnedQty;
+  const pctSpentHrs = r.baselineHrs ? r.spentHrs / r.baselineHrs : NaN;
+  const jtdPF = r.spentHrs ? earnedHrs / r.spentHrs : NaN;
+  const actualUR = earnedQty ? r.spentHrs / earnedQty : NaN;
+  const pfNeededRemaining = remainingBudgetHrs ? remainingEarnedHrs / remainingBudgetHrs : NaN; // Q
+  const urNeededPF1 = pfNeededRemaining ? baselineUR / pfNeededRemaining : NaN;                  // P
+  return {baselineUR, earnedHrs, earnedQty, remainingEarnedHrs, remainingBudgetHrs, remainingQty, pctSpentHrs, jtdPF, actualUR, pfNeededRemaining, urNeededPF1};
+}
+
+// Forecast 1: at current (actual) unit rate
+function forecast1(r, c, manpower){
+  const hoursForecasted = c.actualUR * c.remainingQty;
+  const daysRemaining = manpower > 0 ? hoursForecasted / (manpower * 10) : NaN;
+  const ur = c.actualUR;
+  const qtyPerDayPerPerson = ur ? 10 / ur : NaN;
+  const qtyPerDay = daysRemaining ? c.remainingQty / daysRemaining : NaN;
+  const forecastedPF = (hoursForecasted + r.spentHrs) ? r.baselineHrs / (hoursForecasted + r.spentHrs) : NaN;
+  const finishDate = isFinite(daysRemaining) ? workdayIntl(new Date(), Math.ceil(daysRemaining)) : null;
+  return {hoursForecasted, daysRemaining, ur, qtyPerDayPerPerson, qtyPerDay, forecastedPF, finishDate, remainingQty:c.remainingQty};
+}
+// Forecast 2: at a target Productivity Factor of 1.0
+function forecast2(r, c, manpower){
+  const hoursForecasted = c.remainingBudgetHrs;
+  const daysRemaining = manpower > 0 ? hoursForecasted / (manpower * 10) : NaN;
+  const ur = c.urNeededPF1;
+  const qtyPerDayPerPerson = ur ? 10 / ur : NaN;
+  const qtyPerDay = daysRemaining ? c.remainingQty / daysRemaining : NaN;
+  const forecastedPF = c.pfNeededRemaining;
+  const finishDate = isFinite(daysRemaining) ? workdayIntl(new Date(), Math.ceil(daysRemaining)) : null;
+  return {hoursForecasted, daysRemaining, ur, qtyPerDayPerPerson, qtyPerDay, forecastedPF, finishDate, remainingQty:c.remainingQty};
+}
+
+/* ---------- daily distribution curves ---------- */
+// Spreads a fixed total of hours across `n` workdays under a chosen loading shape.
+// Every curve keeps the SAME total hours (so the same finish date) — only the day-to-day pace changes.
+function curveWeights(n, type){
+  const w = [];
+  for(let i=1;i<=n;i++){
+    const x = (i-0.5)/n; // 0..1, midpoint of each day's slot
+    let wi;
+    if(type==='bell') wi = Math.sin(Math.PI*x);
+    else if(type==='back') wi = x;
+    else if(type==='front') wi = 1-x;
+    else wi = 1; // flat
+    w.push(Math.max(wi, 0.0001));
+  }
+  const sum = w.reduce((a,b)=>a+b,0);
+  const scale = n/sum; // rescale so the average weight is exactly 1 (preserves total)
+  return w.map(wi=>wi*scale);
+}
+function buildDistribution(f, curveType){
+  const n = Math.max(0, Math.ceil(f.daysRemaining||0));
+  if(!n || !isFinite(f.hoursForecasted)) return null;
+  const dates = workdaySequence(new Date(), n);
+  const weights = curveWeights(n, curveType);
+  const hrsPerDay = weights.map(w => (f.hoursForecasted/n) * w);
+  const manpowerPerDay = hrsPerDay.map(h => h/10);
+  const qtyPerDay = hrsPerDay.map(h => f.ur ? h/f.ur : NaN);
+  return {dates, manpowerPerDay, qtyPerDay};
+}
+
+/* ---------- state ---------- */
+const DEFAULT_ROWS = [
+  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, pctComplete:0.08, mp1:80, mp2:60, targetDate:'2026-11-05', curve1:'flat', curve2:'flat'}
+];
+let rows = loadState();
+let selectedId = rows.length ? rows[0].id : null;
+let sensChart = null, mpChart1 = null, qtyChart1 = null, mpChart2 = null, qtyChart2 = null;
+
+function loadState(){
+  try{
+    const saved = localStorage.getItem('forecastPlannerRows');
+    if(saved){
+      const parsed = JSON.parse(saved);
+      if(Array.isArray(parsed) && parsed.length){
+        parsed.forEach(r=>{ if(!r.curve1) r.curve1='flat'; if(!r.curve2) r.curve2='flat'; });
+        return parsed;
+      }
+    }
+  }catch(e){}
+  return JSON.parse(JSON.stringify(DEFAULT_ROWS));
+}
+function saveState(){
+  try{ localStorage.setItem('forecastPlannerRows', JSON.stringify(rows)); }catch(e){}
+}
+function nextId(){ return rows.reduce((m,r)=>Math.max(m,r.id),0) + 1; }
+
+/* ---------- render: commodity table ---------- */
+function renderTable(){
+  const tbody = document.querySelector('#dataTable tbody');
+  tbody.innerHTML = rows.map(r=>{
+    const c = computeRow(r);
+    const sel = r.id === selectedId ? ' selected' : '';
+    return `
+    <tr class="${sel.trim()}" data-id="${r.id}">
+      <td><input type="text" data-field="name" value="${r.name.replace(/"/g,'&quot;')}"></td>
+      <td><input type="number" data-field="baselineHrs" value="${r.baselineHrs}" step="any"></td>
+      <td><input type="number" data-field="baselineQty" value="${r.baselineQty}" step="any"></td>
+      <td><input type="number" data-field="spentHrs" value="${r.spentHrs}" step="any"></td>
+      <td><input type="number" data-field="pctComplete" value="${(r.pctComplete*100).toFixed(2)}" step="0.1"></td>
+      <td class="calc">${fmt2(c.baselineUR)}</td>
+      <td class="calc">${fmtInt(c.earnedHrs)}</td>
+      <td class="calc">${fmtInt(c.earnedQty)}</td>
+      <td class="calc">${fmtInt(c.remainingEarnedHrs)}</td>
+      <td class="calc">${fmtInt(c.remainingBudgetHrs)}</td>
+      <td class="calc">${fmtInt(c.remainingQty)}</td>
+      <td class="calc">${fmtPct(c.pctSpentHrs)}</td>
+      <td class="calc ${c.jtdPF>=1?'':'bad'}">${fmtPF(c.jtdPF)}</td>
+      <td class="calc">${fmt2(c.actualUR)}</td>
+      <td class="calc">${fmt2(c.urNeededPF1)}</td>
+      <td><button class="rowdel" data-id="${r.id}" title="Delete row">✕</button></td>
+    </tr>`;
+  }).join('') || '';
+
+  tbody.querySelectorAll('tr').forEach(tr=>{
+    tr.addEventListener('click', e=>{
+      if(e.target.closest('input') || e.target.closest('button')) return;
+      selectedId = Number(tr.dataset.id);
+      renderTable();
+      renderScenario();
+    });
+  });
+  tbody.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('click', e=>e.stopPropagation());
+    inp.addEventListener('input', e=>{
+      const tr = e.target.closest('tr');
+      const id = Number(tr.dataset.id);
+      const row = rows.find(r=>r.id===id);
+      const field = e.target.dataset.field;
+      if(field === 'name'){ row.name = e.target.value; }
+      else if(field === 'pctComplete'){ row.pctComplete = (parseFloat(e.target.value)||0)/100; }
+      else { row[field] = parseFloat(e.target.value) || 0; }
+      saveState();
+      renderCalcCellsOnly(tr, row);
+      renderKPIs();
+      if(id === selectedId){ renderScenario(); }
+      populateCommoditySelect();
+    });
+  });
+  tbody.querySelectorAll('.rowdel').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.stopPropagation();
+      const id = Number(btn.dataset.id);
+      rows = rows.filter(r=>r.id!==id);
+      if(selectedId === id){ selectedId = rows.length ? rows[0].id : null; }
+      saveState();
+      renderAll();
+    });
+  });
+}
+
+function renderCalcCellsOnly(tr, row){
+  const c = computeRow(row);
+  const cells = tr.querySelectorAll('td.calc');
+  cells[0].textContent = fmt2(c.baselineUR);
+  cells[1].textContent = fmtInt(c.earnedHrs);
+  cells[2].textContent = fmtInt(c.earnedQty);
+  cells[3].textContent = fmtInt(c.remainingEarnedHrs);
+  cells[4].textContent = fmtInt(c.remainingBudgetHrs);
+  cells[5].textContent = fmtInt(c.remainingQty);
+  cells[6].textContent = fmtPct(c.pctSpentHrs);
+  cells[7].textContent = fmtPF(c.jtdPF);
+  cells[7].classList.toggle('bad', !(c.jtdPF>=1));
+  cells[8].textContent = fmt2(c.actualUR);
+  cells[9].textContent = fmt2(c.urNeededPF1);
+}
+
+/* ---------- render: KPI strip ---------- */
+function renderKPIs(){
+  const el = document.getElementById('kpis');
+  if(!rows.length){ el.innerHTML = ''; return; }
+  const totalBaseline = rows.reduce((s,r)=>s+r.baselineHrs,0);
+  const totalSpent = rows.reduce((s,r)=>s+r.spentHrs,0);
+  const totalEarned = rows.reduce((s,r)=>s+r.pctComplete*r.baselineHrs,0);
+  const overallPF = totalSpent ? totalEarned/totalSpent : NaN;
+  const overallPct = totalBaseline ? totalEarned/totalBaseline : NaN;
+  const kpis = [
+    {label:'Total Baseline Hours', value: fmtInt(totalBaseline)},
+    {label:'Total Spent Hours (JTD)', value: fmtInt(totalSpent)},
+    {label:'Overall % Complete (Earned)', value: fmtPct(overallPct)},
+    {label:'Overall JTD Productivity Factor', value: fmtPF(overallPF), cls: overallPF>=1?'good':'bad'},
+  ];
+  el.innerHTML = kpis.map(k=>`<div class="kpi"><div class="label">${k.label}</div><div class="value ${k.cls||''}">${k.value}</div></div>`).join('');
+}
+
+/* ---------- render: scenario planner ---------- */
+function populateCommoditySelect(){
+  const sel = document.getElementById('commoditySelect');
+  const prev = selectedId;
+  sel.innerHTML = rows.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  if(rows.find(r=>r.id===prev)){ sel.value = prev; }
+}
+
+function renderScenario(){
+  const wrap = document.getElementById('scenarioSelectWrap');
+  const empty = document.getElementById('emptyMsg');
+  const sub = document.getElementById('scenarioSub');
+  if(!rows.length || selectedId==null){
+    wrap.style.display='none'; empty.style.display='block';
+    return;
+  }
+  wrap.style.display='block'; empty.style.display='none';
+  populateCommoditySelect();
+  const row = rows.find(r=>r.id===selectedId);
+  if(!row) return;
+  sub.textContent = `Planning crew size for: ${row.name}`;
+
+  document.getElementById('mp1').value = row.mp1;
+  document.getElementById('mp1Range').value = row.mp1;
+  document.getElementById('mp2').value = row.mp2;
+  document.getElementById('mp2Range').value = row.mp2;
+  document.getElementById('targetDate').value = row.targetDate || '';
+  document.getElementById('curve1').value = row.curve1 || 'flat';
+  document.getElementById('curve2').value = row.curve2 || 'flat';
+
+  const c = computeRow(row);
+  const f1 = forecast1(row, c, row.mp1);
+  const f2 = forecast2(row, c, row.mp2);
+  drawOutputs('out1', f1);
+  drawOutputs('out2', f2);
+  drawTargetOut(row);
+  drawSensChart(row, c);
+  drawDistribution(1, f1, row.curve1 || 'flat');
+  drawDistribution(2, f2, row.curve2 || 'flat');
+}
+
+function drawOutputs(elId, f){
+  const el = document.getElementById(elId);
+  const tiles = [
+    {l:'Days Remaining', v: fmt2(f.daysRemaining)},
+    {l:'Hours Forecasted', v: fmtInt(f.hoursForecasted)},
+    {l:'UR', v: fmt2(f.ur)},
+    {l:'Qty / Day / Person', v: fmt2(f.qtyPerDayPerPerson)},
+    {l:'Qty / Day (Crew Avg)', v: fmt2(f.qtyPerDay)},
+    {l:'Forecasted PF', v: fmtPF(f.forecastedPF), cls: f.forecastedPF>=1?'good':'bad'},
+    {l:'Forecasted Finish Date', v: fmtDate(f.finishDate), cls:'', hi:true},
+  ];
+  el.innerHTML = tiles.map(t=>`<div class="out-tile ${t.hi?'highlight':''}"><div class="l">${t.l}</div><div class="v ${t.cls||''}">${t.v}</div></div>`).join('');
+}
+
+function drawTargetOut(row){
+  const el = document.getElementById('targetOut');
+  if(!row.targetDate){ el.innerHTML = '<div class="out-tile"><div class="l">Working Days Remaining</div><div class="v">—</div></div>'; return; }
+  const target = new Date(row.targetDate + 'T00:00:00');
+  const days = networkdaysIntl(new Date(), target);
+  el.innerHTML = `<div class="out-tile highlight"><div class="l">Working Days Remaining (6-day wk)</div><div class="v ${days>=0?'good':'bad'}">${fmtInt(days)}</div></div>`;
+}
+
+function drawSensChart(row, c){
+  const manpowerRange = [];
+  for(let m=10; m<=200; m+=10) manpowerRange.push(m);
+  const d1 = manpowerRange.map(m=>forecast1(row, c, m).daysRemaining);
+  const d2 = manpowerRange.map(m=>forecast2(row, c, m).daysRemaining);
+  const f1dates = manpowerRange.map(m=>fmtDate(forecast1(row, c, m).finishDate));
+  const f2dates = manpowerRange.map(m=>fmtDate(forecast2(row, c, m).finishDate));
+
+  const ctx = document.getElementById('sensChart');
+  if(sensChart) sensChart.destroy();
+  sensChart = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels: manpowerRange,
+      datasets:[
+        {label:'Forecast 1 — Current UR', data:d1, borderColor:'#3b9eff', backgroundColor:'#3b9eff', pointRadius:3, pointHoverRadius:5, borderWidth:2, tension:0.15, meta:f1dates},
+        {label:'Forecast 2 — Target PF 1.0', data:d2, borderColor:'#e7a23b', backgroundColor:'#e7a23b', pointRadius:3, pointHoverRadius:5, borderWidth:2, tension:0.15, meta:f2dates, borderDash:[6,3]},
+      ]
+    },
+    options:{
+      responsive:true,
+      interaction:{mode:'index', intersect:false},
+      plugins:{
+        legend:{labels:{color:'#e7eef5'}},
+        tooltip:{
+          callbacks:{
+            label: ctx0 => {
+              const meta = ctx0.dataset.meta[ctx0.dataIndex];
+              return `${ctx0.dataset.label}: ${fmt2(ctx0.parsed.y)} days → finishes ${meta}`;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{title:{display:true,text:'Manpower (crew size)',color:'#8aa0b4'}, ticks:{color:'#8aa0b4'}, grid:{color:'#2a3744'}},
+        y:{title:{display:true,text:'Days Remaining',color:'#8aa0b4'}, ticks:{color:'#8aa0b4'}, grid:{color:'#2a3744'}, beginAtZero:true}
+      }
+    }
+  });
+}
+
+function miniBarOptions(yLabel){
+  return {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false},
+      tooltip:{ callbacks:{ title: items => items[0].label } } },
+    scales:{
+      x:{ ticks:{ color:'#8aa0b4', maxRotation:0, autoSkip:true, autoSkipPadding:14, font:{size:10} }, grid:{ display:false } },
+      y:{ title:{display:true,text:yLabel,color:'#8aa0b4',font:{size:10}}, ticks:{ color:'#8aa0b4', font:{size:10} }, grid:{ color:'#26343f' }, beginAtZero:true }
+    }
+  };
+}
+
+function drawDistribution(which, f, curveType){
+  const dist = buildDistribution(f, curveType);
+  const mpCanvas = document.getElementById('mpChart'+which);
+  const qtyCanvas = document.getElementById('qtyChart'+which);
+  const peakEl = document.getElementById('peak'+which);
+  const color = which===1 ? '#3b9eff' : '#e7a23b';
+
+  let mpC = which===1 ? mpChart1 : mpChart2;
+  let qtyC = which===1 ? qtyChart1 : qtyChart2;
+  if(mpC) mpC.destroy();
+  if(qtyC) qtyC.destroy();
+
+  if(!dist){
+    peakEl.textContent = 'Not enough data yet';
+    if(which===1){ mpChart1=null; qtyChart1=null; } else { mpChart2=null; qtyChart2=null; }
+    return;
+  }
+
+  const labels = dist.dates.map(fmtDateShort);
+  const peakMp = Math.max(...dist.manpowerPerDay);
+  peakEl.innerHTML = `Peak crew: <b>${fmt1(peakMp)}</b> people/day`;
+
+  const newMp = new Chart(mpCanvas, {
+    type:'bar',
+    data:{ labels, datasets:[{ label:'Manpower', data: dist.manpowerPerDay, backgroundColor: color, borderRadius:2, maxBarThickness:18 }] },
+    options: miniBarOptions('People / day')
+  });
+  const newQty = new Chart(qtyCanvas, {
+    type:'bar',
+    data:{ labels, datasets:[{ label:'Qty', data: dist.qtyPerDay, backgroundColor:'#7a5cff', borderRadius:2, maxBarThickness:18 }] },
+    options: miniBarOptions('Qty / day')
+  });
+  if(which===1){ mpChart1=newMp; qtyChart1=newQty; } else { mpChart2=newMp; qtyChart2=newQty; }
+}
+
+/* ---------- wiring ---------- */
+document.getElementById('mp1').addEventListener('input', e=>{
+  const row = rows.find(r=>r.id===selectedId); if(!row) return;
+  row.mp1 = Math.max(1, parseFloat(e.target.value)||1);
+  document.getElementById('mp1Range').value = row.mp1;
+  saveState(); renderScenario();
+});
+document.getElementById('mp1Range').addEventListener('input', e=>{
+  const row = rows.find(r=>r.id===selectedId); if(!row) return;
+  row.mp1 = parseFloat(e.target.value);
+  document.getElementById('mp1').value = row.mp1;
+  saveState(); renderScenario();
+});
+document.getElementById('mp2').addEventListener('input', e=>{
+  const row = rows.find(r=>r.id===selectedId); if(!row) return;
+  row.mp2 = Math.max(1, parseFloat(e.target.value)||1);
+  document.getElementById('mp2Range').value = row.mp2;
+  saveState(); renderScenario();
+});
+document.getElementById('mp2Range').addEventListener('input', e=>{
+  const row = rows.find(r=>r.id===selectedId); if(!row) return;
+  row.mp2 = parseFloat(e.target.value);
+  document.getElementById('mp2').value = row.mp2;
+  saveState(); renderScenario();
+});
+document.getElementById('targetDate').addEventListener('input', e=>{
+  const row = rows.find(r=>r.id===selectedId); if(!row) return;
+  row.targetDate = e.target.value;
+  saveState(); renderScenario();
+});
+document.getElementById('curve1').addEventListener('change', e=>{
+  const row = rows.find(r=>r.id===selectedId); if(!row) return;
+  row.curve1 = e.target.value;
+  saveState(); renderScenario();
+});
+document.getElementById('curve2').addEventListener('change', e=>{
+  const row = rows.find(r=>r.id===selectedId); if(!row) return;
+  row.curve2 = e.target.value;
+  saveState(); renderScenario();
+});
+document.getElementById('commoditySelect').addEventListener('change', e=>{
+  selectedId = Number(e.target.value);
+  renderTable();
+  renderScenario();
+});
+document.getElementById('addRowBtn').addEventListener('click', ()=>{
+  const id = nextId();
+  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, pctComplete:0, mp1:10, mp2:10, targetDate:'', curve1:'flat', curve2:'flat'});
+  selectedId = id;
+  saveState();
+  renderAll();
+});
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  if(!confirm('Reset all commodities back to the single Racking example from the workbook? This clears any rows you added.')) return;
+  rows = JSON.parse(JSON.stringify(DEFAULT_ROWS));
+  selectedId = rows[0].id;
+  saveState();
+  renderAll();
+});
+
+function renderAll(){
+  renderTable();
+  renderKPIs();
+  renderScenario();
+}
+
+document.getElementById('asOf').textContent = `As of ${fmtDate(new Date())} — inputs are saved in this browser automatically`;
+renderAll();
+</script>
+</body>
+</html>
