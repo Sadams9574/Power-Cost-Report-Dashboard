@@ -77,8 +77,6 @@
   }
   td input[type=text]{text-align:left;width:120px;}
   td input[type=date]{width:130px;}
-  .pct-input{display:inline-flex;align-items:center;gap:4px;color:var(--muted);}
-  .pct-input input{width:70px;}
   .rowdel{background:none;border:none;color:var(--bad);cursor:pointer;font-size:16px;padding:0 6px;}
   .addrow-btn, .reset-btn, .theme-toggle{background:var(--card2);border:1px solid var(--border-strong);color:var(--text);padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12.5px;margin-top:12px;margin-right:8px;}
   .theme-toggle{margin-top:0;align-self:flex-start;}
@@ -200,8 +198,8 @@
             <th rowspan="2"></th>
           </tr>
           <tr>
-            <th>Baseline Hrs</th><th>Baseline Qty</th><th>Spent Hrs (JTD)</th><th>% Complete Earned (JTD)</th>
-            <th>Baseline UR</th><th>Earned Hrs</th><th>Earned Qty</th><th>Remaining Earned Hrs</th><th>Remaining Hrs (Budget)</th><th>Remaining Qty</th>
+            <th>Baseline Hrs</th><th>Baseline Qty</th><th>Spent Hrs (JTD)</th><th>Earned Qty (JTD)</th>
+            <th>Baseline UR</th><th>Earned Hrs</th><th>% Complete</th><th>Remaining Earned Hrs</th><th>Remaining Hrs (Budget)</th><th>Remaining Qty</th>
             <th>% Spent Hrs</th><th>JTD PF</th><th>Actual UR</th><th>UR Needed for PF 1.0</th>
           </tr>
         </thead>
@@ -355,8 +353,9 @@ function chartColors(){ return CHART_THEME[currentTheme()]; }
 /* ---------- model: mirrors the workbook's Sheet1 formulas exactly ---------- */
 function computeRow(r){
   const baselineUR = r.baselineQty ? r.baselineHrs / r.baselineQty : NaN;
-  const earnedHrs = r.pctComplete * r.baselineHrs;
-  const earnedQty = r.pctComplete * r.baselineQty;
+  const earnedQty = r.earnedQty || 0;                                    // typed in directly -- % complete is backed into it below
+  const pctComplete = r.baselineQty ? earnedQty / r.baselineQty : 0;
+  const earnedHrs = pctComplete * r.baselineHrs;
   const remainingEarnedHrs = r.baselineHrs - earnedHrs;
   const remainingBudgetHrs = r.baselineHrs - r.spentHrs;   // "Remaining Spent Hours" (J) in the workbook
   const remainingQty = r.baselineQty - earnedQty;
@@ -365,7 +364,7 @@ function computeRow(r){
   const actualUR = earnedQty ? r.spentHrs / earnedQty : NaN;
   const pfNeededRemaining = remainingBudgetHrs ? remainingEarnedHrs / remainingBudgetHrs : NaN; // Q
   const urNeededPF1 = pfNeededRemaining ? baselineUR / pfNeededRemaining : NaN;                  // P
-  return {baselineUR, earnedHrs, earnedQty, remainingEarnedHrs, remainingBudgetHrs, remainingQty, pctSpentHrs, jtdPF, actualUR, pfNeededRemaining, urNeededPF1};
+  return {baselineUR, earnedHrs, earnedQty, pctComplete, remainingEarnedHrs, remainingBudgetHrs, remainingQty, pctSpentHrs, jtdPF, actualUR, pfNeededRemaining, urNeededPF1};
 }
 
 // Forecast 1: at current (actual) unit rate
@@ -475,7 +474,7 @@ function buildDistribution(f, curveType){
 
 /* ---------- state ---------- */
 const DEFAULT_ROWS = [
-  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, pctComplete:0.08, mp1:80, mp2:60, mp3:80, qtyDay3:38.4, targetDate:'2026-11-05', curve1:'scurve', curve2:'scurve', curve3:'scurve', curveM:'scurve', hidden:false, weeklyLog:[], compRate:65}
+  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, earnedQty:240, mp1:80, mp2:60, mp3:80, qtyDay3:38.4, targetDate:'2026-11-05', curve1:'scurve', curve2:'scurve', curve3:'scurve', curveM:'scurve', hidden:false, weeklyLog:[], compRate:65}
 ];
 let rows = loadState();
 let selectedId = rows.length ? rows[0].id : null;
@@ -511,6 +510,7 @@ function loadState(){
           if(!Array.isArray(r.weeklyLog)) r.weeklyLog = [];
           if(r.compRate===undefined) r.compRate = 0;
           if(!r.curveM) r.curveM = 'scurve';
+          if(r.earnedQty===undefined){ r.earnedQty = (r.pctComplete||0) * (r.baselineQty||0); delete r.pctComplete; }
         });
         return parsed;
       }
@@ -535,10 +535,10 @@ function renderTable(){
       <td><input type="number" data-field="baselineHrs" value="${r.baselineHrs}" step="any"></td>
       <td><input type="number" data-field="baselineQty" value="${r.baselineQty}" step="any"></td>
       <td><input type="number" data-field="spentHrs" value="${r.spentHrs}" step="any"></td>
-      <td><span class="pct-input"><input type="number" data-field="pctComplete" value="${(r.pctComplete*100).toFixed(2)}" step="0.1">%</span></td>
+      <td><input type="number" data-field="earnedQty" value="${r.earnedQty}" step="any"></td>
       <td class="calc">${fmt2(c.baselineUR)}</td>
       <td class="calc">${fmtInt(c.earnedHrs)}</td>
-      <td class="calc">${fmtInt(c.earnedQty)}</td>
+      <td class="calc">${fmtPct(c.pctComplete)}</td>
       <td class="calc">${fmtInt(c.remainingEarnedHrs)}</td>
       <td class="calc">${fmtInt(c.remainingBudgetHrs)}</td>
       <td class="calc">${fmtInt(c.remainingQty)}</td>
@@ -574,7 +574,6 @@ function renderTable(){
       const row = rows.find(r=>r.id===id);
       const field = e.target.dataset.field;
       if(field === 'name'){ row.name = e.target.value; }
-      else if(field === 'pctComplete'){ row.pctComplete = (parseFloat(e.target.value)||0)/100; }
       else { row[field] = parseFloat(e.target.value) || 0; }
       saveState();
       renderCalcCellsOnly(tr, row);
@@ -601,7 +600,7 @@ function renderCalcCellsOnly(tr, row){
   const cells = tr.querySelectorAll('td.calc');
   cells[0].textContent = fmt2(c.baselineUR);
   cells[1].textContent = fmtInt(c.earnedHrs);
-  cells[2].textContent = fmtInt(c.earnedQty);
+  cells[2].textContent = fmtPct(c.pctComplete);
   cells[3].textContent = fmtInt(c.remainingEarnedHrs);
   cells[4].textContent = fmtInt(c.remainingBudgetHrs);
   cells[5].textContent = fmtInt(c.remainingQty);
@@ -634,7 +633,7 @@ function blockMetaHTML(row){
   }
   return `
     <span>JTD PF <b class="${metaCls}">${fmtPF(c.jtdPF)}</b></span>
-    <span>% Complete <b>${fmtPct(row.pctComplete)}</b></span>
+    <span>% Complete <b>${fmtPct(c.pctComplete)}</b></span>
     <span>Remaining Qty <b>${fmtInt(c.remainingQty)}</b></span>
     <span>Target Finish Date <input type="date" class="meta-date" id="targetDateTop_${row.id}" value="${row.targetDate||''}"></span>
     <span>Working Days Remaining <b id="daysRemainingTop_${row.id}" class="${daysCls}">${daysText}</b></span>
@@ -1499,7 +1498,7 @@ document.getElementById('collapseAllBtn').addEventListener('click', ()=>{
 });
 document.getElementById('addRowBtn').addEventListener('click', ()=>{
   const id = nextId();
-  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, pctComplete:0, mp1:10, mp2:10, mp3:10, qtyDay3:10, targetDate:'', curve1:'scurve', curve2:'scurve', curve3:'scurve', curveM:'scurve', hidden:false, weeklyLog:[], compRate:0});
+  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, earnedQty:0, mp1:10, mp2:10, mp3:10, qtyDay3:10, targetDate:'', curve1:'scurve', curve2:'scurve', curve3:'scurve', curveM:'scurve', hidden:false, weeklyLog:[], compRate:0});
   selectedId = id;
   saveState();
   renderAll();
