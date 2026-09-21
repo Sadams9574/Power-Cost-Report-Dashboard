@@ -83,8 +83,10 @@
   .theme-toggle:hover{border-color:var(--accent);}
   .addrow-btn:hover, .reset-btn:hover{border-color:var(--accent);}
   .scenario-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
-  @media(max-width:1500px){.scenario-grid{grid-template-columns:1fr 1fr;}}
-  @media(max-width:800px){.scenario-grid{grid-template-columns:1fr;}}
+  /* At 2 columns, Forecast 3 would otherwise land alone in row 2 next to an empty gap --
+     easy to miss/scroll past. Spanning it full-width instead makes it obviously still there. */
+  @media(max-width:1500px){.scenario-grid{grid-template-columns:1fr 1fr;} .scenario-grid > .scenario-card:nth-child(3){grid-column:1/-1;}}
+  @media(max-width:800px){.scenario-grid{grid-template-columns:1fr;} .scenario-grid > .scenario-card:nth-child(3){grid-column:auto;}}
   .scenario-card{background:var(--card2);border-radius:8px;padding:16px;}
   .manpower-row.split{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:16px;}
   .manpower-row.split .field{display:flex;align-items:center;gap:12px;}
