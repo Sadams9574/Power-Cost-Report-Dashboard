@@ -50,12 +50,12 @@
   /* "Medium" -- a dim slate-gray theme, halfway between the near-black dark theme and the
      white light theme, for a middle-ground option that's easier on the eyes than either extreme. */
   :root[data-theme="medium"]{
-    --bg:#3a4149;--card:#454d57;--card2:#4c5560;--card3:#424a54;
-    --accent:#5cabff;--accent2:#f2b544;--f3:#6fcf5a;--qty:#ac8bfa;
-    --good:#4ddb85;--bad:#ff7a70;--muted:#b7c1cb;--text:#f2f4f6;
-    --input-border:#5cabff;--input-bg:#383f48;
-    --border:#565f69;--border-strong:#6c7581;--hover:#4f5761;--selected:#3d4f5f;
-    --chart-grid:#565f69;--chart-grid-mini:#4c5560;
+    --bg:#565f6a;--card:#646d78;--card2:#6d7682;--card3:#5e6773;
+    --accent:#4da3ff;--accent2:#f2b544;--f3:#72d65c;--qty:#b49bfb;
+    --good:#4ddb85;--bad:#ff8a80;--muted:#cbd4dd;--text:#f9fafc;
+    --input-border:#4da3ff;--input-bg:#4d5864;
+    --border:#7d8794;--border-strong:#95a0ac;--hover:#5f6874;--selected:#4c6072;
+    --chart-grid:#7d8794;--chart-grid-mini:#6d7682;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
@@ -367,7 +367,7 @@ function escapeHtml(s){
 const CHART_THEME = {
   dark:   { tick:'#8aa0b4', grid:'#2a3744', miniGrid:'#26343f', legendText:'#e7eef5', accent:'#3b9eff', accent2:'#e7a23b', f3:'#4ea72e', qty:'#7a5cff' },
   light:  { tick:'#5b6b7a', grid:'#dbe2e9', miniGrid:'#e4e9ee', legendText:'#16212c', accent:'#2563eb', accent2:'#b45309', f3:'#15803d', qty:'#7c3aed' },
-  medium: { tick:'#b7c1cb', grid:'#565f69', miniGrid:'#4c5560', legendText:'#f2f4f6', accent:'#5cabff', accent2:'#f2b544', f3:'#6fcf5a', qty:'#ac8bfa' },
+  medium: { tick:'#cbd4dd', grid:'#7d8794', miniGrid:'#6d7682', legendText:'#f9fafc', accent:'#4da3ff', accent2:'#f2b544', f3:'#72d65c', qty:'#b49bfb' },
 };
 function currentTheme(){
   const t = document.documentElement.getAttribute('data-theme');
