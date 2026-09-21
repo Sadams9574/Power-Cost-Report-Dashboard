@@ -128,6 +128,19 @@
   .qa-btn .qa-date{color:var(--muted);font-size:11px;margin-left:4px;}
   .qa-btn.added .qa-date{color:rgba(255,255,255,0.85);}
   .qa-btn.qa-week{font-weight:600;}
+  .tab-bar{display:flex;gap:6px;padding:16px 28px 0;}
+  .tab-btn{background:var(--card2);border:1px solid var(--border-strong);border-bottom:none;color:var(--muted);padding:10px 18px;border-radius:8px 8px 0 0;cursor:pointer;font-size:13px;font-weight:600;position:relative;top:1px;}
+  .tab-btn.active{background:var(--card);color:var(--text);}
+  .tab-btn:hover{color:var(--text);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+  table.week-grid{table-layout:fixed;}
+  .week-grid .week-label{min-width:150px;width:150px;white-space:normal;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+  .week-grid th.week-col{padding:8px 6px;}
+  .week-grid td.week-col, .week-grid th.week-col{width:100px;min-width:100px;text-align:center;}
+  .week-grid th.week-col input[type=date]{width:96px;font-size:11px;padding:4px;text-align:center;}
+  .week-grid td.week-col input[type=number]{width:76px;text-align:center;}
+  .week-grid th.week-col .rowdel{display:block;margin:4px auto 0;}
 </style>
 </head>
 <body>
@@ -185,20 +198,36 @@
     <div id="holidayList" style="margin-top:8px;"></div>
   </div>
 
-  <div class="panel">
-    <div class="blocks-toolbar">
-      <div>
-        <h2>Scenario Planner</h2>
-        <p class="panel-sub" style="margin:4px 0 0;">For project controls to sit down and run different scenarios. Forecast 1, 2 and 3 for every commodity, stacked so you can compare them. Hide any you don't need right now — they stay in your data, just out of the way.</p>
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="planner">Scenario Planner</button>
+    <button class="tab-btn" data-tab="manual">Manual Forecast (Weekly)</button>
+  </div>
+
+  <div class="tab-panel active" id="tab-planner">
+    <div class="panel" style="margin-top:0;border-radius:0 8px 8px 8px;">
+      <div class="blocks-toolbar">
+        <div>
+          <h2>Scenario Planner</h2>
+          <p class="panel-sub" style="margin:4px 0 0;">For project controls to sit down and run different scenarios. Forecast 1, 2 and 3 for every commodity, stacked so you can compare them. Hide any you don't need right now — they stay in your data, just out of the way.</p>
+        </div>
+        <div class="btns">
+          <span class="count" id="blocksCount"></span>
+          <button id="expandAllBtn">Show All</button>
+          <button id="collapseAllBtn">Hide All</button>
+        </div>
       </div>
-      <div class="btns">
-        <span class="count" id="blocksCount"></span>
-        <button id="expandAllBtn">Show All</button>
-        <button id="collapseAllBtn">Hide All</button>
-      </div>
+      <div id="commodityBlocks"></div>
+      <div class="empty-msg" id="emptyMsg" style="display:none;">No commodities yet — add one above.</div>
     </div>
-    <div id="commodityBlocks"></div>
-    <div class="empty-msg" id="emptyMsg" style="display:none;">No commodities yet — add one above.</div>
+  </div>
+
+  <div class="tab-panel" id="tab-manual">
+    <div class="panel" style="margin-top:0;border-radius:0 8px 8px 8px;">
+      <h2>Manual Forecast — Weekly Manpower &amp; Qty</h2>
+      <p class="panel-sub">For the superintendent: type in the crew size and the quantity installed for each week, left to right, for every commodity above. The unit rate (UR) that pace actually took is backed into it — (Manpower × 60 hrs) ÷ Qty — and the finish date is projected from your most recent weeks.</p>
+      <div id="manualBlocks"></div>
+      <div class="empty-msg" id="manualEmptyMsg" style="display:none;">No commodities yet — add one above.</div>
+    </div>
   </div>
 
 </div>
@@ -372,7 +401,7 @@ function buildDistribution(f, curveType){
 
 /* ---------- state ---------- */
 const DEFAULT_ROWS = [
-  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, pctComplete:0.08, mp1:80, mp2:60, mp3:80, qtyDay3:38.4, targetDate:'2026-11-05', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false}
+  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, pctComplete:0.08, mp1:80, mp2:60, mp3:80, qtyDay3:38.4, targetDate:'2026-11-05', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false, weeklyLog:[]}
 ];
 let rows = loadState();
 let selectedId = rows.length ? rows[0].id : null;
@@ -405,6 +434,7 @@ function loadState(){
           if(!r.mp3) r.mp3 = r.mp1 || 10;
           if(!r.qtyDay3) r.qtyDay3 = 10;
           if(r.hidden===undefined) r.hidden = false;
+          if(!Array.isArray(r.weeklyLog)) r.weeklyLog = [];
         });
         return parsed;
       }
@@ -474,6 +504,7 @@ function renderTable(){
       renderCalcCellsOnly(tr, row);
       renderBlockHeaderMeta(row);
       renderCommodityScenario(row);
+      renderOneManualBlock(row);
     });
   });
   tbody.querySelectorAll('.rowdel').forEach(btn=>{
@@ -820,6 +851,185 @@ function drawDistribution(which, f, curveType, id){
   });
 }
 
+/* ---------- manual forecast: weekly manpower + qty logged by the superintendent, backed into UR ---------- */
+function nextWeeklyEntryId(row){
+  return (row.weeklyLog||[]).reduce((m,e)=>Math.max(m,e.id),0) + 1;
+}
+function computeManualStats(row){
+  const sorted = [...(row.weeklyLog||[])].sort((a,b)=> a.date.localeCompare(b.date));
+  let running = 0;
+  const cumById = {};
+  sorted.forEach(e=>{ running += (e.qty||0); cumById[e.id] = running; });
+  const cumulativeTotal = running;
+  const remainingQty = (row.baselineQty||0) - cumulativeTotal;
+  const n = sorted.length;
+  const lastDate = n ? new Date(sorted[n-1].date + 'T00:00:00') : null;
+  const last4 = sorted.slice(-4);
+  const sum4Qty = last4.reduce((s,e)=>s+(e.qty||0), 0);
+  const sum4Hrs = last4.reduce((s,e)=>s+((e.manpower||0)*60), 0);
+  const trailingAvgManpower = last4.length ? last4.reduce((s,e)=>s+(e.manpower||0),0)/last4.length : NaN;
+  const trailingAvgQty = last4.length ? sum4Qty/last4.length : NaN;
+  const trailingAvgUR = sum4Qty>0 ? sum4Hrs/sum4Qty : NaN;
+  const weeksRemaining = trailingAvgQty>0 ? remainingQty/trailingAvgQty : NaN;
+  let projectedFinish = null;
+  if(lastDate && isFinite(weeksRemaining)){
+    projectedFinish = new Date(lastDate);
+    projectedFinish.setDate(projectedFinish.getDate() + Math.ceil(Math.max(weeksRemaining,0))*7);
+  }
+  return {sorted, cumById, cumulativeTotal, remainingQty, n, trailingAvgManpower, trailingAvgQty, trailingAvgUR, weeksRemaining, projectedFinish, lastDate};
+}
+
+function manualMetaHTML(row, s){
+  return `
+    <span>Weeks Logged <b>${fmtInt(s.n)}</b></span>
+    <span>Cumulative Qty <b>${fmtInt(s.cumulativeTotal)}</b> / ${fmtInt(row.baselineQty)}</span>
+    <span>Remaining Qty <b>${fmtInt(s.remainingQty)}</b></span>
+  `;
+}
+
+function manualSummaryHTML(s){
+  const tiles = [
+    {l:'Weeks Logged', v: fmtInt(s.n)},
+    {l:'Trailing 4-Wk Avg Manpower', v: fmt1(s.trailingAvgManpower)},
+    {l:'Trailing 4-Wk Avg Qty / Week', v: fmt1(s.trailingAvgQty)},
+    {l:'UR Established (hrs/unit)', v: fmt2(s.trailingAvgUR), em:true},
+    {l:'Projected Weeks Remaining', v: fmt1(s.weeksRemaining)},
+    {l:'Forecasted Finish Date', v: fmtDate(s.projectedFinish), hi:true},
+  ];
+  return tiles.map(t=>`<div class="out-tile ${t.hi?'highlight':''} ${t.em?'emphasize':''}"><div class="l">${t.l}</div><div class="v">${t.v}</div></div>`).join('');
+}
+
+function manualWeekGridHTML(row, s){
+  if(!s.sorted.length){
+    return '<div class="empty-msg" style="padding:16px 0;">No weeks logged yet — click "+ Add Week" to start.</div>';
+  }
+  const headCols = s.sorted.map(e=>`
+    <th class="week-col">
+      <input type="date" data-entry="${e.id}" value="${e.date}">
+      <button class="rowdel" data-entry="${e.id}" title="Delete week">✕</button>
+    </th>`).join('');
+  const mpCols = s.sorted.map(e=>`<td class="week-col"><input type="number" min="0" step="1" data-entry="${e.id}" data-field="manpower" value="${e.manpower}"></td>`).join('');
+  const qtyCols = s.sorted.map(e=>`<td class="week-col"><input type="number" min="0" step="any" data-entry="${e.id}" data-field="qty" value="${e.qty}"></td>`).join('');
+  const urCols = s.sorted.map(e=>{
+    const ur = e.qty>0 ? (e.manpower||0)*60/e.qty : NaN;
+    return `<td class="week-col calc" id="weekUR_${e.id}">${fmt2(ur)}</td>`;
+  }).join('');
+  const cumCols = s.sorted.map(e=>`<td class="week-col calc" id="weekCum_${e.id}">${fmtInt(s.cumById[e.id])}</td>`).join('');
+  const pctCols = s.sorted.map(e=>{
+    const pct = row.baselineQty>0 ? s.cumById[e.id]/row.baselineQty : NaN;
+    return `<td class="week-col calc" id="weekPct_${e.id}">${fmtPct(pct)}</td>`;
+  }).join('');
+  return `
+    <table class="week-grid" id="weekGrid_${row.id}">
+      <thead><tr><th class="week-label">Week Ending</th>${headCols}</tr></thead>
+      <tbody>
+        <tr><td class="week-label">Manpower</td>${mpCols}</tr>
+        <tr><td class="week-label">Qty Installed</td>${qtyCols}</tr>
+        <tr><td class="week-label">UR (hrs / unit)</td>${urCols}</tr>
+        <tr><td class="week-label">Cumulative Qty</td>${cumCols}</tr>
+        <tr><td class="week-label">% Complete</td>${pctCols}</tr>
+      </tbody>
+    </table>`;
+}
+
+function manualBlockHTML(row){
+  const s = computeManualStats(row);
+  return `
+  <div class="commodity-block" id="mblock-${row.id}" data-id="${row.id}">
+    <div class="block-header">
+      <div>
+        <h2>${escapeHtml(row.name)}</h2>
+        <div class="block-meta">${manualMetaHTML(row, s)}</div>
+      </div>
+    </div>
+    <div class="block-body">
+      <div class="outputs" id="manualSummary_${row.id}">${manualSummaryHTML(s)}</div>
+      <div class="table-wrap" style="margin-top:16px;overflow-x:auto;" id="weekGridWrap_${row.id}">${manualWeekGridHTML(row, s)}</div>
+      <button class="addrow-btn" data-addweek="${row.id}" style="margin-top:12px;">+ Add Week</button>
+    </div>
+  </div>`;
+}
+
+function refreshManualCalcs(row){
+  const s = computeManualStats(row);
+  const metaEl = document.querySelector(`#mblock-${row.id} .block-meta`);
+  if(metaEl) metaEl.innerHTML = manualMetaHTML(row, s);
+  const summaryEl = document.getElementById(`manualSummary_${row.id}`);
+  if(summaryEl) summaryEl.innerHTML = manualSummaryHTML(s);
+  s.sorted.forEach(e=>{
+    const ur = e.qty>0 ? (e.manpower||0)*60/e.qty : NaN;
+    const urEl = document.getElementById(`weekUR_${e.id}`);
+    if(urEl) urEl.textContent = fmt2(ur);
+    const cumEl = document.getElementById(`weekCum_${e.id}`);
+    if(cumEl) cumEl.textContent = fmtInt(s.cumById[e.id]);
+    const pctEl = document.getElementById(`weekPct_${e.id}`);
+    if(pctEl){ const pct = row.baselineQty>0 ? s.cumById[e.id]/row.baselineQty : NaN; pctEl.textContent = fmtPct(pct); }
+  });
+}
+
+function wireManualBlock(row){
+  const id = row.id;
+  const addBtn = document.querySelector(`#mblock-${id} [data-addweek="${id}"]`);
+  if(addBtn){
+    addBtn.addEventListener('click', ()=>{
+      const sorted = [...(row.weeklyLog||[])].sort((a,b)=> a.date.localeCompare(b.date));
+      let nextDate;
+      if(sorted.length){
+        const d = new Date(sorted[sorted.length-1].date + 'T00:00:00');
+        d.setDate(d.getDate()+7);
+        nextDate = isoDate(d);
+      } else {
+        nextDate = isoDate(new Date());
+      }
+      row.weeklyLog.push({id: nextWeeklyEntryId(row), date: nextDate, manpower:0, qty:0});
+      saveState();
+      renderOneManualBlock(row);
+    });
+  }
+  const wrap = document.getElementById(`weekGridWrap_${id}`);
+  if(!wrap) return;
+  wrap.querySelectorAll('input[data-entry]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const eid = Number(e.target.dataset.entry);
+      const entry = row.weeklyLog.find(x=>x.id===eid);
+      if(!entry) return;
+      if(e.target.type === 'date'){ entry.date = e.target.value; saveState(); renderOneManualBlock(row); return; }
+      const field = e.target.dataset.field;
+      entry[field] = parseFloat(e.target.value) || 0;
+      saveState();
+      refreshManualCalcs(row);
+    });
+  });
+  wrap.querySelectorAll('.rowdel[data-entry]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const eid = Number(btn.dataset.entry);
+      row.weeklyLog = row.weeklyLog.filter(x=>x.id!==eid);
+      saveState();
+      renderOneManualBlock(row);
+    });
+  });
+}
+
+function renderOneManualBlock(row){
+  const el = document.getElementById('mblock-'+row.id);
+  if(el){ el.outerHTML = manualBlockHTML(row); }
+  wireManualBlock(row);
+}
+
+function renderManualTab(){
+  const container = document.getElementById('manualBlocks');
+  const empty = document.getElementById('manualEmptyMsg');
+  if(!container) return;
+  if(!rows.length){
+    container.innerHTML = '';
+    if(empty) empty.style.display = 'block';
+    return;
+  }
+  if(empty) empty.style.display = 'none';
+  container.innerHTML = rows.map(manualBlockHTML).join('');
+  rows.forEach(wireManualBlock);
+}
+
 /* ---------- holidays: standard-holiday quick-add ---------- */
 function nextHolidayId(){ return holidays.reduce((m,h)=>Math.max(m,h.id),0) + 1; }
 function isoDate(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -975,7 +1185,7 @@ document.getElementById('collapseAllBtn').addEventListener('click', ()=>{
 });
 document.getElementById('addRowBtn').addEventListener('click', ()=>{
   const id = nextId();
-  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, pctComplete:0, mp1:10, mp2:10, mp3:10, qtyDay3:10, targetDate:'', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false});
+  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, pctComplete:0, mp1:10, mp2:10, mp3:10, qtyDay3:10, targetDate:'', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false, weeklyLog:[]});
   selectedId = id;
   saveState();
   renderAll();
@@ -994,6 +1204,7 @@ function renderAll(){
   renderHolidays();
   renderHolidayQuickAdd();
   renderCommodityBlocks();
+  renderManualTab();
 }
 
 function applyThemeButtonLabel(){
