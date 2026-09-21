@@ -113,6 +113,7 @@
   .block-meta b.good{color:var(--good);}
   .block-meta b.bad{color:var(--bad);}
   .meta-date{background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);padding:3px 6px;border-radius:5px;font-size:11.5px;}
+  .meta-num{background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);padding:3px 6px;border-radius:5px;font-size:11.5px;width:74px;}
   .hide-toggle{background:var(--card2);border:1px solid var(--border-strong);color:var(--text);padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;}
   .hide-toggle:hover{border-color:var(--accent);}
   .block-body{margin-top:16px;}
@@ -303,6 +304,7 @@ const fmt2 = n => (isFinite(n) ? n.toLocaleString('en-US',{minimumFractionDigits
 const fmt1 = n => (isFinite(n) ? n.toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1}) : '—');
 const fmtPct = n => (isFinite(n) ? (n*100).toFixed(1)+'%' : '—');
 const fmtPF = n => (isFinite(n) ? n.toFixed(2) : '—');
+const fmtMoney = n => (isFinite(n) ? '$'+Math.round(Math.abs(n)).toLocaleString('en-US') : '—');
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -401,7 +403,7 @@ function buildDistribution(f, curveType){
 
 /* ---------- state ---------- */
 const DEFAULT_ROWS = [
-  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, pctComplete:0.08, mp1:80, mp2:60, mp3:80, qtyDay3:38.4, targetDate:'2026-11-05', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false, weeklyLog:[]}
+  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, pctComplete:0.08, mp1:80, mp2:60, mp3:80, qtyDay3:38.4, targetDate:'2026-11-05', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false, weeklyLog:[], compRate:65}
 ];
 let rows = loadState();
 let selectedId = rows.length ? rows[0].id : null;
@@ -435,6 +437,7 @@ function loadState(){
           if(!r.qtyDay3) r.qtyDay3 = 10;
           if(r.hidden===undefined) r.hidden = false;
           if(!Array.isArray(r.weeklyLog)) r.weeklyLog = [];
+          if(r.compRate===undefined) r.compRate = 0;
         });
         return parsed;
       }
@@ -560,6 +563,7 @@ function blockMetaHTML(row){
     <span>Remaining Qty <b>${fmtInt(c.remainingQty)}</b></span>
     <span>Target Finish Date <input type="date" class="meta-date" id="targetDateTop_${row.id}" value="${row.targetDate||''}"></span>
     <span>Working Days Remaining <b id="daysRemainingTop_${row.id}" class="${daysCls}">${daysText}</b></span>
+    <span>Comp Rate ($/hr) <input type="number" class="meta-num" id="compRateTop_${row.id}" min="0" step="0.01" value="${row.compRate||0}"></span>
   `;
 }
 
@@ -580,6 +584,14 @@ function wireBlockHeaderMeta(row){
       row.targetDate = e.target.value;
       saveState();
       updateWorkingDaysBadge(row);
+    });
+  }
+  const rateEl = document.getElementById(`compRateTop_${row.id}`);
+  if(rateEl){
+    rateEl.addEventListener('input', e=>{
+      row.compRate = parseFloat(e.target.value) || 0;
+      saveState();
+      renderCommodityScenario(row);
     });
   }
 }
@@ -781,9 +793,10 @@ function renderCommodityScenario(row){
   const f1 = forecast1(row, c, row.mp1);
   const f2 = forecast2(row, c, row.mp2);
   const f3 = forecast3(row, c, row.mp3, row.qtyDay3);
-  drawOutputs(`out1_${id}`, f1);
-  drawOutputs(`out2_${id}`, f2);
-  drawOutputs(`out3_${id}`, f3, {highlightUR:true});
+  const costOpts = {remainingBudgetHrs: c.remainingBudgetHrs, compRate: row.compRate||0};
+  drawOutputs(`out1_${id}`, f1, costOpts);
+  drawOutputs(`out2_${id}`, f2, costOpts);
+  drawOutputs(`out3_${id}`, f3, {...costOpts, highlightUR:true});
   drawDistribution(1, f1, row.curve1 || 'scurve', id);
   drawDistribution(2, f2, row.curve2 || 'scurve', id);
   drawDistribution(3, f3, row.curve3 || 'scurve', id);
@@ -802,6 +815,16 @@ function drawOutputs(elId, f, opts){
     {l:'Forecasted PF', v: fmtPF(f.forecastedPF), cls: f.forecastedPF>=1?'good':'bad'},
     {l:'Forecasted Finish Date', v: fmtDate(f.finishDate), cls:'', hi:true},
   ];
+  if(isFinite(f.hoursForecasted) && isFinite(opts.remainingBudgetHrs)){
+    const overageHrs = f.hoursForecasted - opts.remainingBudgetHrs;
+    const hrsLabel = overageHrs > 0 ? 'Hours Over Budget' : overageHrs < 0 ? 'Hours Under Budget' : 'Hours On Budget';
+    const hrsCls = overageHrs > 0 ? 'bad' : overageHrs < 0 ? 'good' : '';
+    tiles.push({l: hrsLabel, v: fmtInt(Math.abs(overageHrs)), cls: hrsCls});
+    const cost = overageHrs * (opts.compRate||0);
+    const costLabel = cost > 0 ? 'Cost Overage' : cost < 0 ? 'Cost Savings' : 'Cost Impact';
+    const costCls = cost > 0 ? 'bad' : cost < 0 ? 'good' : '';
+    tiles.push({l: costLabel, v: fmtMoney(cost), cls: costCls});
+  }
   el.innerHTML = tiles.map(t=>`<div class="out-tile ${t.hi?'highlight':''} ${t.em?'emphasize':''}"><div class="l">${t.l}</div><div class="v ${t.cls||''}">${t.v}</div></div>`).join('');
 }
 
@@ -1217,7 +1240,7 @@ document.getElementById('collapseAllBtn').addEventListener('click', ()=>{
 });
 document.getElementById('addRowBtn').addEventListener('click', ()=>{
   const id = nextId();
-  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, pctComplete:0, mp1:10, mp2:10, mp3:10, qtyDay3:10, targetDate:'', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false, weeklyLog:[]});
+  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, pctComplete:0, mp1:10, mp2:10, mp3:10, qtyDay3:10, targetDate:'', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false, weeklyLog:[], compRate:0});
   selectedId = id;
   saveState();
   renderAll();
