@@ -448,29 +448,21 @@ function buildDistribution(f, curveType){
   if(rawN > MAX_CHART_DAYS) return {tooLong: true};
   const n = rawN;
   const weights = curveWeights(n, curveType);
-  const hrsPerWorkday = weights.map(w => (f.hoursForecasted/n) * w);
+  const hrsPerDay = weights.map(w => (f.hoursForecasted/n) * w);
 
-  // Walk every CALENDAR day, not just the n workdays the hours are spread across, so a
-  // Sunday or holiday shows up on the chart as an explicit zero day instead of being
-  // silently skipped -- otherwise the bars butt up against each other and the schedule
-  // looks continuous even when the crew is actually off that day.
+  // Walk only the n workdays the hours are actually spread across -- bars sit right next
+  // to each other with no gap for a skipped Sunday/holiday. (Capped at MAX_CHART_DAYS
+  // workdays already, so this can't run away even across a long holiday stretch.)
   const today = new Date();
   let d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const dates = [];
-  const hrsPerDay = [];
-  let workdayCount = 0;
-  while(workdayCount < n){
+  let count = 0;
+  while(count < n){
     d.setDate(d.getDate() + 1);
-    dates.push(new Date(d));
-    if(isWorkday(d)){
-      hrsPerDay.push(hrsPerWorkday[workdayCount]);
-      workdayCount++;
-    } else {
-      hrsPerDay.push(0);
-    }
+    if(isWorkday(d)){ dates.push(new Date(d)); count++; }
   }
-  const manpowerPerDay = hrsPerDay.map(h => h>0 ? Math.ceil(h/10) : 0); // whole people, rounded up
-  const qtyPerDay = hrsPerDay.map(h => (h>0 && f.ur) ? h/f.ur : 0);
+  const manpowerPerDay = hrsPerDay.map(h => Math.ceil(h/10)); // whole people, rounded up
+  const qtyPerDay = hrsPerDay.map(h => f.ur ? h/f.ur : NaN);
   return {dates, manpowerPerDay, qtyPerDay};
 }
 
