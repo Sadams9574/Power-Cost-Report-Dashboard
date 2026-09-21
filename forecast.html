@@ -793,7 +793,7 @@ function renderCommodityScenario(row){
   const f1 = forecast1(row, c, row.mp1);
   const f2 = forecast2(row, c, row.mp2);
   const f3 = forecast3(row, c, row.mp3, row.qtyDay3);
-  const costOpts = {remainingBudgetHrs: c.remainingBudgetHrs, compRate: row.compRate||0};
+  const costOpts = {remainingBudgetHrs: c.remainingBudgetHrs, compRate: row.compRate||0, targetDate: row.targetDate};
   drawOutputs(`out1_${id}`, f1, costOpts);
   drawOutputs(`out2_${id}`, f2, costOpts);
   drawOutputs(`out3_${id}`, f3, {...costOpts, highlightUR:true});
@@ -815,6 +815,18 @@ function drawOutputs(elId, f, opts){
     {l:'Forecasted PF', v: fmtPF(f.forecastedPF), cls: f.forecastedPF>=1?'good':'bad'},
     {l:'Forecasted Finish Date', v: fmtDate(f.finishDate), cls:'', hi:true},
   ];
+  if(opts.targetDate){
+    const target = new Date(opts.targetDate + 'T00:00:00');
+    tiles.push({l:'Target Finish Date', v: fmtDate(target)});
+    if(f.finishDate && !isNaN(f.finishDate)){
+      const diffDays = Math.round((target.getTime() - f.finishDate.getTime()) / 86400000);
+      const deltaLabel = diffDays > 0 ? 'Ahead of Target' : diffDays < 0 ? 'Behind Target' : 'On Target';
+      const deltaCls = diffDays > 0 ? 'good' : diffDays < 0 ? 'bad' : '';
+      tiles.push({l: deltaLabel, v: diffDays===0 ? 'On Target' : fmtInt(Math.abs(diffDays)) + ' Days', cls: deltaCls});
+    } else {
+      tiles.push({l:'Vs. Target', v:'—'});
+    }
+  }
   if(isFinite(f.hoursForecasted) && isFinite(opts.remainingBudgetHrs)){
     const overageHrs = f.hoursForecasted - opts.remainingBudgetHrs;
     const hrsLabel = overageHrs > 0 ? 'Hours Over Budget' : overageHrs < 0 ? 'Hours Under Budget' : 'Hours On Budget';
