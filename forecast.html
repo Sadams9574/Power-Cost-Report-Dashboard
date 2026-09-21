@@ -87,6 +87,7 @@
   .out-tile .v.good{color:var(--good);}
   .out-tile .v.bad{color:var(--bad);}
   .out-tile.highlight{border:1px solid var(--accent);grid-column:1/-1;}
+  .out-tile.emphasize{border:1px solid var(--accent);}
   select.curve-select{background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);padding:6px 8px;border-radius:5px;font-size:12px;}
   .chart-wrap{margin-top:6px;}
   .empty-msg{color:var(--muted);font-size:13px;padding:20px;text-align:center;}
@@ -115,12 +116,24 @@
   .hide-toggle{background:var(--card2);border:1px solid var(--border-strong);color:var(--text);padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;}
   .hide-toggle:hover{border-color:var(--accent);}
   .block-body{margin-top:16px;}
-  .rollup-fc{margin-bottom:26px;}
-  .rollup-fc:last-child{margin-bottom:0;}
-  .rollup-fc h3{font-size:14px;margin:0 0 10px;}
-  .rollup-empty{color:var(--muted);font-size:12px;padding:10px 0;}
   .holiday-chip{display:inline-flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border-strong);border-radius:14px;padding:5px 10px 5px 12px;font-size:12px;margin:0 8px 8px 0;}
   .holiday-del{background:none;border:none;color:var(--bad);cursor:pointer;font-size:13px;padding:0;line-height:1;}
+  .qa-year-row{margin-bottom:14px;}
+  .qa-year-row:last-child{margin-bottom:0;}
+  .qa-year-label{font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px;}
+  .qa-btns{display:flex;flex-wrap:wrap;gap:8px;}
+  .qa-btn{background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);padding:6px 10px;border-radius:14px;font-size:12px;cursor:pointer;white-space:nowrap;}
+  .qa-btn:hover{border-color:var(--accent);}
+  .qa-btn.added{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .qa-btn .qa-date{color:var(--muted);font-size:11px;margin-left:4px;}
+  .qa-btn.added .qa-date{color:rgba(255,255,255,0.85);}
+  .qa-btn.qa-week{font-weight:600;}
+  .tab-bar{display:flex;gap:6px;padding:16px 28px 0;}
+  .tab-btn{background:var(--card2);border:1px solid var(--border-strong);border-bottom:none;color:var(--muted);padding:10px 18px;border-radius:8px 8px 0 0;cursor:pointer;font-size:13px;font-weight:600;position:relative;top:1px;}
+  .tab-btn.active{background:var(--card);color:var(--text);}
+  .tab-btn:hover{color:var(--text);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
 </style>
 </head>
 <body>
@@ -166,68 +179,47 @@
 
   <div class="panel">
     <h2>Holidays &amp; Non-Work Days</h2>
-    <p class="panel-sub">Every date you add here is skipped in every finish-date and working-days calculation below, the same way Sundays already are — no need to touch each commodity.</p>
-    <div class="manpower-row" style="flex-wrap:wrap;">
-      <label>Date</label>
+    <p class="panel-sub">Every date here is skipped in every finish-date and working-days calculation below, the same way Sundays already are. Click a button to add it — no typing needed — or add a custom date at the bottom.</p>
+    <div id="holidayQuickAdd"></div>
+    <div class="manpower-row" style="flex-wrap:wrap;margin-top:16px;">
+      <label>Custom date</label>
       <input type="date" id="newHolidayDate">
       <label>Label (optional)</label>
-      <input type="text" id="newHolidayLabel" placeholder="e.g. Thanksgiving" style="width:180px;background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);padding:7px 8px;border-radius:5px;font-size:13px;">
+      <input type="text" id="newHolidayLabel" placeholder="e.g. Company shutdown" style="width:180px;background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);padding:7px 8px;border-radius:5px;font-size:13px;">
       <button class="addrow-btn" id="addHolidayBtn" style="margin:0;">+ Add Holiday</button>
     </div>
     <div id="holidayList" style="margin-top:8px;"></div>
   </div>
 
-  <div class="panel">
-    <div class="blocks-toolbar">
-      <div>
-        <h2>Scenario Planner</h2>
-        <p class="panel-sub" style="margin:4px 0 0;">Forecast 1, 2 and 3 for every commodity, stacked so you can compare them. Hide any you don't need right now — they stay in your data, just out of the way.</p>
-      </div>
-      <div class="btns">
-        <span class="count" id="blocksCount"></span>
-        <button id="expandAllBtn">Show All</button>
-        <button id="collapseAllBtn">Hide All</button>
-      </div>
-    </div>
-    <div id="commodityBlocks"></div>
-    <div class="empty-msg" id="emptyMsg" style="display:none;">No commodities yet — add one above.</div>
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="planner">Scenario Planner</button>
+    <button class="tab-btn" data-tab="manual">Manual Forecast (Weekly)</button>
   </div>
 
-  <div class="panel" id="rollupPanel">
-    <div class="blocks-toolbar">
-      <div>
-        <h2>Portfolio Rollup — All Commodities Combined</h2>
-        <p class="panel-sub" style="margin:4px 0 0;">Daily and cumulative quantity added up across every commodity that isn't hidden above, one line per commodity, for each forecast method.</p>
+  <div class="tab-panel active" id="tab-planner">
+    <div class="panel" style="margin-top:0;border-radius:0 8px 8px 8px;">
+      <div class="blocks-toolbar">
+        <div>
+          <h2>Scenario Planner</h2>
+          <p class="panel-sub" style="margin:4px 0 0;">For project controls to sit down and run different scenarios. Forecast 1, 2 and 3 for every commodity, stacked so you can compare them. Hide any you don't need right now — they stay in your data, just out of the way.</p>
+        </div>
+        <div class="btns">
+          <span class="count" id="blocksCount"></span>
+          <button id="expandAllBtn">Show All</button>
+          <button id="collapseAllBtn">Hide All</button>
+        </div>
       </div>
-      <div class="btns">
-        <button id="rollupToggleBtn">Hide</button>
-      </div>
+      <div id="commodityBlocks"></div>
+      <div class="empty-msg" id="emptyMsg" style="display:none;">No commodities yet — add one above.</div>
     </div>
-    <div id="rollupBody">
-      <div class="rollup-fc">
-        <h3>Forecast 1 — At Current Productivity</h3>
-        <div class="rollup-empty" id="rollupEmpty1" style="display:none;">No visible commodities to roll up.</div>
-        <div class="mini-chart-title">Daily Qty</div>
-        <div class="chart-wrap" style="height:240px;"><canvas id="rollupDaily1"></canvas></div>
-        <div class="mini-chart-title" style="margin-top:14px;">Cumulative Qty</div>
-        <div class="chart-wrap" style="height:240px;"><canvas id="rollupCum1"></canvas></div>
-      </div>
-      <div class="rollup-fc">
-        <h3>Forecast 2 — At Target PF of 1.0</h3>
-        <div class="rollup-empty" id="rollupEmpty2" style="display:none;">No visible commodities to roll up.</div>
-        <div class="mini-chart-title">Daily Qty</div>
-        <div class="chart-wrap" style="height:240px;"><canvas id="rollupDaily2"></canvas></div>
-        <div class="mini-chart-title" style="margin-top:14px;">Cumulative Qty</div>
-        <div class="chart-wrap" style="height:240px;"><canvas id="rollupCum2"></canvas></div>
-      </div>
-      <div class="rollup-fc">
-        <h3>Forecast 3 — Set Your Own Pace</h3>
-        <div class="rollup-empty" id="rollupEmpty3" style="display:none;">No visible commodities to roll up.</div>
-        <div class="mini-chart-title">Daily Qty</div>
-        <div class="chart-wrap" style="height:240px;"><canvas id="rollupDaily3"></canvas></div>
-        <div class="mini-chart-title" style="margin-top:14px;">Cumulative Qty</div>
-        <div class="chart-wrap" style="height:240px;"><canvas id="rollupCum3"></canvas></div>
-      </div>
+  </div>
+
+  <div class="tab-panel" id="tab-manual">
+    <div class="panel" style="margin-top:0;border-radius:0 8px 8px 8px;">
+      <h2>Manual Forecast — Weekly Field Log</h2>
+      <p class="panel-sub">For the superintendent: log the actual crew size and quantity installed each week. This backs into the unit rate you actually achieved that week, projects a finish date from your recent real pace, and — given a target date — backs into the qty/week and manpower needed to hit it, using your own demonstrated productivity instead of an assumed number.</p>
+      <div id="manualBlocks"></div>
+      <div class="empty-msg" id="manualEmptyMsg" style="display:none;">No commodities yet — add one above.</div>
     </div>
   </div>
 
@@ -315,11 +307,6 @@ const CHART_THEME = {
 };
 function currentTheme(){ return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
 function chartColors(){ return CHART_THEME[currentTheme()]; }
-function rollupColor(i, total){
-  const hue = Math.round((360 * i) / Math.max(total, 1));
-  const dark = currentTheme() === 'dark';
-  return `hsl(${hue}, 68%, ${dark ? 62 : 40}%)`;
-}
 
 /* ---------- model: mirrors the workbook's Sheet1 formulas exactly ---------- */
 function computeRow(r){
@@ -407,11 +394,10 @@ function buildDistribution(f, curveType){
 
 /* ---------- state ---------- */
 const DEFAULT_ROWS = [
-  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, pctComplete:0.08, mp1:80, mp2:60, mp3:80, qtyDay3:38.4, targetDate:'2026-11-05', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false}
+  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, pctComplete:0.08, mp1:80, mp2:60, mp3:80, qtyDay3:38.4, targetDate:'2026-11-05', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false, weeklyLog:[], manualTarget:''}
 ];
 let rows = loadState();
 let selectedId = rows.length ? rows[0].id : null;
-let rollupHidden = false;
 const charts = {}; // registry keyed by canvas id / chart key, so N commodities each get their own tracked instances
 
 // Destroys any existing chart bound to this canvas BEFORE constructing the new one --
@@ -425,7 +411,7 @@ function setChart(key, canvas, config){
 }
 function destroyChart(key){ if(charts[key]){ charts[key].destroy(); delete charts[key]; } }
 function destroyRowCharts(id){
-  ['mp1','qty1','mp2','qty2','mp3','qty3','sens3'].forEach(p=>destroyChart(p+'_'+id));
+  ['mp1','qty1','mp2','qty2','mp3','qty3'].forEach(p=>destroyChart(p+'_'+id));
 }
 
 function loadState(){
@@ -441,6 +427,8 @@ function loadState(){
           if(!r.mp3) r.mp3 = r.mp1 || 10;
           if(!r.qtyDay3) r.qtyDay3 = 10;
           if(r.hidden===undefined) r.hidden = false;
+          if(!Array.isArray(r.weeklyLog)) r.weeklyLog = [];
+          if(r.manualTarget===undefined) r.manualTarget = '';
         });
         return parsed;
       }
@@ -490,7 +478,6 @@ function renderTable(){
         row.hidden = false;
         saveState();
         renderOneBlock(row);
-        renderRollup();
         updateBlocksCount();
       }
       const blockEl = document.getElementById('block-'+selectedId);
@@ -511,7 +498,7 @@ function renderTable(){
       renderCalcCellsOnly(tr, row);
       renderBlockHeaderMeta(row);
       renderCommodityScenario(row);
-      renderRollup();
+      refreshManualCalcs(row);
     });
   });
   tbody.querySelectorAll('.rowdel').forEach(btn=>{
@@ -672,8 +659,6 @@ function blockBodyHTML(row){
             </div>
           </div>
           <div class="curve-legend">Days remaining is driven by the Qty/Day target alone — Manpower only changes the Unit Rate this pace requires.</div>
-          <div class="mini-chart-title" style="margin-top:16px;">Required UR by Crew Size</div>
-          <div class="chart-wrap" style="height:180px;"><canvas id="sensChart3_${id}"></canvas></div>
         </div>
       </div>
     </div>
@@ -712,7 +697,6 @@ function wireCommodityBlock(row){
       row.hidden = !row.hidden;
       saveState();
       renderOneBlock(row);
-      renderRollup();
       updateBlocksCount();
     });
   }
@@ -721,7 +705,7 @@ function wireCommodityBlock(row){
 
   const onNum = (elId, handler) => { const el=document.getElementById(elId); if(el) el.addEventListener('input', handler); };
   const onChg = (elId, handler) => { const el=document.getElementById(elId); if(el) el.addEventListener('change', handler); };
-  const after = () => { saveState(); renderCommodityScenario(row); renderRollup(); };
+  const after = () => { saveState(); renderCommodityScenario(row); };
 
   onNum(`mp1_${id}`, e=>{ row.mp1 = Math.max(1, parseFloat(e.target.value)||1); syncVal(`mp1Range_${id}`, row.mp1); after(); });
   onNum(`mp1Range_${id}`, e=>{ row.mp1 = parseFloat(e.target.value); syncVal(`mp1_${id}`, row.mp1); after(); });
@@ -751,7 +735,6 @@ function renderCommodityBlocks(){
   if(!rows.length){
     container.innerHTML = '';
     empty.style.display = 'block';
-    renderRollup();
     updateBlocksCount();
     return;
   }
@@ -761,7 +744,6 @@ function renderCommodityBlocks(){
     wireCommodityBlock(row);
     if(!row.hidden) renderCommodityScenario(row);
   });
-  renderRollup();
   updateBlocksCount();
 }
 
@@ -796,7 +778,6 @@ function renderCommodityScenario(row){
   drawOutputs(`out1_${id}`, f1);
   drawOutputs(`out2_${id}`, f2);
   drawOutputs(`out3_${id}`, f3, {highlightUR:true});
-  drawSensChart3(row, c, row.qtyDay3, id);
   drawDistribution(1, f1, row.curve1 || 'scurve', id);
   drawDistribution(2, f2, row.curve2 || 'scurve', id);
   drawDistribution(3, f3, row.curve3 || 'scurve', id);
@@ -809,42 +790,15 @@ function drawOutputs(elId, f, opts){
   const tiles = [
     {l:'Days Remaining', v: fmt2(f.daysRemaining)},
     {l:'Hours Forecasted', v: fmtInt(f.hoursForecasted)},
-    {l:'UR' + (opts.highlightUR ? ' Required' : ''), v: fmt2(f.ur), hi: !!opts.highlightUR},
+    {l:'UR' + (opts.highlightUR ? ' Required' : ''), v: fmt2(f.ur), em: !!opts.highlightUR},
     {l:'Qty / Day / Person', v: fmt2(f.qtyPerDayPerPerson)},
     {l:'Total Qty / Day', v: fmt2(f.qtyPerDay)},
     {l:'Forecasted PF', v: fmtPF(f.forecastedPF), cls: f.forecastedPF>=1?'good':'bad'},
     {l:'Forecasted Finish Date', v: fmtDate(f.finishDate), cls:'', hi:true},
   ];
-  el.innerHTML = tiles.map(t=>`<div class="out-tile ${t.hi?'highlight':''}"><div class="l">${t.l}</div><div class="v ${t.cls||''}">${t.v}</div></div>`).join('');
+  el.innerHTML = tiles.map(t=>`<div class="out-tile ${t.hi?'highlight':''} ${t.em?'emphasize':''}"><div class="l">${t.l}</div><div class="v ${t.cls||''}">${t.v}</div></div>`).join('');
 }
 
-function drawSensChart3(row, c, qtyPerDay, id){
-  const manpowerRange = [];
-  for(let m=10; m<=200; m+=10) manpowerRange.push(m);
-  const t = chartColors();
-  const canvas = document.getElementById(`sensChart3_${id}`);
-  if(!canvas) return;
-  if(!(qtyPerDay > 0)){ destroyChart('sens3_'+id); return; }
-  const urs = manpowerRange.map(m => forecast3(row, c, m, qtyPerDay).ur);
-  setChart('sens3_'+id, canvas, {
-    type:'line',
-    data:{
-      labels: manpowerRange,
-      datasets:[{ label:'UR Required', data: urs, borderColor:t.f3, backgroundColor:t.f3, pointRadius:3, pointHoverRadius:5, borderWidth:2, tension:0.15 }]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{
-        legend:{display:false},
-        tooltip:{ callbacks:{ label: ctx0 => `At ${ctx0.label} people: ${fmt2(ctx0.parsed.y)} hrs/unit required` } }
-      },
-      scales:{
-        x:{title:{display:true,text:'Manpower (crew size)',color:t.tick}, ticks:{color:t.tick}, grid:{color:t.grid}},
-        y:{title:{display:true,text:'Required UR (hrs/unit)',color:t.tick}, ticks:{color:t.tick}, grid:{color:t.grid}, beginAtZero:true}
-      }
-    }
-  });
-}
 
 function miniBarOptions(yLabel){
   const t = chartColors();
@@ -891,80 +845,317 @@ function drawDistribution(which, f, curveType, id){
   });
 }
 
-/* ---------- render: portfolio rollup ---------- */
-function computeRollupData(fcIndex){
-  const visible = rows.filter(r=>!r.hidden);
-  const series = visible.map(row=>{
-    const c = computeRow(row);
-    let f, curve;
-    if(fcIndex===1){ f = forecast1(row, c, row.mp1); curve = row.curve1 || 'scurve'; }
-    else if(fcIndex===2){ f = forecast2(row, c, row.mp2); curve = row.curve2 || 'scurve'; }
-    else { f = forecast3(row, c, row.mp3, row.qtyDay3); curve = row.curve3 || 'scurve'; }
-    const dist = buildDistribution(f, curve);
-    return dist ? {name: row.name, dist} : null;
-  }).filter(Boolean);
-  if(!series.length) return {dates:[], daily:[], cumulative:[]};
-  const maxN = Math.max(...series.map(s=>s.dist.dates.length));
-  const masterDates = workdaySequence(new Date(), maxN);
-  const daily = series.map(s=>({
-    name: s.name,
-    data: masterDates.map((_,i)=> i < s.dist.qtyPerDay.length ? s.dist.qtyPerDay[i] : 0)
-  }));
-  const cumulative = daily.map(s=>{
-    let running = 0;
-    return { name: s.name, data: s.data.map(v => running += v) };
-  });
-  return {dates: masterDates, daily, cumulative};
-}
+/* ---------- Manual Forecast: superintendent's weekly field log ---------- */
+// Each week: manpower and qty are what the superintendent actually knows.
+// UR (hrs/unit) is backed into from those two, the same "type what you know,
+// solve for the rest" logic as Forecast 3, but from real history instead of a plan.
+const MS_PER_WEEK = 7*24*3600*1000;
 
-function renderRollupChart(canvasId, dates, seriesList, yLabel){
-  const t = chartColors();
-  const canvas = document.getElementById(canvasId);
-  if(!canvas) return;
-  const labels = dates.map(fmtDateShort);
-  const datasets = seriesList.map((s,i)=>({
-    label: s.name,
-    data: s.data,
-    borderColor: rollupColor(i, seriesList.length),
-    backgroundColor: rollupColor(i, seriesList.length),
-    borderWidth: 2, pointRadius: 0, tension: 0.1,
-  }));
-  setChart(canvasId, canvas, {
-    type:'line',
-    data:{labels, datasets},
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      interaction:{mode:'index', intersect:false},
-      plugins:{ legend:{labels:{color:t.legendText}}, tooltip:{mode:'index'} },
-      scales:{
-        x:{ ticks:{color:t.tick, maxRotation:0, autoSkip:true, autoSkipPadding:20}, grid:{color:t.grid} },
-        y:{ title:{display:true,text:yLabel,color:t.tick}, ticks:{color:t.tick}, grid:{color:t.grid}, beginAtZero:true }
+function computeManualStats(row){
+  const sorted = [...(row.weeklyLog||[])].sort((a,b)=> a.date.localeCompare(b.date));
+  let running = 0;
+  const cumBysId = {};
+  sorted.forEach(e=>{ running += (e.qty||0); cumBysId[e.id] = running; });
+  const cumulativeTotal = running;
+  const baselineQty = row.baselineQty || 0;
+  const remainingQty = baselineQty - cumulativeTotal;
+  const n = sorted.length;
+  const lastDate = n ? new Date(sorted[n-1].date + 'T00:00:00') : new Date();
+
+  const last4 = sorted.slice(-4);
+  const sum4Qty = last4.reduce((s,e)=>s+(e.qty||0), 0);
+  const sum4Hrs = last4.reduce((s,e)=>s+((e.manpower||0)*60), 0); // 10 hrs/day x 6-day week, same assumption as the rest of the tool
+  const trailingAvgManpower = last4.length ? last4.reduce((s,e)=>s+(e.manpower||0),0)/last4.length : NaN;
+  const trailingAvgQty = last4.length ? sum4Qty/last4.length : NaN;
+  const trailingAvgUR = sum4Qty>0 ? sum4Hrs/sum4Qty : NaN; // backed into from actual manpower+qty over the trailing weeks
+
+  const weeksRemaining = trailingAvgQty>0 ? remainingQty/trailingAvgQty : NaN;
+  let projectedFinish = null;
+  if(isFinite(weeksRemaining)){
+    projectedFinish = new Date(lastDate);
+    projectedFinish.setDate(projectedFinish.getDate() + Math.ceil(Math.max(weeksRemaining,0))*7);
+  }
+
+  let qtyPerWeekNeeded = NaN, manpowerNeeded = NaN, weeksToTarget = NaN;
+  if(row.manualTarget){
+    const target = new Date(row.manualTarget + 'T00:00:00');
+    weeksToTarget = (target - lastDate) / MS_PER_WEEK;
+    if(weeksToTarget > 0){
+      qtyPerWeekNeeded = remainingQty / weeksToTarget;
+      if(isFinite(trailingAvgUR) && trailingAvgUR > 0){
+        manpowerNeeded = (qtyPerWeekNeeded * trailingAvgUR) / 60;
       }
     }
-  });
+  }
+
+  return {sorted, cumBysId, cumulativeTotal, remainingQty, n, trailingAvgManpower, trailingAvgQty, trailingAvgUR,
+          weeksRemaining, projectedFinish, qtyPerWeekNeeded, manpowerNeeded, weeksToTarget, lastDate};
 }
 
-function renderRollup(){
-  const body = document.getElementById('rollupBody');
-  const btn = document.getElementById('rollupToggleBtn');
-  if(btn) btn.textContent = rollupHidden ? 'Show' : 'Hide';
-  if(rollupHidden){
-    body.style.display = 'none';
-    [1,2,3].forEach(fc=>{ destroyChart('rollupDaily'+fc); destroyChart('rollupCum'+fc); });
+function manualMetaHTML(row, s){
+  return `
+    <span>Baseline Qty <b>${fmtInt(row.baselineQty)}</b></span>
+    <span>Cumulative Logged <b>${fmtInt(s.cumulativeTotal)}</b></span>
+    <span>Remaining Qty <b>${fmtInt(s.remainingQty)}</b></span>
+  `;
+}
+
+function manualSummaryHTML(s){
+  return `
+    <div class="out-tile"><div class="l">Weeks Logged</div><div class="v">${s.n}</div></div>
+    <div class="out-tile"><div class="l">Trailing 4-Wk Avg Manpower</div><div class="v">${fmt2(s.trailingAvgManpower)}</div></div>
+    <div class="out-tile"><div class="l">Trailing 4-Wk Avg Qty/Week</div><div class="v">${fmt2(s.trailingAvgQty)}</div></div>
+    <div class="out-tile emphasize"><div class="l">Trailing 4-Wk Avg UR (hrs/unit)</div><div class="v">${fmt2(s.trailingAvgUR)}</div></div>
+    <div class="out-tile"><div class="l">Projected Weeks Remaining</div><div class="v">${fmt2(s.weeksRemaining)}</div></div>
+    <div class="out-tile highlight"><div class="l">Projected Finish Date (at recent pace)</div><div class="v">${fmtDate(s.projectedFinish)}</div></div>
+  `;
+}
+
+function manualTargetOutHTML(s){
+  return `
+    <div class="out-tile highlight"><div class="l">Qty/Week Needed to Hit Target</div><div class="v">${fmt2(s.qtyPerWeekNeeded)}</div></div>
+    <div class="out-tile highlight"><div class="l">Manpower Needed (at your demonstrated UR)</div><div class="v">${fmt2(s.manpowerNeeded)}</div></div>
+  `;
+}
+
+function manualWeekRowsHTML(row, s){
+  if(!(row.weeklyLog||[]).length){
+    return '<tr><td colspan="6" class="empty-msg" style="text-align:left;padding:10px 0;">No weeks logged yet — click "+ Add Week" below.</td></tr>';
+  }
+  return row.weeklyLog.map(e=>{
+    const cum = s.cumBysId[e.id] || 0;
+    const pct = row.baselineQty ? cum/row.baselineQty : NaN;
+    const ur = e.qty>0 ? ((e.manpower||0)*60)/e.qty : NaN;
+    return `
+    <tr data-entry="${e.id}">
+      <td><input type="date" data-field="date" value="${e.date}"></td>
+      <td><input type="number" data-field="manpower" value="${e.manpower}" step="any"></td>
+      <td><input type="number" data-field="qty" value="${e.qty}" step="any"></td>
+      <td class="calc" id="weekUR_${e.id}">${fmt2(ur)}</td>
+      <td class="calc" id="weekCum_${e.id}">${fmtInt(cum)}</td>
+      <td class="calc" id="weekPct_${e.id}">${fmtPct(pct)}</td>
+      <td><button class="rowdel" data-entry="${e.id}" title="Delete week">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function manualBlockHTML(row){
+  const id = row.id;
+  const s = computeManualStats(row);
+  return `
+  <div class="commodity-block" id="manual-block-${id}">
+    <div class="block-header">
+      <div>
+        <h2>${escapeHtml(row.name)}</h2>
+        <div class="block-meta" id="manualMeta_${id}">${manualMetaHTML(row, s)}</div>
+      </div>
+    </div>
+    <div class="block-body">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Week Ending</th><th>Manpower</th><th>Qty Installed</th><th>UR (hrs/unit)</th><th>Cumulative Qty</th><th>% Complete</th><th></th></tr></thead>
+          <tbody id="weekTbody_${id}">${manualWeekRowsHTML(row, s)}</tbody>
+        </table>
+      </div>
+      <button class="addrow-btn" data-addweek="${id}" style="margin-top:10px;">+ Add Week</button>
+
+      <div class="outputs" id="manualSummary_${id}" style="margin-top:16px;">${manualSummaryHTML(s)}</div>
+
+      <div class="manpower-row" style="margin-top:16px;">
+        <label>Target Finish Date</label>
+        <input type="date" id="manualTarget_${id}" value="${row.manualTarget||''}">
+      </div>
+      <div class="outputs" id="manualTargetOut_${id}">${manualTargetOutHTML(s)}</div>
+    </div>
+  </div>`;
+}
+
+function wireManualBlock(row){
+  const id = row.id;
+  const tbody = document.getElementById(`weekTbody_${id}`);
+  if(tbody){
+    tbody.querySelectorAll('input[data-field]').forEach(inp=>{
+      inp.addEventListener('input', e=>{
+        const tr = e.target.closest('tr');
+        const entryId = Number(tr.dataset.entry);
+        const entry = (row.weeklyLog||[]).find(x=>x.id===entryId);
+        if(!entry) return;
+        const field = e.target.dataset.field;
+        if(field==='date') entry.date = e.target.value;
+        else entry[field] = parseFloat(e.target.value) || 0;
+        saveState();
+        refreshManualCalcs(row);
+      });
+    });
+    tbody.querySelectorAll('.rowdel').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const entryId = Number(btn.dataset.entry);
+        row.weeklyLog = (row.weeklyLog||[]).filter(x=>x.id!==entryId);
+        saveState();
+        renderOneManualBlock(row);
+      });
+    });
+  }
+  const addBtn = document.querySelector(`[data-addweek="${id}"]`);
+  if(addBtn){
+    addBtn.addEventListener('click', ()=>{
+      const log = row.weeklyLog || (row.weeklyLog = []);
+      const last = [...log].sort((a,b)=>a.date.localeCompare(b.date)).slice(-1)[0];
+      let nextDate;
+      if(last){ const d = new Date(last.date+'T00:00:00'); d.setDate(d.getDate()+7); nextDate = isoDate(d); }
+      else { nextDate = isoDate(new Date()); }
+      const nextEntryId = log.reduce((m,e)=>Math.max(m,e.id),0) + 1;
+      log.push({id: nextEntryId, date: nextDate, manpower: 0, qty: 0});
+      saveState();
+      renderOneManualBlock(row);
+    });
+  }
+  const targetEl = document.getElementById(`manualTarget_${id}`);
+  if(targetEl){
+    targetEl.addEventListener('input', e=>{
+      row.manualTarget = e.target.value;
+      saveState();
+      refreshManualCalcs(row);
+    });
+  }
+}
+
+// Lightweight refresh: updates computed cells/tiles in place, never touches input elements,
+// so the field the superintendent is actively typing in never loses focus mid-edit.
+function refreshManualCalcs(row){
+  const id = row.id;
+  const s = computeManualStats(row);
+  const headerH2 = document.querySelector(`#manual-block-${id} .block-header h2`);
+  if(headerH2) headerH2.textContent = row.name;
+  const metaEl = document.getElementById(`manualMeta_${id}`);
+  if(metaEl) metaEl.innerHTML = manualMetaHTML(row, s);
+  (row.weeklyLog||[]).forEach(e=>{
+    const cum = s.cumBysId[e.id] || 0;
+    const pct = row.baselineQty ? cum/row.baselineQty : NaN;
+    const ur = e.qty>0 ? ((e.manpower||0)*60)/e.qty : NaN;
+    const urEl = document.getElementById(`weekUR_${e.id}`);
+    const cumEl = document.getElementById(`weekCum_${e.id}`);
+    const pctEl = document.getElementById(`weekPct_${e.id}`);
+    if(urEl) urEl.textContent = fmt2(ur);
+    if(cumEl) cumEl.textContent = fmtInt(cum);
+    if(pctEl) pctEl.textContent = fmtPct(pct);
+  });
+  const summaryEl = document.getElementById(`manualSummary_${id}`);
+  if(summaryEl) summaryEl.innerHTML = manualSummaryHTML(s);
+  const targetOutEl = document.getElementById(`manualTargetOut_${id}`);
+  if(targetOutEl) targetOutEl.innerHTML = manualTargetOutHTML(s);
+}
+
+function renderOneManualBlock(row){
+  const el = document.getElementById('manual-block-'+row.id);
+  if(el){ el.outerHTML = manualBlockHTML(row); }
+  wireManualBlock(row);
+}
+
+function renderManualTab(){
+  const container = document.getElementById('manualBlocks');
+  const empty = document.getElementById('manualEmptyMsg');
+  if(!container) return;
+  if(!rows.length){
+    container.innerHTML = '';
+    if(empty) empty.style.display = 'block';
     return;
   }
-  body.style.display = 'block';
-  [1,2,3].forEach(fc=>{
-    const rd = computeRollupData(fc);
-    const emptyEl = document.getElementById('rollupEmpty'+fc);
-    if(!rd.daily.length){
-      destroyChart('rollupDaily'+fc); destroyChart('rollupCum'+fc);
-      if(emptyEl) emptyEl.style.display = 'block';
-      return;
-    }
-    if(emptyEl) emptyEl.style.display = 'none';
-    renderRollupChart('rollupDaily'+fc, rd.dates, rd.daily, 'Qty / day');
-    renderRollupChart('rollupCum'+fc, rd.dates, rd.cumulative, 'Cumulative Qty');
+  if(empty) empty.style.display = 'none';
+  container.innerHTML = rows.map(manualBlockHTML).join('');
+  rows.forEach(row=>wireManualBlock(row));
+}
+
+/* ---------- holidays: standard-holiday quick-add ---------- */
+function nextHolidayId(){ return holidays.reduce((m,h)=>Math.max(m,h.id),0) + 1; }
+function isoDate(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function nthWeekday(year, month, weekday, n){ // n-th occurrence of `weekday` (0=Sun..6=Sat) in `month` (0-indexed)
+  const d = new Date(year, month, 1);
+  let count = 0;
+  while(true){
+    if(d.getDay() === weekday){ count++; if(count===n) return new Date(d); }
+    d.setDate(d.getDate()+1);
+  }
+}
+function lastWeekday(year, month, weekday){ // last occurrence of `weekday` in `month`
+  const d = new Date(year, month+1, 0); // last calendar day of month
+  while(d.getDay() !== weekday){ d.setDate(d.getDate()-1); }
+  return d;
+}
+function standardHolidays(year){
+  return [
+    {label:"New Year's Day", date: isoDate(new Date(year,0,1))},
+    {label:'Memorial Day', date: isoDate(lastWeekday(year,4,1))},        // last Monday of May
+    {label:'Juneteenth', date: isoDate(new Date(year,5,19))},
+    {label:'Independence Day', date: isoDate(new Date(year,6,4))},
+    {label:'Labor Day', date: isoDate(nthWeekday(year,8,1,1))},          // 1st Monday of September
+    {label:'Thanksgiving Day', date: isoDate(nthWeekday(year,10,4,4))},  // 4th Thursday of November
+    {label:'Christmas Day', date: isoDate(new Date(year,11,25))},
+  ];
+}
+// Monday-Saturday (6 workdays) of the week containing centerDateStr -- a full week off, Sunday already excluded
+function weekOffDates(centerDateStr){
+  const center = new Date(centerDateStr+'T00:00:00');
+  const day = center.getDay();
+  const monday = new Date(center);
+  monday.setDate(monday.getDate() + (day===0 ? -6 : 1-day));
+  const out = [];
+  for(let i=0;i<6;i++){ const d = new Date(monday); d.setDate(d.getDate()+i); out.push(isoDate(d)); }
+  return out;
+}
+function addHolidayIfNew(date, label){
+  if(holidays.some(h=>h.date===date)) return false;
+  holidays.push({id: nextHolidayId(), date, label});
+  return true;
+}
+
+function quickAddRowHTML(year){
+  const items = standardHolidays(year);
+  const tgDate = items.find(h=>h.label==='Thanksgiving Day').date;
+  const xmasDate = items.find(h=>h.label==='Christmas Day').date;
+  const tgWeek = weekOffDates(tgDate);
+  const xmasWeek = weekOffDates(xmasDate);
+  const isAdded = date => holidays.some(h=>h.date===date);
+  const isWeekAdded = dates => dates.every(isAdded);
+
+  const singleBtns = items.map(h => `
+    <button class="qa-btn ${isAdded(h.date)?'added':''}" data-qa-date="${h.date}" data-qa-label="${escapeHtml(h.label)}">${isAdded(h.date)?'✓ ':''}${h.label}<span class="qa-date">${fmtDate(new Date(h.date+'T00:00:00'))}</span></button>
+  `).join('');
+
+  const weekBtns = `
+    <button class="qa-btn qa-week ${isWeekAdded(tgWeek)?'added':''}" data-qa-week="tg" data-qa-year="${year}">${isWeekAdded(tgWeek)?'✓ ':''}Thanksgiving Week Off</button>
+    <button class="qa-btn qa-week ${isWeekAdded(xmasWeek)?'added':''}" data-qa-week="xmas" data-qa-year="${year}">${isWeekAdded(xmasWeek)?'✓ ':''}Christmas Week Off</button>
+  `;
+
+  return `<div class="qa-year-row"><div class="qa-year-label">${year}</div><div class="qa-btns">${singleBtns}${weekBtns}</div></div>`;
+}
+
+function renderHolidayQuickAdd(){
+  const el = document.getElementById('holidayQuickAdd');
+  if(!el) return;
+  el.innerHTML = [2026,2027,2028].map(quickAddRowHTML).join('');
+  el.querySelectorAll('.qa-btn[data-qa-date]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(addHolidayIfNew(btn.dataset.qaDate, btn.dataset.qaLabel)){
+        rebuildHolidaySet(); saveHolidays();
+        renderHolidays(); renderHolidayQuickAdd(); renderCommodityBlocks();
+      }
+    });
+  });
+  el.querySelectorAll('.qa-btn[data-qa-week]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const year = Number(btn.dataset.qaYear);
+      const items = standardHolidays(year);
+      const isTg = btn.dataset.qaWeek === 'tg';
+      const anchor = items.find(h=>h.label===(isTg?'Thanksgiving Day':'Christmas Day')).date;
+      const label = isTg ? 'Thanksgiving Week' : 'Christmas Week';
+      let added = false;
+      weekOffDates(anchor).forEach(date=>{ if(addHolidayIfNew(date, label)) added = true; });
+      if(added){
+        rebuildHolidaySet(); saveHolidays();
+        renderHolidays(); renderHolidayQuickAdd(); renderCommodityBlocks();
+      }
+    });
   });
 }
 
@@ -990,6 +1181,7 @@ function renderHolidays(){
       rebuildHolidaySet();
       saveHolidays();
       renderHolidays();
+      renderHolidayQuickAdd();
       renderCommodityBlocks(); // every finish date / working-days figure depends on the holiday set
     });
   });
@@ -1000,14 +1192,22 @@ document.getElementById('addHolidayBtn').addEventListener('click', ()=>{
   const dateEl = document.getElementById('newHolidayDate');
   const labelEl = document.getElementById('newHolidayLabel');
   if(!dateEl.value) return;
-  if(holidays.some(h=>h.date===dateEl.value)){ dateEl.value=''; labelEl.value=''; return; } // already a holiday
-  holidays.push({id: Date.now(), date: dateEl.value, label: labelEl.value.trim()});
+  if(!addHolidayIfNew(dateEl.value, labelEl.value.trim())){ dateEl.value=''; labelEl.value=''; return; } // already a holiday
   rebuildHolidaySet();
   saveHolidays();
   dateEl.value = '';
   labelEl.value = '';
   renderHolidays();
+  renderHolidayQuickAdd();
   renderCommodityBlocks();
+});
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  });
 });
 document.getElementById('expandAllBtn').addEventListener('click', ()=>{
   rows.forEach(r=>r.hidden=false);
@@ -1019,13 +1219,9 @@ document.getElementById('collapseAllBtn').addEventListener('click', ()=>{
   saveState();
   renderCommodityBlocks();
 });
-document.getElementById('rollupToggleBtn').addEventListener('click', ()=>{
-  rollupHidden = !rollupHidden;
-  renderRollup();
-});
 document.getElementById('addRowBtn').addEventListener('click', ()=>{
   const id = nextId();
-  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, pctComplete:0, mp1:10, mp2:10, mp3:10, qtyDay3:10, targetDate:'', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false});
+  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, pctComplete:0, mp1:10, mp2:10, mp3:10, qtyDay3:10, targetDate:'', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false, weeklyLog:[], manualTarget:''});
   selectedId = id;
   saveState();
   renderAll();
@@ -1042,7 +1238,9 @@ document.getElementById('resetBtn').addEventListener('click', ()=>{
 function renderAll(){
   renderTable();
   renderHolidays();
+  renderHolidayQuickAdd();
   renderCommodityBlocks();
+  renderManualTab();
 }
 
 function applyThemeButtonLabel(){
@@ -1054,7 +1252,6 @@ document.getElementById('themeToggle').addEventListener('click', ()=>{
   try{ localStorage.setItem('forecastPlannerTheme', next); }catch(e){}
   applyThemeButtonLabel();
   rows.forEach(row=>{ if(!row.hidden) renderCommodityScenario(row); });
-  renderRollup();
 });
 applyThemeButtonLabel();
 
