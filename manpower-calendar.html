@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manpower &amp; Quantity Loading Calendar</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root{--bg:#0f1720;--card:#1b2530;--card2:#212d3a;--accent:#3b9eff;--good:#2ecc71;--bad:#e74c3c;
+        --muted:#8aa0b4;--text:#e7eef5;--border:#2a3744;--input-bg:#0f1720;--input-border:#3b9eff;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:20px 28px;border-bottom:1px solid var(--border);}
+  header h1{margin:0;font-size:22px;}
+  header .sub{color:var(--muted);font-size:13px;margin-top:4px;}
+  .container{padding:20px 28px 60px;max-width:100%;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px;}
+  .kpi{background:var(--card);border-radius:10px;padding:14px 16px;border:1px solid var(--border);}
+  .kpi .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;}
+  .kpi .value{font-size:22px;font-weight:600;margin-top:6px;}
+  .panel{background:var(--card);border-radius:10px;padding:16px;margin-bottom:18px;border:1px solid var(--border);}
+  .panel h2{margin:0 0 10px;font-size:14px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+  .panel .desc{color:var(--muted);font-size:12px;margin:-4px 0 12px;}
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+  button{background:var(--accent);color:#06121f;border:none;padding:8px 14px;border-radius:6px;font-size:13px;
+         font-weight:600;cursor:pointer;}
+  button.secondary{background:var(--card2);color:var(--text);border:1px solid var(--border);}
+  button:hover{filter:brightness(1.1);}
+  .fte-box{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-left:auto;}
+  .fte-box input{width:60px;background:var(--input-bg);border:1px solid var(--border);color:var(--text);
+                  padding:6px 8px;border-radius:6px;text-align:center;font-size:13px;}
+  .table-wrap{overflow:auto;max-height:520px;border:1px solid var(--border);border-radius:8px;}
+  table{border-collapse:collapse;font-size:12.5px;width:100%;}
+  th,td{padding:6px 9px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;}
+  th{color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--card2);z-index:2;text-align:center;}
+  td:first-child,th:first-child{text-align:left;position:sticky;left:0;background:var(--card);z-index:1;min-width:170px;}
+  th:first-child{z-index:3;}
+  td.editable{text-align:left;}
+  td[contenteditable="true"]{outline:none;cursor:text;}
+  td[contenteditable="true"]:focus{background:#22303d;box-shadow:inset 0 0 0 1px var(--accent);}
+  td.calc{color:var(--muted);}
+  tr.example td{color:#8fbf9b;}
+  .cal-total-row td{font-weight:700;background:#212d3a;position:sticky;bottom:0;}
+  .cal-fte-row td{font-weight:700;background:#1a2a22;color:#7fe0a0;position:sticky;bottom:0;}
+  .note{color:var(--muted);font-size:12px;line-height:1.5;}
+  .note b{color:var(--text);}
+  .legend-dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:middle;}
+  canvas{max-height:260px;}
+  .empty-msg{color:var(--muted);font-size:13px;padding:20px;text-align:center;}
+</style>
+</head>
+<body>
+<header>
+  <h1>Manpower &amp; Quantity Loading Calendar</h1>
+  <div class="sub">Paste your commodity table below — durations, hours, FTE, and the weekly calendar spread calculate automatically.</div>
+</header>
+
+<div class="container">
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="panel">
+    <h2>Input</h2>
+    <div class="desc">Paste directly from Excel into the table (click a cell, then Ctrl+V / Cmd+V) or type values in. Columns A–H only — everything to the right calculates for you.</div>
+    <div class="toolbar">
+      <button id="addRowBtn">+ Add Row</button>
+      <button class="secondary" id="clearBtn">Clear All Data</button>
+      <button class="secondary" id="loadExampleBtn">Load Example Row</button>
+      <div class="fte-box">
+        Hours per FTE / week
+        <input type="number" id="fteBasis" value="60" min="1" step="1">
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="inputTable">
+        <thead>
+          <tr>
+            <th>Commodity</th><th>Baseline Qty</th><th>Baseline Hours</th><th>Unit Rate (Hrs/Qty)</th>
+            <th>Direct or Indirect</th><th>WHC or SUB</th><th>Start Date</th><th>Finish Date</th>
+            <th class="calc">Duration (Days)</th><th class="calc">Duration (Weeks)</th>
+            <th class="calc">Hrs/Day</th><th class="calc">Hrs/Week</th><th class="calc">FTE</th>
+            <th class="calc">Qty/Day</th><th class="calc">Qty/Week</th><th class="calc">Avg Qty/Day/Person</th>
+          </tr>
+        </thead>
+        <tbody id="inputBody"></tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:10px;">
+      Dates: type as <b>MM/DD/YYYY</b> (or paste — Excel dates paste in this format by default).
+      <b>Direct or Indirect</b> and <b>WHC or SUB</b> are free text. Blank rows are ignored.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Weekly Hours &amp; FTE Calendar</h2>
+    <div class="desc">Each row's Baseline Hours spread straight-line across its Start→Finish window, in weekly buckets running left to right.</div>
+    <div id="hoursCalWrap" class="table-wrap"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Total Hours per Week</h2>
+    <canvas id="hoursChart"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>Weekly Quantity Calendar</h2>
+    <div class="desc">Each row's Baseline Qty spread straight-line across its Start→Finish window, in weekly buckets running left to right.</div>
+    <div id="qtyCalWrap" class="table-wrap"></div>
+  </div>
+
+</div>
+
+<script>
+const COLS = ['commodity','qty','hours','unitRate','directIndirect','whcSub','start','finish'];
+const STORAGE_KEY = 'manpowerCalendarRows_v1';
+let hoursChart = null;
+
+const EXAMPLE_ROW = ['Structural Steel Erection','1250','18750','15','Direct','WHC','01/05/2026','04/27/2026'];
+
+function blankRow(values){
+  const v = values || Array(8).fill('');
+  return COLS.reduce((o,c,i)=>{ o[c]=v[i]||''; return o; }, {});
+}
+
+function loadRows(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){ const parsed = JSON.parse(raw); if(Array.isArray(parsed) && parsed.length) return parsed; }
+  }catch(e){}
+  const rows = [blankRow(EXAMPLE_ROW)];
+  for(let i=0;i<14;i++) rows.push(blankRow());
+  return rows;
+}
+
+let rows = loadRows();
+
+function saveRows(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(rows)); }catch(e){}
+}
+
+function parseDate(str){
+  if(!str) return null;
+  str = str.trim();
+  if(!str) return null;
+  let m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m){
+    let [_, mo, da, yr] = m;
+    if(yr.length===2) yr = '20'+yr;
+    const d = new Date(Date.UTC(+yr, +mo-1, +da));
+    return isNaN(d) ? null : d;
+  }
+  m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m){
+    const d = new Date(Date.UTC(+m[1], +m[2]-1, +m[3]));
+    return isNaN(d) ? null : d;
+  }
+  const d = new Date(str);
+  return isNaN(d) ? null : d;
+}
+
+function fmtDate(d){
+  return (d.getUTCMonth()+1)+'/'+d.getUTCDate()+'/'+String(d.getUTCFullYear()).slice(2);
+}
+
+function daysBetweenInclusive(start, finish){
+  return Math.round((finish - start) / 86400000) + 1;
+}
+
+function mondayOnOrBefore(d){
+  const day = d.getUTCDay(); // 0=Sun..6=Sat
+  const diff = (day === 0) ? 6 : day - 1;
+  return new Date(d.getTime() - diff*86400000);
+}
+
+function computeRow(r){
+  const qty = parseFloat(r.qty), hours = parseFloat(r.hours);
+  const start = parseDate(r.start), finish = parseDate(r.finish);
+  const out = {durationDays:null,durationWeeks:null,hrsDay:null,hrsWeek:null,fte:null,qtyDay:null,qtyWeek:null,avgQtyDayPerson:null,valid:false};
+  if(!r.commodity || isNaN(qty) || isNaN(hours) || !start || !finish) return out;
+  const dd = daysBetweenInclusive(start, finish);
+  if(dd <= 0) return out;
+  const fteBasis = parseFloat(document.getElementById('fteBasis').value) || 60;
+  out.durationDays = dd;
+  out.durationWeeks = dd/7;
+  out.hrsDay = hours/dd;
+  out.hrsWeek = out.hrsDay*7;
+  out.fte = out.hrsWeek/fteBasis;
+  out.qtyDay = qty/dd;
+  out.qtyWeek = out.qtyDay*7;
+  out.avgQtyDayPerson = out.fte>0 ? out.qtyDay/out.fte : null;
+  out.valid = true;
+  out.start = start; out.finish = finish;
+  return out;
+}
+
+function fmt(n, d){
+  if(n===null || n===undefined || isNaN(n)) return '';
+  return n.toLocaleString(undefined,{minimumFractionDigits:d, maximumFractionDigits:d});
+}
+
+function renderInputTable(){
+  const tbody = document.getElementById('inputBody');
+  tbody.innerHTML = '';
+  rows.forEach((r, idx) => {
+    const tr = document.createElement('tr');
+    if(idx===0 && r.commodity===EXAMPLE_ROW[0]) tr.classList.add('example');
+    const calc = computeRow(r);
+    COLS.forEach((c, colIdx) => {
+      const td = document.createElement('td');
+      td.className = 'editable';
+      td.contentEditable = 'true';
+      td.dataset.row = idx;
+      td.dataset.col = colIdx;
+      td.textContent = r[c] || '';
+      tr.appendChild(td);
+    });
+    const calcVals = [
+      calc.durationDays!==null?fmt(calc.durationDays,0):'',
+      calc.durationWeeks!==null?fmt(calc.durationWeeks,1):'',
+      calc.hrsDay!==null?fmt(calc.hrsDay,1):'',
+      calc.hrsWeek!==null?fmt(calc.hrsWeek,1):'',
+      calc.fte!==null?fmt(calc.fte,2):'',
+      calc.qtyDay!==null?fmt(calc.qtyDay,1):'',
+      calc.qtyWeek!==null?fmt(calc.qtyWeek,1):'',
+      calc.avgQtyDayPerson!==null?fmt(calc.avgQtyDayPerson,2):'',
+    ];
+    calcVals.forEach(v => {
+      const td = document.createElement('td');
+      td.className = 'calc';
+      td.textContent = v;
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+function getComputedRows(){
+  return rows.map(r => ({raw:r, calc:computeRow(r)})).filter(x => x.calc.valid);
+}
+
+function buildWeeks(validRows){
+  if(!validRows.length) return [];
+  const earliest = validRows.reduce((min,x)=> x.calc.start<min?x.calc.start:min, validRows[0].calc.start);
+  const latest = validRows.reduce((max,x)=> x.calc.finish>max?x.calc.finish:max, validRows[0].calc.finish);
+  const firstWeek = mondayOnOrBefore(earliest);
+  const nWeeks = Math.floor((latest - firstWeek)/(7*86400000)) + 1;
+  const weeks = [];
+  for(let w=0; w<nWeeks; w++) weeks.push(new Date(firstWeek.getTime() + w*7*86400000));
+  return weeks;
+}
+
+function weekOverlapDays(start, finish, weekStart){
+  const weekEnd = new Date(weekStart.getTime() + 6*86400000);
+  const lo = start > weekStart ? start : weekStart;
+  const hi = finish < weekEnd ? finish : weekEnd;
+  return Math.max(0, Math.round((hi-lo)/86400000) + 1);
+}
+
+function renderCalendar(containerId, validRows, weeks, perDayKey, fteRow){
+  const wrap = document.getElementById(containerId);
+  if(!weeks.length || !validRows.length){
+    wrap.innerHTML = '<div class="empty-msg">Add a valid Commodity row with Baseline Qty/Hours and Start/Finish dates to see the calendar.</div>';
+    return;
+  }
+  const fteBasis = parseFloat(document.getElementById('fteBasis').value) || 60;
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  const htr = document.createElement('tr');
+  htr.innerHTML = '<th>Commodity</th>' + weeks.map(w=>`<th>${fmtDate(w)}</th>`).join('');
+  thead.appendChild(htr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  const weekTotals = weeks.map(()=>0);
+
+  validRows.forEach(({raw, calc}) => {
+    const tr = document.createElement('tr');
+    let cells = `<td>${raw.commodity}</td>`;
+    weeks.forEach((wk, wi) => {
+      const overlap = weekOverlapDays(calc.start, calc.finish, wk);
+      const val = overlap * calc[perDayKey];
+      weekTotals[wi] += val;
+      cells += `<td>${val ? fmt(val,1) : ''}</td>`;
+    });
+    tr.innerHTML = cells;
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+
+  const tfoot = document.createElement('tfoot');
+  const totalLabel = perDayKey === 'hrsDay' ? 'TOTAL HOURS / WEEK' : 'TOTAL QTY / WEEK';
+  const totalRow = document.createElement('tr');
+  totalRow.className = 'cal-total-row';
+  totalRow.innerHTML = `<td>${totalLabel}</td>` + weekTotals.map(v=>`<td>${fmt(v,1)}</td>`).join('');
+  tfoot.appendChild(totalRow);
+
+  if(fteRow){
+    const fRow = document.createElement('tr');
+    fRow.className = 'cal-fte-row';
+    fRow.innerHTML = '<td>TOTAL FTE / WEEK</td>' + weekTotals.map(v=>`<td>${fmt(v/fteBasis,2)}</td>`).join('');
+    tfoot.appendChild(fRow);
+  }
+  table.appendChild(tfoot);
+
+  wrap.innerHTML = '';
+  wrap.appendChild(table);
+
+  return weekTotals;
+}
+
+function renderKpis(validRows){
+  const kpis = document.getElementById('kpis');
+  const totalHours = validRows.reduce((s,x)=>s+parseFloat(x.raw.hours||0),0);
+  const totalQty = validRows.reduce((s,x)=>s+parseFloat(x.raw.qty||0),0);
+  const avgFte = validRows.length ? validRows.reduce((s,x)=>s+x.calc.fte,0)/validRows.length : 0;
+  let range = '—';
+  if(validRows.length){
+    const earliest = validRows.reduce((m,x)=> x.calc.start<m?x.calc.start:m, validRows[0].calc.start);
+    const latest = validRows.reduce((m,x)=> x.calc.finish>m?x.calc.finish:m, validRows[0].calc.finish);
+    range = fmtDate(earliest)+' – '+fmtDate(latest);
+  }
+  const cards = [
+    ['Active Rows', validRows.length],
+    ['Total Baseline Hours', fmt(totalHours,0)],
+    ['Total Baseline Qty', fmt(totalQty,0)],
+    ['Avg FTE / Row', fmt(avgFte,2)],
+    ['Project Date Range', range],
+  ];
+  kpis.innerHTML = cards.map(([label,value])=>`
+    <div class="kpi"><div class="label">${label}</div><div class="value">${value}</div></div>
+  `).join('');
+}
+
+function renderChart(weeks, hoursTotals){
+  if(typeof Chart === 'undefined') return; // Chart.js CDN unavailable — table data above still works
+  const ctx = document.getElementById('hoursChart');
+  const labels = weeks.map(fmtDate);
+  const data = hoursTotals || [];
+  if(hoursChart) hoursChart.destroy();
+  hoursChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Total Hours / Week',
+        data,
+        backgroundColor: '#3b9eff',
+        borderRadius: 3,
+        maxBarThickness: 26,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1b2530',
+          titleColor: '#e7eef5',
+          bodyColor: '#e7eef5',
+          borderColor: '#2a3744',
+          borderWidth: 1,
+          callbacks: { label: (c)=> ` ${c.parsed.y.toLocaleString(undefined,{maximumFractionDigits:1})} hrs` }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#8aa0b4', maxRotation: 60, minRotation: 60 }, grid: { color: '#2a3744' } },
+        y: { ticks: { color: '#8aa0b4' }, grid: { color: '#2a3744' }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+function recalcAll(){
+  const validRows = getComputedRows();
+  renderKpis(validRows);
+  const weeks = buildWeeks(validRows);
+  const hoursTotals = renderCalendar('hoursCalWrap', validRows, weeks, 'hrsDay', true);
+  renderCalendar('qtyCalWrap', validRows, weeks, 'qtyDay', false);
+  renderChart(weeks, hoursTotals);
+}
+
+function readTableIntoRows(){
+  const tbody = document.getElementById('inputBody');
+  const trs = tbody.querySelectorAll('tr');
+  trs.forEach((tr, ri) => {
+    const tds = tr.querySelectorAll('td.editable');
+    tds.forEach((td, ci) => {
+      rows[ri][COLS[ci]] = td.textContent.trim();
+    });
+  });
+  saveRows();
+}
+
+document.getElementById('inputBody').addEventListener('input', (e) => {
+  if(e.target.tagName === 'TD'){
+    const ri = +e.target.dataset.row, ci = +e.target.dataset.col;
+    rows[ri][COLS[ci]] = e.target.textContent.trim();
+    saveRows();
+    recalcCalcColumnsOnly(ri);
+  }
+});
+
+function recalcCalcColumnsOnly(ri){
+  const tr = document.getElementById('inputBody').children[ri];
+  if(!tr) return;
+  const calc = computeRow(rows[ri]);
+  const calcCells = tr.querySelectorAll('td.calc');
+  const vals = [
+    calc.durationDays!==null?fmt(calc.durationDays,0):'',
+    calc.durationWeeks!==null?fmt(calc.durationWeeks,1):'',
+    calc.hrsDay!==null?fmt(calc.hrsDay,1):'',
+    calc.hrsWeek!==null?fmt(calc.hrsWeek,1):'',
+    calc.fte!==null?fmt(calc.fte,2):'',
+    calc.qtyDay!==null?fmt(calc.qtyDay,1):'',
+    calc.qtyWeek!==null?fmt(calc.qtyWeek,1):'',
+    calc.avgQtyDayPerson!==null?fmt(calc.avgQtyDayPerson,2):'',
+  ];
+  calcCells.forEach((td,i)=> td.textContent = vals[i]);
+  recalcAll();
+}
+
+document.getElementById('inputBody').addEventListener('paste', (e) => {
+  const target = e.target.closest('td.editable');
+  if(!target) return;
+  e.preventDefault();
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  const lines = text.replace(/\r/g,'').split('\n').filter((l,i,arr)=> !(i===arr.length-1 && l===''));
+  const startRow = +target.dataset.row, startCol = +target.dataset.col;
+
+  while(rows.length < startRow + lines.length) rows.push(blankRow());
+
+  lines.forEach((line, li) => {
+    const cells = line.split('\t');
+    cells.forEach((val, ci) => {
+      const col = startCol + ci;
+      if(col < COLS.length){
+        rows[startRow+li][COLS[col]] = val.trim();
+      }
+    });
+  });
+  saveRows();
+  renderInputTable();
+  recalcAll();
+});
+
+document.getElementById('addRowBtn').addEventListener('click', () => {
+  rows.push(blankRow());
+  saveRows();
+  renderInputTable();
+  recalcAll();
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  if(!confirm('Clear all rows? This cannot be undone.')) return;
+  rows = [];
+  for(let i=0;i<15;i++) rows.push(blankRow());
+  saveRows();
+  renderInputTable();
+  recalcAll();
+});
+
+document.getElementById('loadExampleBtn').addEventListener('click', () => {
+  rows.unshift(blankRow(EXAMPLE_ROW));
+  saveRows();
+  renderInputTable();
+  recalcAll();
+});
+
+document.getElementById('fteBasis').addEventListener('input', () => {
+  renderInputTable();
+  recalcAll();
+});
+
+renderInputTable();
+recalcAll();
+</script>
+</body>
+</html>
