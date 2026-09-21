@@ -283,6 +283,13 @@ function dateKey(d){
 rebuildHolidaySet();
 
 /* ---------- date helpers: Excel WORKDAY.INTL / NETWORKDAYS.INTL, weekend code 11 (Sunday only), plus holidays above ---------- */
+// A hard ceiling on every date-math loop below. None of these are bounded by their
+// caller (a stray extra zero in Baseline Hrs, or a tiny Qty/Day, can send daysRemaining
+// into the millions), and an unbounded while-loop over that many iterations is exactly
+// what freezes the tab (Chrome reports it as RESULT_CODE_HUNG). 20,000 workdays is ~65
+// years -- far beyond any real schedule -- so this only ever catches bad input, never a
+// legitimate one.
+const MAX_LOOP_DAYS = 20000;
 function isWorkday(d){ return d.getDay() !== 0 && !holidaySet.has(dateKey(d)); }
 function workdayIntl(start, days){
   days = Math.round(days);
@@ -290,7 +297,7 @@ function workdayIntl(start, days){
   let d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
   const step = days >= 0 ? 1 : -1;
   let count = 0;
-  const n = Math.abs(days);
+  const n = Math.min(Math.abs(days), MAX_LOOP_DAYS);
   while(count < n){
     d.setDate(d.getDate() + step);
     if(isWorkday(d)) count++;
@@ -299,8 +306,12 @@ function workdayIntl(start, days){
 }
 function networkdaysIntl(start, end){
   let d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  const e = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  let e = new Date(end.getFullYear(), end.getMonth(), end.getDate());
   const step = e >= d ? 1 : -1;
+  const capDays = MAX_LOOP_DAYS * step; // a bad/typo'd date field (e.g. year 9999) shouldn't be able to loop unbounded either
+  const cap = new Date(d); cap.setDate(cap.getDate() + capDays);
+  if(step > 0 && e > cap) e = cap;
+  if(step < 0 && e < cap) e = cap;
   let count = 0;
   while((step > 0 && d <= e) || (step < 0 && d >= e)){
     if(isWorkday(d)) count++;
@@ -313,6 +324,7 @@ function workdaySequence(start, n){
   const dates = [];
   let d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
   let count = 0;
+  n = Math.min(n, MAX_LOOP_DAYS);
   while(count < n){
     d.setDate(d.getDate() + 1);
     if(isWorkday(d)){ dates.push(new Date(d)); count++; }
@@ -420,9 +432,15 @@ function curveWeights(n, type){
   const scale = n/sum; // rescale so the average weight is exactly 1 (preserves total)
   return w.map(wi=>wi*scale);
 }
+// Charting one bar per day is far pricier than the plain date math above (array
+// allocation + a live Chart.js render, redone on every keystroke), so it gets a much
+// tighter ceiling: ~8 years of 6-day weeks, well past any real schedule.
+const MAX_CHART_DAYS = 2500;
 function buildDistribution(f, curveType){
-  const n = Math.max(0, Math.ceil(f.daysRemaining||0));
-  if(!n || !isFinite(f.hoursForecasted)) return null;
+  const rawN = Math.max(0, Math.ceil(f.daysRemaining||0));
+  if(!rawN || !isFinite(f.hoursForecasted)) return null;
+  if(rawN > MAX_CHART_DAYS) return {tooLong: true};
+  const n = rawN;
   const dates = workdaySequence(new Date(), n);
   const weights = curveWeights(n, curveType);
   const hrsPerDay = weights.map(w => (f.hoursForecasted/n) * w);
@@ -936,6 +954,11 @@ function drawDistribution(which, f, curveType, id){
   if(!dist){
     destroyChart(mpKey); destroyChart(qtyKey);
     if(peakEl) peakEl.textContent = 'Not enough data yet';
+    return;
+  }
+  if(dist.tooLong){
+    destroyChart(mpKey); destroyChart(qtyKey);
+    if(peakEl) peakEl.textContent = `Forecast window is over ${MAX_CHART_DAYS.toLocaleString('en-US')} days — check your inputs`;
     return;
   }
 
