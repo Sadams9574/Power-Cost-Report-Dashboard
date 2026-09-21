@@ -87,7 +87,10 @@
      easy to miss/scroll past. Spanning it full-width instead makes it obviously still there. */
   @media(max-width:1500px){.scenario-grid{grid-template-columns:1fr 1fr;} .scenario-grid > .scenario-card:nth-child(3){grid-column:1/-1;}}
   @media(max-width:800px){.scenario-grid{grid-template-columns:1fr;} .scenario-grid > .scenario-card:nth-child(3){grid-column:auto;}}
-  .scenario-card{background:var(--card2);border-radius:8px;padding:16px;}
+  /* Grid items default to min-width:auto, so a wide child (the weekly table on a long
+     forecast) can force this card past its grid track instead of scrolling internally --
+     min-width:0 lets it shrink back to the track size the grid actually gave it. */
+  .scenario-card{background:var(--card2);border-radius:8px;padding:16px;min-width:0;}
   .manpower-row.split{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:16px;}
   .manpower-row.split .field{display:flex;align-items:center;gap:12px;}
   .scenario-card h3{margin:0 0 4px;font-size:14px;}
@@ -114,7 +117,7 @@
   .chart-wrap{margin-top:6px;}
   .empty-msg{color:var(--muted);font-size:13px;padding:20px;text-align:center;}
   .scenario-body{display:grid;grid-template-columns:1fr;gap:16px;align-items:start;}
-  .dist-col{background:var(--card3);border-radius:8px;padding:12px 14px;}
+  .dist-col{background:var(--card3);border-radius:8px;padding:12px 14px;min-width:0;} /* scenario-body is a grid too -- same min-width:auto blowout risk */
   .dist-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;}
   .dist-head .peak{font-size:11.5px;color:var(--muted);}
   .dist-head .peak b{color:var(--text);}
