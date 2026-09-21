@@ -901,26 +901,23 @@ function computeManualStats(row){
   sorted.forEach(e=>{ running += (e.qty||0); cumById[e.id] = running; });
   const cumulativeTotal = running;
   const remainingQty = (row.baselineQty||0) - cumulativeTotal;
-  const n = sorted.length;
-  const lastDate = n ? new Date(sorted[n-1].date + 'T00:00:00') : null;
-  const last4 = sorted.slice(-4);
+  // Only weeks with an actual installed qty count as "reported" -- a week added ahead of
+  // time with just a planned crew size typed in isn't real pace data yet, and shouldn't
+  // knock a real trailing average down to zero just by sitting at the end of the grid.
+  const reported = sorted.filter(e => (e.qty||0) > 0);
+  const lastDate = reported.length ? new Date(reported[reported.length-1].date + 'T00:00:00') : null;
+  const last4 = reported.slice(-4);
   const sum4Qty = last4.reduce((s,e)=>s+(e.qty||0), 0);
   const sum4Hrs = last4.reduce((s,e)=>s+((e.manpower||0)*60), 0);
   const trailingAvgManpower = last4.length ? last4.reduce((s,e)=>s+(e.manpower||0),0)/last4.length : NaN;
   const trailingAvgQty = last4.length ? sum4Qty/last4.length : NaN;
   const trailingAvgUR = sum4Qty>0 ? sum4Hrs/sum4Qty : NaN;
-  const weeksRemaining = trailingAvgQty>0 ? remainingQty/trailingAvgQty : NaN;
-  let projectedFinish = null;
-  if(lastDate && isFinite(weeksRemaining)){
-    projectedFinish = new Date(lastDate);
-    projectedFinish.setDate(projectedFinish.getDate() + Math.ceil(Math.max(weeksRemaining,0))*7);
-  }
-  return {sorted, cumById, cumulativeTotal, remainingQty, n, trailingAvgManpower, trailingAvgQty, trailingAvgUR, weeksRemaining, projectedFinish, lastDate};
+  return {sorted, cumById, cumulativeTotal, remainingQty, n: sorted.length, reportedCount: reported.length, trailingAvgManpower, trailingAvgQty, trailingAvgUR, lastDate};
 }
 
 function manualMetaHTML(row, s){
   return `
-    <span>Weeks Logged <b>${fmtInt(s.n)}</b></span>
+    <span>Weeks Reported <b>${fmtInt(s.reportedCount)}</b>${s.n>s.reportedCount ? ` <span style="color:var(--muted);">(${fmtInt(s.n)} on grid)</span>` : ''}</span>
     <span>Cumulative Qty <b>${fmtInt(s.cumulativeTotal)}</b> / ${fmtInt(row.baselineQty)}</span>
     <span>Remaining Qty <b>${fmtInt(s.remainingQty)}</b></span>
   `;
@@ -992,6 +989,7 @@ function manualBlockHTML(row){
         <p class="desc">Type in the crew size and the quantity installed for each week, left to right. The unit rate that pace actually took is backed into it, and the same forecast math as Forecast 1-3 projects the finish date, budget, and cost from the trailing 4-week average, 6-day work week.</p>
         <div class="table-wrap" style="overflow-x:auto;" id="weekGridWrap_${id}">${manualWeekGridHTML(row, s)}</div>
         <button class="addrow-btn" data-addweek="${id}" style="margin-top:12px;margin-bottom:16px;">+ Add Week</button>
+        <button class="addrow-btn" data-fillqty="${id}" title="Fills in an estimated qty for any week where a crew size is typed in but qty is still blank, using the established (or baseline) unit rate. Overwrite it once you know the real number." style="margin:12px 0 16px 8px;">Fill Est. Qty from Manpower</button>
         <div class="scenario-body">
           <div class="outputs" id="manualOut_${id}"></div>
           <div class="dist-col">
@@ -1053,6 +1051,23 @@ function wireManualBlock(row){
       row.weeklyLog.push({id: nextWeeklyEntryId(row), date: nextDate, manpower:0, qty:0});
       saveState();
       renderOneManualBlock(row);
+    });
+  }
+  const fillBtn = document.querySelector(`#mblock-${id} [data-fillqty="${id}"]`);
+  if(fillBtn){
+    fillBtn.addEventListener('click', ()=>{
+      const s = computeManualStats(row);
+      const fallbackUR = computeRow(row).baselineUR;
+      const ur = isFinite(s.trailingAvgUR) ? s.trailingAvgUR : fallbackUR;
+      if(!isFinite(ur) || ur<=0) return; // no rate to estimate from yet
+      let changed = false;
+      (row.weeklyLog||[]).forEach(e=>{
+        if((e.qty||0)===0 && (e.manpower||0)>0){
+          e.qty = Math.round((e.manpower*60/ur)*10)/10;
+          changed = true;
+        }
+      });
+      if(changed){ saveState(); renderOneManualBlock(row); }
     });
   }
   const curveEl = document.getElementById(`curveM_${id}`);
