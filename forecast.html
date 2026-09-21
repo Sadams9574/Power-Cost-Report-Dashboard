@@ -42,12 +42,6 @@
   .legend-note .swatch{width:12px;height:12px;border-radius:3px;display:inline-block;}
   .swatch.input{background:var(--input-bg);border:1.5px solid var(--input-border);}
   .swatch.calc{background:var(--card2);border:1px solid var(--border);}
-  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;padding:20px 28px;}
-  .kpi{background:var(--card);border-radius:10px;padding:16px 18px;}
-  .kpi .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em;}
-  .kpi .value{font-size:24px;font-weight:600;margin-top:6px;}
-  .kpi .value.good{color:var(--good);}
-  .kpi .value.bad{color:var(--bad);}
   .panel{background:var(--card);border-radius:10px;padding:16px 18px;margin-bottom:16px;}
   .panel h2{margin:0 0 4px;font-size:15px;color:var(--text);font-weight:600;}
   .panel .panel-sub{margin:0 0 14px;font-size:12px;color:var(--muted);}
@@ -138,8 +132,6 @@
   <span class="chip"><span class="swatch input"></span> Blue-outlined fields = type your own numbers</span>
   <span class="chip"><span class="swatch calc"></span> Gray fields = calculated automatically (same formulas as the workbook)</span>
 </div>
-
-<div class="kpis" id="kpis"></div>
 
 <div class="container">
 
@@ -389,7 +381,7 @@ const charts = {}; // registry keyed by canvas id / chart key, so N commodities 
 function setChart(key, chart){ if(charts[key]) charts[key].destroy(); charts[key] = chart; }
 function destroyChart(key){ if(charts[key]){ charts[key].destroy(); delete charts[key]; } }
 function destroyRowCharts(id){
-  ['mp1','qty1','mp2','qty2','mp3','qty3','sens','sens3'].forEach(p=>destroyChart(p+'_'+id));
+  ['mp1','qty1','mp2','qty2','mp3','qty3','sens3'].forEach(p=>destroyChart(p+'_'+id));
 }
 
 function loadState(){
@@ -473,7 +465,6 @@ function renderTable(){
       else { row[field] = parseFloat(e.target.value) || 0; }
       saveState();
       renderCalcCellsOnly(tr, row);
-      renderKPIs();
       renderBlockHeaderMeta(row);
       renderCommodityScenario(row);
       renderRollup();
@@ -506,24 +497,6 @@ function renderCalcCellsOnly(tr, row){
   cells[7].classList.toggle('bad', !(c.jtdPF>=1));
   cells[8].textContent = fmt2(c.actualUR);
   cells[9].textContent = fmt2(c.urNeededPF1);
-}
-
-/* ---------- render: KPI strip ---------- */
-function renderKPIs(){
-  const el = document.getElementById('kpis');
-  if(!rows.length){ el.innerHTML = ''; return; }
-  const totalBaseline = rows.reduce((s,r)=>s+r.baselineHrs,0);
-  const totalSpent = rows.reduce((s,r)=>s+r.spentHrs,0);
-  const totalEarned = rows.reduce((s,r)=>s+r.pctComplete*r.baselineHrs,0);
-  const overallPF = totalSpent ? totalEarned/totalSpent : NaN;
-  const overallPct = totalBaseline ? totalEarned/totalBaseline : NaN;
-  const kpis = [
-    {label:'Total Baseline Hours', value: fmtInt(totalBaseline)},
-    {label:'Total Spent Hours (JTD)', value: fmtInt(totalSpent)},
-    {label:'Overall % Complete (Earned)', value: fmtPct(overallPct)},
-    {label:'Overall JTD Productivity Factor', value: fmtPF(overallPF), cls: overallPF>=1?'good':'bad'},
-  ];
-  el.innerHTML = kpis.map(k=>`<div class="kpi"><div class="label">${k.label}</div><div class="value ${k.cls||''}">${k.value}</div></div>`).join('');
 }
 
 /* ---------- render: per-commodity scenario blocks ---------- */
@@ -628,11 +601,6 @@ function blockBodyHTML(row){
           <div class="mini-chart-title" style="margin-top:16px;">Required UR by Crew Size</div>
           <div class="chart-wrap" style="height:180px;"><canvas id="sensChart3_${id}"></canvas></div>
         </div>
-      </div>
-
-      <div class="panel" style="margin-top:16px;background:var(--card2);">
-        <h2 style="font-size:13px;">Manpower Sensitivity — Days Remaining by Crew Size</h2>
-        <div class="chart-wrap"><canvas id="sensChart_${id}" height="90"></canvas></div>
       </div>
 
       <div class="panel" style="margin-top:16px;background:var(--card2);">
@@ -765,7 +733,6 @@ function renderCommodityScenario(row){
   drawOutputs(`out2_${id}`, f2);
   drawOutputs(`out3_${id}`, f3, {highlightUR:true});
   drawTargetOut(`targetOut_${id}`, row);
-  drawSensChart(row, c, id);
   drawSensChart3(row, c, row.qtyDay3, id);
   drawDistribution(1, f1, row.curve1 || 'scurve', id);
   drawDistribution(2, f2, row.curve2 || 'scurve', id);
@@ -795,48 +762,6 @@ function drawTargetOut(elId, row){
   const target = new Date(row.targetDate + 'T00:00:00');
   const days = networkdaysIntl(new Date(), target);
   el.innerHTML = `<div class="out-tile highlight"><div class="l">Working Days Remaining (6-day wk)</div><div class="v ${days>=0?'good':'bad'}">${fmtInt(days)}</div></div>`;
-}
-
-function drawSensChart(row, c, id){
-  const manpowerRange = [];
-  for(let m=10; m<=200; m+=10) manpowerRange.push(m);
-  const canvas = document.getElementById(`sensChart_${id}`);
-  if(!canvas) return;
-  const d1 = manpowerRange.map(m=>forecast1(row, c, m).daysRemaining);
-  const d2 = manpowerRange.map(m=>forecast2(row, c, m).daysRemaining);
-  const f1dates = manpowerRange.map(m=>fmtDate(forecast1(row, c, m).finishDate));
-  const f2dates = manpowerRange.map(m=>fmtDate(forecast2(row, c, m).finishDate));
-
-  const t = chartColors();
-  setChart('sens_'+id, new Chart(canvas, {
-    type:'line',
-    data:{
-      labels: manpowerRange,
-      datasets:[
-        {label:'Forecast 1 — Current UR', data:d1, borderColor:t.accent, backgroundColor:t.accent, pointRadius:3, pointHoverRadius:5, borderWidth:2, tension:0.15, meta:f1dates},
-        {label:'Forecast 2 — Target PF 1.0', data:d2, borderColor:t.accent2, backgroundColor:t.accent2, pointRadius:3, pointHoverRadius:5, borderWidth:2, tension:0.15, meta:f2dates, borderDash:[6,3]},
-      ]
-    },
-    options:{
-      responsive:true,
-      interaction:{mode:'index', intersect:false},
-      plugins:{
-        legend:{labels:{color:t.legendText}},
-        tooltip:{
-          callbacks:{
-            label: ctx0 => {
-              const meta = ctx0.dataset.meta[ctx0.dataIndex];
-              return `${ctx0.dataset.label}: ${fmt2(ctx0.parsed.y)} days → finishes ${meta}`;
-            }
-          }
-        }
-      },
-      scales:{
-        x:{title:{display:true,text:'Manpower (crew size)',color:t.tick}, ticks:{color:t.tick}, grid:{color:t.grid}},
-        y:{title:{display:true,text:'Days Remaining',color:t.tick}, ticks:{color:t.tick}, grid:{color:t.grid}, beginAtZero:true}
-      }
-    }
-  }));
 }
 
 function drawSensChart3(row, c, qtyPerDay, id){
@@ -1022,7 +947,6 @@ document.getElementById('resetBtn').addEventListener('click', ()=>{
 
 function renderAll(){
   renderTable();
-  renderKPIs();
   renderCommodityBlocks();
 }
 
