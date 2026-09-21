@@ -381,7 +381,11 @@ function forecast2(r, c, manpower){
   const ur = c.urNeededPF1;
   const qtyPerDayPerPerson = ur ? 10 / ur : NaN;
   const qtyPerDay = daysRemaining ? c.remainingQty / daysRemaining : NaN;
-  const forecastedPF = c.pfNeededRemaining;
+  // hoursForecasted is exactly remainingBudgetHrs (baselineHrs - spentHrs) by construction,
+  // so the resulting overall PF is always exactly 1.00 -- that's the whole point of this
+  // scenario. (c.pfNeededRemaining is a different number -- the productivity needed on just
+  // the remaining scope to get there -- used below to derive the required UR, not this.)
+  const forecastedPF = (hoursForecasted + r.spentHrs) ? r.baselineHrs / (hoursForecasted + r.spentHrs) : NaN;
   const finishDate = isFinite(daysRemaining) ? workdayIntl(new Date(), Math.ceil(daysRemaining)) : null;
   return {hoursForecasted, daysRemaining, ur, qtyPerDayPerPerson, qtyPerDay, forecastedPF, finishDate, remainingQty:c.remainingQty};
 }
