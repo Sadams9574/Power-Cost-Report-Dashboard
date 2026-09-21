@@ -414,7 +414,15 @@ let selectedId = rows.length ? rows[0].id : null;
 let rollupHidden = false;
 const charts = {}; // registry keyed by canvas id / chart key, so N commodities each get their own tracked instances
 
-function setChart(key, chart){ if(charts[key]) charts[key].destroy(); charts[key] = chart; }
+// Destroys any existing chart bound to this canvas BEFORE constructing the new one --
+// Chart.js throws "Canvas is already in use" if you construct a new chart on a canvas
+// that already has a live chart attached, which a `new Chart(...)` passed in as an
+// already-evaluated argument would do (the old chart would still be live at that point).
+function setChart(key, canvas, config){
+  destroyChart(key);
+  charts[key] = new Chart(canvas, config);
+  return charts[key];
+}
 function destroyChart(key){ if(charts[key]){ charts[key].destroy(); delete charts[key]; } }
 function destroyRowCharts(id){
   ['mp1','qty1','mp2','qty2','mp3','qty3','sens3'].forEach(p=>destroyChart(p+'_'+id));
@@ -818,7 +826,7 @@ function drawSensChart3(row, c, qtyPerDay, id){
   if(!canvas) return;
   if(!(qtyPerDay > 0)){ destroyChart('sens3_'+id); return; }
   const urs = manpowerRange.map(m => forecast3(row, c, m, qtyPerDay).ur);
-  setChart('sens3_'+id, new Chart(canvas, {
+  setChart('sens3_'+id, canvas, {
     type:'line',
     data:{
       labels: manpowerRange,
@@ -835,7 +843,7 @@ function drawSensChart3(row, c, qtyPerDay, id){
         y:{title:{display:true,text:'Required UR (hrs/unit)',color:t.tick}, ticks:{color:t.tick}, grid:{color:t.grid}, beginAtZero:true}
       }
     }
-  }));
+  });
 }
 
 function miniBarOptions(yLabel){
@@ -871,16 +879,16 @@ function drawDistribution(which, f, curveType, id){
   const peakMp = Math.max(...dist.manpowerPerDay);
   if(peakEl) peakEl.innerHTML = `Peak crew: <b>${fmtInt(peakMp)}</b> people/day`;
 
-  setChart(mpKey, new Chart(mpCanvas, {
+  setChart(mpKey, mpCanvas, {
     type:'bar',
     data:{ labels, datasets:[{ label:'Manpower', data: dist.manpowerPerDay, backgroundColor: color, borderRadius:2, maxBarThickness:18 }] },
     options: miniBarOptions('People / day')
-  }));
-  setChart(qtyKey, new Chart(qtyCanvas, {
+  });
+  setChart(qtyKey, qtyCanvas, {
     type:'bar',
     data:{ labels, datasets:[{ label:'Qty', data: dist.qtyPerDay, backgroundColor:t.qty, borderRadius:2, maxBarThickness:18 }] },
     options: miniBarOptions('Qty / day')
-  }));
+  });
 }
 
 /* ---------- render: portfolio rollup ---------- */
@@ -921,7 +929,7 @@ function renderRollupChart(canvasId, dates, seriesList, yLabel){
     backgroundColor: rollupColor(i, seriesList.length),
     borderWidth: 2, pointRadius: 0, tension: 0.1,
   }));
-  setChart(canvasId, new Chart(canvas, {
+  setChart(canvasId, canvas, {
     type:'line',
     data:{labels, datasets},
     options:{
@@ -933,7 +941,7 @@ function renderRollupChart(canvasId, dates, seriesList, yLabel){
         y:{ title:{display:true,text:yLabel,color:t.tick}, ticks:{color:t.tick}, grid:{color:t.grid}, beginAtZero:true }
       }
     }
-  }));
+  });
 }
 
 function renderRollup(){
