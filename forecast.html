@@ -119,6 +119,8 @@
   .rollup-fc:last-child{margin-bottom:0;}
   .rollup-fc h3{font-size:14px;margin:0 0 10px;}
   .rollup-empty{color:var(--muted);font-size:12px;padding:10px 0;}
+  .holiday-chip{display:inline-flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border-strong);border-radius:14px;padding:5px 10px 5px 12px;font-size:12px;margin:0 8px 8px 0;}
+  .holiday-del{background:none;border:none;color:var(--bad);cursor:pointer;font-size:13px;padding:0;line-height:1;}
 </style>
 </head>
 <body>
@@ -160,6 +162,19 @@
     </div>
     <button class="addrow-btn" id="addRowBtn">+ Add Commodity</button>
     <button class="reset-btn" id="resetBtn">Reset to Example (Racking)</button>
+  </div>
+
+  <div class="panel">
+    <h2>Holidays &amp; Non-Work Days</h2>
+    <p class="panel-sub">Every date you add here is skipped in every finish-date and working-days calculation below, the same way Sundays already are — no need to touch each commodity.</p>
+    <div class="manpower-row" style="flex-wrap:wrap;">
+      <label>Date</label>
+      <input type="date" id="newHolidayDate">
+      <label>Label (optional)</label>
+      <input type="text" id="newHolidayLabel" placeholder="e.g. Thanksgiving" style="width:180px;background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);padding:7px 8px;border-radius:5px;font-size:13px;">
+      <button class="addrow-btn" id="addHolidayBtn" style="margin:0;">+ Add Holiday</button>
+    </div>
+    <div id="holidayList" style="margin-top:8px;"></div>
   </div>
 
   <div class="panel">
@@ -219,8 +234,27 @@
 </div>
 
 <script>
-/* ---------- date helpers: Excel WORKDAY.INTL / NETWORKDAYS.INTL, weekend code 11 (Sunday only) ---------- */
-function isWorkday(d){ return d.getDay() !== 0; }
+/* ---------- holidays: extra non-work days, layered on top of the Sunday-only weekend ---------- */
+let holidays = loadHolidays(); // [{id, date:'YYYY-MM-DD', label}]
+let holidaySet = new Set();
+function loadHolidays(){
+  try{
+    const saved = localStorage.getItem('forecastPlannerHolidays');
+    if(saved){ const parsed = JSON.parse(saved); if(Array.isArray(parsed)) return parsed; }
+  }catch(e){}
+  return [];
+}
+function saveHolidays(){
+  try{ localStorage.setItem('forecastPlannerHolidays', JSON.stringify(holidays)); }catch(e){}
+}
+function rebuildHolidaySet(){ holidaySet = new Set(holidays.map(h=>h.date)); }
+function dateKey(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+rebuildHolidaySet();
+
+/* ---------- date helpers: Excel WORKDAY.INTL / NETWORKDAYS.INTL, weekend code 11 (Sunday only), plus holidays above ---------- */
+function isWorkday(d){ return d.getDay() !== 0 && !holidaySet.has(dateKey(d)); }
 function workdayIntl(start, days){
   days = Math.round(days);
   if(!isFinite(days)) return null;
@@ -926,7 +960,47 @@ function renderRollup(){
   });
 }
 
+/* ---------- render: holidays ---------- */
+function renderHolidays(){
+  const el = document.getElementById('holidayList');
+  if(!el) return;
+  const sorted = [...holidays].sort((a,b)=> a.date.localeCompare(b.date));
+  if(!sorted.length){
+    el.innerHTML = '<div class="empty-msg" style="padding:6px 0;text-align:left;">No holidays added yet — Sundays are still skipped by default.</div>';
+    return;
+  }
+  el.innerHTML = sorted.map(h=>`
+    <span class="holiday-chip">
+      ${fmtDate(new Date(h.date+'T00:00:00'))}${h.label ? ' — '+escapeHtml(h.label) : ''}
+      <button class="holiday-del" data-id="${h.id}" title="Remove">✕</button>
+    </span>
+  `).join('');
+  el.querySelectorAll('.holiday-del').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = Number(btn.dataset.id);
+      holidays = holidays.filter(h=>h.id!==id);
+      rebuildHolidaySet();
+      saveHolidays();
+      renderHolidays();
+      renderCommodityBlocks(); // every finish date / working-days figure depends on the holiday set
+    });
+  });
+}
+
 /* ---------- wiring ---------- */
+document.getElementById('addHolidayBtn').addEventListener('click', ()=>{
+  const dateEl = document.getElementById('newHolidayDate');
+  const labelEl = document.getElementById('newHolidayLabel');
+  if(!dateEl.value) return;
+  if(holidays.some(h=>h.date===dateEl.value)){ dateEl.value=''; labelEl.value=''; return; } // already a holiday
+  holidays.push({id: Date.now(), date: dateEl.value, label: labelEl.value.trim()});
+  rebuildHolidaySet();
+  saveHolidays();
+  dateEl.value = '';
+  labelEl.value = '';
+  renderHolidays();
+  renderCommodityBlocks();
+});
 document.getElementById('expandAllBtn').addEventListener('click', ()=>{
   rows.forEach(r=>r.hidden=false);
   saveState();
@@ -959,6 +1033,7 @@ document.getElementById('resetBtn').addEventListener('click', ()=>{
 
 function renderAll(){
   renderTable();
+  renderHolidays();
   renderCommodityBlocks();
 }
 
