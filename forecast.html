@@ -1252,6 +1252,14 @@ function weekOffDates(centerDateStr){
   for(let i=0;i<6;i++){ const d = new Date(monday); d.setDate(d.getDate()+i); out.push(isoDate(d)); }
   return out;
 }
+// Thanksgiving Day itself plus the following Friday and Saturday -- a shorter break than
+// the full Mon-Sat week off, for crews only taking the holiday and the long weekend.
+function thanksgiving3DayDates(tgDateStr){
+  const start = new Date(tgDateStr+'T00:00:00');
+  const out = [];
+  for(let i=0;i<3;i++){ const d = new Date(start); d.setDate(d.getDate()+i); out.push(isoDate(d)); }
+  return out;
+}
 function addHolidayIfNew(date, label){
   if(holidays.some(h=>h.date===date)) return false;
   holidays.push({id: nextHolidayId(), date, label});
@@ -1283,6 +1291,7 @@ function quickAddRowHTML(year){
   const tgDate = items.find(h=>h.label==='Thanksgiving Day').date;
   const xmasDate = items.find(h=>h.label==='Christmas Day').date;
   const tgWeek = weekOffDates(tgDate);
+  const tg3Day = thanksgiving3DayDates(tgDate);
   const xmasWeek = weekOffDates(xmasDate);
   const isAdded = date => holidays.some(h=>h.date===date);
   const isWeekAdded = dates => dates.every(isAdded);
@@ -1292,6 +1301,7 @@ function quickAddRowHTML(year){
   `).join('');
 
   const weekBtns = `
+    <button class="qa-btn qa-week ${isWeekAdded(tg3Day)?'added':''}" data-qa-week="tg3" data-qa-year="${year}">${isWeekAdded(tg3Day)?'✓ ':''}Thanksgiving 3 Days Off</button>
     <button class="qa-btn qa-week ${isWeekAdded(tgWeek)?'added':''}" data-qa-week="tg" data-qa-year="${year}">${isWeekAdded(tgWeek)?'✓ ':''}Thanksgiving Week Off</button>
     <button class="qa-btn qa-week ${isWeekAdded(xmasWeek)?'added':''}" data-qa-week="xmas" data-qa-year="${year}">${isWeekAdded(xmasWeek)?'✓ ':''}Christmas Week Off</button>
   `;
@@ -1319,10 +1329,11 @@ function renderHolidayQuickAdd(){
     btn.addEventListener('click', ()=>{
       const year = Number(btn.dataset.qaYear);
       const items = standardHolidays(year);
-      const isTg = btn.dataset.qaWeek === 'tg';
+      const kind = btn.dataset.qaWeek; // 'tg3' | 'tg' | 'xmas'
+      const isTg = kind === 'tg' || kind === 'tg3';
       const anchor = items.find(h=>h.label===(isTg?'Thanksgiving Day':'Christmas Day')).date;
-      const label = isTg ? 'Thanksgiving Week' : 'Christmas Week';
-      const weekDates = weekOffDates(anchor);
+      const label = kind === 'tg3' ? 'Thanksgiving' : kind === 'tg' ? 'Thanksgiving Week' : 'Christmas Week';
+      const weekDates = kind === 'tg3' ? thanksgiving3DayDates(anchor) : weekOffDates(anchor);
       const allAdded = weekDates.every(date=>holidays.some(h=>h.date===date));
       let changed = false;
       if(allAdded){
