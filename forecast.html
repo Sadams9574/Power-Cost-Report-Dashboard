@@ -43,12 +43,17 @@
   }
   td input[type=text]{text-align:left;width:120px;}
   td input[type=date]{width:130px;}
+  .pct-input{display:inline-flex;align-items:center;gap:4px;color:var(--muted);}
+  .pct-input input{width:70px;}
   .rowdel{background:none;border:none;color:var(--bad);cursor:pointer;font-size:16px;padding:0 6px;}
   .addrow-btn, .reset-btn{background:var(--card2);border:1px solid #33465a;color:var(--text);padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12.5px;margin-top:12px;margin-right:8px;}
   .addrow-btn:hover, .reset-btn:hover{border-color:var(--accent);}
-  .scenario-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-  @media(max-width:1100px){.scenario-grid{grid-template-columns:1fr;}}
+  .scenario-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  @media(max-width:1500px){.scenario-grid{grid-template-columns:1fr 1fr;}}
+  @media(max-width:800px){.scenario-grid{grid-template-columns:1fr;}}
   .scenario-card{background:var(--card2);border-radius:8px;padding:16px;}
+  .manpower-row.split{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:16px;}
+  .manpower-row.split .field{display:flex;align-items:center;gap:12px;}
   .scenario-card h3{margin:0 0 4px;font-size:14px;}
   .scenario-card .desc{color:var(--muted);font-size:12px;margin:0 0 14px;}
   .manpower-row{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
@@ -66,8 +71,7 @@
   select.curve-select{background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);padding:6px 8px;border-radius:5px;font-size:12px;}
   .chart-wrap{margin-top:6px;}
   .empty-msg{color:var(--muted);font-size:13px;padding:20px;text-align:center;}
-  .scenario-body{display:grid;grid-template-columns:1fr 1.15fr;gap:16px;align-items:start;}
-  @media(max-width:1500px){.scenario-body{grid-template-columns:1fr;}}
+  .scenario-body{display:grid;grid-template-columns:1fr;gap:16px;align-items:start;}
   .dist-col{background:var(--card3);border-radius:8px;padding:12px 14px;}
   .dist-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;}
   .dist-head .peak{font-size:11.5px;color:var(--muted);}
@@ -181,6 +185,44 @@
             </div>
           </div>
           <div class="curve-legend">Same total remaining hours and the same finish date either way — the curve only changes how the crew and daily output are spread between today and the finish date, so you can see the peak headcount each strategy needs.</div>
+        </div>
+
+        <div class="scenario-card" id="card3">
+          <h3>Forecast 3 — Set Your Own Pace</h3>
+          <p class="desc">Type in BOTH a crew size and an overall qty/day target — this one solves backwards for the unit rate that pace requires, instead of assuming a productivity number. Finish date comes straight from the qty/day target and remaining quantity, 6-day work week.</p>
+          <div class="manpower-row split">
+            <div class="field">
+              <label>Manpower FC</label>
+              <input type="number" id="mp3" min="1" step="1">
+              <input type="range" id="mp3Range" min="1" max="200" step="1">
+            </div>
+            <div class="field">
+              <label>Qty / Day (Crew)</label>
+              <input type="number" id="qtyDay3" min="0.01" step="0.1">
+              <input type="range" id="qtyDay3Range" min="1" max="200" step="0.5">
+            </div>
+          </div>
+          <div class="scenario-body">
+            <div class="outputs" id="out3"></div>
+            <div class="dist-col">
+              <div class="dist-head">
+                <select class="curve-select" id="curve3">
+                  <option value="flat">Flat — even pace</option>
+                  <option value="bell">Bell — ramp up / ramp down</option>
+                  <option value="back">Back-End Loaded — push at the finish</option>
+                  <option value="front">Front-End Loaded — hit hard now</option>
+                </select>
+                <span class="peak" id="peak3"></span>
+              </div>
+              <div class="mini-chart-title">Manpower per Day</div>
+              <div class="mini-chart"><canvas id="mpChart3"></canvas></div>
+              <div class="mini-chart-title">Qty per Day</div>
+              <div class="mini-chart"><canvas id="qtyChart3"></canvas></div>
+            </div>
+          </div>
+          <div class="curve-legend">Days remaining is driven by the Qty/Day target alone (Remaining Qty ÷ Qty/Day) — Manpower only changes the Unit Rate this pace requires. That's why the chart below holds your Qty/Day steady and shows how required UR shifts as you add or cut crew.</div>
+          <div class="mini-chart-title" style="margin-top:16px;">Required UR by Crew Size (at your Qty/Day target)</div>
+          <div class="chart-wrap" style="height:200px;"><canvas id="sensChart3"></canvas></div>
         </div>
       </div>
 
@@ -296,6 +338,17 @@ function forecast2(r, c, manpower){
   const finishDate = isFinite(daysRemaining) ? workdayIntl(new Date(), Math.ceil(daysRemaining)) : null;
   return {hoursForecasted, daysRemaining, ur, qtyPerDayPerPerson, qtyPerDay, forecastedPF, finishDate, remainingQty:c.remainingQty};
 }
+// Forecast 3: you set BOTH manpower and the overall qty/day target — UR and finish date are solved backwards.
+// Days Remaining depends only on qty/day (Remaining Qty / Qty per Day); manpower only determines the UR that pace requires.
+function forecast3(r, c, manpower, qtyPerDay){
+  const daysRemaining = qtyPerDay > 0 ? c.remainingQty / qtyPerDay : NaN;
+  const ur = qtyPerDay > 0 ? (manpower * 10) / qtyPerDay : NaN;
+  const hoursForecasted = isFinite(ur) ? ur * c.remainingQty : NaN;
+  const qtyPerDayPerPerson = manpower > 0 ? qtyPerDay / manpower : NaN;
+  const forecastedPF = isFinite(hoursForecasted) && (hoursForecasted + r.spentHrs) ? r.baselineHrs / (hoursForecasted + r.spentHrs) : NaN;
+  const finishDate = isFinite(daysRemaining) ? workdayIntl(new Date(), Math.ceil(daysRemaining)) : null;
+  return {hoursForecasted, daysRemaining, ur, qtyPerDayPerPerson, qtyPerDay, forecastedPF, finishDate, remainingQty:c.remainingQty};
+}
 
 /* ---------- daily distribution curves ---------- */
 // Spreads a fixed total of hours across `n` workdays under a chosen loading shape.
@@ -328,11 +381,12 @@ function buildDistribution(f, curveType){
 
 /* ---------- state ---------- */
 const DEFAULT_ROWS = [
-  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, pctComplete:0.08, mp1:80, mp2:60, targetDate:'2026-11-05', curve1:'flat', curve2:'flat'}
+  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, pctComplete:0.08, mp1:80, mp2:60, mp3:80, qtyDay3:38.4, targetDate:'2026-11-05', curve1:'flat', curve2:'flat', curve3:'flat'}
 ];
 let rows = loadState();
 let selectedId = rows.length ? rows[0].id : null;
-let sensChart = null, mpChart1 = null, qtyChart1 = null, mpChart2 = null, qtyChart2 = null;
+let sensChart = null, sensChart3 = null;
+let mpChart1 = null, qtyChart1 = null, mpChart2 = null, qtyChart2 = null, mpChart3 = null, qtyChart3 = null;
 
 function loadState(){
   try{
@@ -340,7 +394,13 @@ function loadState(){
     if(saved){
       const parsed = JSON.parse(saved);
       if(Array.isArray(parsed) && parsed.length){
-        parsed.forEach(r=>{ if(!r.curve1) r.curve1='flat'; if(!r.curve2) r.curve2='flat'; });
+        parsed.forEach(r=>{
+          if(!r.curve1) r.curve1='flat';
+          if(!r.curve2) r.curve2='flat';
+          if(!r.curve3) r.curve3='flat';
+          if(!r.mp3) r.mp3 = r.mp1 || 10;
+          if(!r.qtyDay3) r.qtyDay3 = 10;
+        });
         return parsed;
       }
     }
@@ -364,7 +424,7 @@ function renderTable(){
       <td><input type="number" data-field="baselineHrs" value="${r.baselineHrs}" step="any"></td>
       <td><input type="number" data-field="baselineQty" value="${r.baselineQty}" step="any"></td>
       <td><input type="number" data-field="spentHrs" value="${r.spentHrs}" step="any"></td>
-      <td><input type="number" data-field="pctComplete" value="${(r.pctComplete*100).toFixed(2)}" step="0.1"></td>
+      <td><span class="pct-input"><input type="number" data-field="pctComplete" value="${(r.pctComplete*100).toFixed(2)}" step="0.1">%</span></td>
       <td class="calc">${fmt2(c.baselineUR)}</td>
       <td class="calc">${fmtInt(c.earnedHrs)}</td>
       <td class="calc">${fmtInt(c.earnedQty)}</td>
@@ -476,27 +536,37 @@ function renderScenario(){
   document.getElementById('mp1Range').value = row.mp1;
   document.getElementById('mp2').value = row.mp2;
   document.getElementById('mp2Range').value = row.mp2;
+  document.getElementById('mp3').value = row.mp3;
+  document.getElementById('mp3Range').value = row.mp3;
+  document.getElementById('qtyDay3').value = row.qtyDay3;
+  document.getElementById('qtyDay3Range').value = row.qtyDay3;
   document.getElementById('targetDate').value = row.targetDate || '';
   document.getElementById('curve1').value = row.curve1 || 'flat';
   document.getElementById('curve2').value = row.curve2 || 'flat';
+  document.getElementById('curve3').value = row.curve3 || 'flat';
 
   const c = computeRow(row);
   const f1 = forecast1(row, c, row.mp1);
   const f2 = forecast2(row, c, row.mp2);
+  const f3 = forecast3(row, c, row.mp3, row.qtyDay3);
   drawOutputs('out1', f1);
   drawOutputs('out2', f2);
+  drawOutputs('out3', f3, {highlightUR:true});
   drawTargetOut(row);
   drawSensChart(row, c);
+  drawSensChart3(row, c, row.qtyDay3);
   drawDistribution(1, f1, row.curve1 || 'flat');
   drawDistribution(2, f2, row.curve2 || 'flat');
+  drawDistribution(3, f3, row.curve3 || 'flat');
 }
 
-function drawOutputs(elId, f){
+function drawOutputs(elId, f, opts){
+  opts = opts || {};
   const el = document.getElementById(elId);
   const tiles = [
     {l:'Days Remaining', v: fmt2(f.daysRemaining)},
     {l:'Hours Forecasted', v: fmtInt(f.hoursForecasted)},
-    {l:'UR', v: fmt2(f.ur)},
+    {l:'UR' + (opts.highlightUR ? ' Required' : ''), v: fmt2(f.ur), hi: !!opts.highlightUR},
     {l:'Qty / Day / Person', v: fmt2(f.qtyPerDayPerPerson)},
     {l:'Qty / Day (Crew Avg)', v: fmt2(f.qtyPerDay)},
     {l:'Forecasted PF', v: fmtPF(f.forecastedPF), cls: f.forecastedPF>=1?'good':'bad'},
@@ -554,6 +624,33 @@ function drawSensChart(row, c){
   });
 }
 
+function drawSensChart3(row, c, qtyPerDay){
+  const manpowerRange = [];
+  for(let m=10; m<=200; m+=10) manpowerRange.push(m);
+  const canvas = document.getElementById('sensChart3');
+  if(sensChart3) sensChart3.destroy();
+  if(!(qtyPerDay > 0)){ sensChart3 = null; return; }
+  const urs = manpowerRange.map(m => forecast3(row, c, m, qtyPerDay).ur);
+  sensChart3 = new Chart(canvas, {
+    type:'line',
+    data:{
+      labels: manpowerRange,
+      datasets:[{ label:'UR Required', data: urs, borderColor:'#4ea72e', backgroundColor:'#4ea72e', pointRadius:3, pointHoverRadius:5, borderWidth:2, tension:0.15 }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{ callbacks:{ label: ctx0 => `At ${ctx0.label} people: ${fmt2(ctx0.parsed.y)} hrs/unit required` } }
+      },
+      scales:{
+        x:{title:{display:true,text:'Manpower (crew size)',color:'#8aa0b4'}, ticks:{color:'#8aa0b4'}, grid:{color:'#2a3744'}},
+        y:{title:{display:true,text:'Required UR (hrs/unit)',color:'#8aa0b4'}, ticks:{color:'#8aa0b4'}, grid:{color:'#2a3744'}, beginAtZero:true}
+      }
+    }
+  });
+}
+
 function miniBarOptions(yLabel){
   return {
     responsive:true, maintainAspectRatio:false,
@@ -571,16 +668,16 @@ function drawDistribution(which, f, curveType){
   const mpCanvas = document.getElementById('mpChart'+which);
   const qtyCanvas = document.getElementById('qtyChart'+which);
   const peakEl = document.getElementById('peak'+which);
-  const color = which===1 ? '#3b9eff' : '#e7a23b';
+  const color = which===1 ? '#3b9eff' : which===2 ? '#e7a23b' : '#4ea72e';
 
-  let mpC = which===1 ? mpChart1 : mpChart2;
-  let qtyC = which===1 ? qtyChart1 : qtyChart2;
+  let mpC = which===1 ? mpChart1 : which===2 ? mpChart2 : mpChart3;
+  let qtyC = which===1 ? qtyChart1 : which===2 ? qtyChart2 : qtyChart3;
   if(mpC) mpC.destroy();
   if(qtyC) qtyC.destroy();
 
   if(!dist){
     peakEl.textContent = 'Not enough data yet';
-    if(which===1){ mpChart1=null; qtyChart1=null; } else { mpChart2=null; qtyChart2=null; }
+    if(which===1){ mpChart1=null; qtyChart1=null; } else if(which===2){ mpChart2=null; qtyChart2=null; } else { mpChart3=null; qtyChart3=null; }
     return;
   }
 
@@ -598,7 +695,7 @@ function drawDistribution(which, f, curveType){
     data:{ labels, datasets:[{ label:'Qty', data: dist.qtyPerDay, backgroundColor:'#7a5cff', borderRadius:2, maxBarThickness:18 }] },
     options: miniBarOptions('Qty / day')
   });
-  if(which===1){ mpChart1=newMp; qtyChart1=newQty; } else { mpChart2=newMp; qtyChart2=newQty; }
+  if(which===1){ mpChart1=newMp; qtyChart1=newQty; } else if(which===2){ mpChart2=newMp; qtyChart2=newQty; } else { mpChart3=newMp; qtyChart3=newQty; }
 }
 
 /* ---------- wiring ---------- */
@@ -626,6 +723,35 @@ document.getElementById('mp2Range').addEventListener('input', e=>{
   document.getElementById('mp2').value = row.mp2;
   saveState(); renderScenario();
 });
+document.getElementById('mp3').addEventListener('input', e=>{
+  const row = rows.find(r=>r.id===selectedId); if(!row) return;
+  row.mp3 = Math.max(1, parseFloat(e.target.value)||1);
+  document.getElementById('mp3Range').value = row.mp3;
+  saveState(); renderScenario();
+});
+document.getElementById('mp3Range').addEventListener('input', e=>{
+  const row = rows.find(r=>r.id===selectedId); if(!row) return;
+  row.mp3 = parseFloat(e.target.value);
+  document.getElementById('mp3').value = row.mp3;
+  saveState(); renderScenario();
+});
+document.getElementById('qtyDay3').addEventListener('input', e=>{
+  const row = rows.find(r=>r.id===selectedId); if(!row) return;
+  row.qtyDay3 = Math.max(0.01, parseFloat(e.target.value)||0.01);
+  document.getElementById('qtyDay3Range').value = row.qtyDay3;
+  saveState(); renderScenario();
+});
+document.getElementById('qtyDay3Range').addEventListener('input', e=>{
+  const row = rows.find(r=>r.id===selectedId); if(!row) return;
+  row.qtyDay3 = parseFloat(e.target.value);
+  document.getElementById('qtyDay3').value = row.qtyDay3;
+  saveState(); renderScenario();
+});
+document.getElementById('curve3').addEventListener('change', e=>{
+  const row = rows.find(r=>r.id===selectedId); if(!row) return;
+  row.curve3 = e.target.value;
+  saveState(); renderScenario();
+});
 document.getElementById('targetDate').addEventListener('input', e=>{
   const row = rows.find(r=>r.id===selectedId); if(!row) return;
   row.targetDate = e.target.value;
@@ -648,7 +774,7 @@ document.getElementById('commoditySelect').addEventListener('change', e=>{
 });
 document.getElementById('addRowBtn').addEventListener('click', ()=>{
   const id = nextId();
-  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, pctComplete:0, mp1:10, mp2:10, targetDate:'', curve1:'flat', curve2:'flat'});
+  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, pctComplete:0, mp1:10, mp2:10, mp3:10, qtyDay3:10, targetDate:'', curve1:'flat', curve2:'flat', curve3:'flat'});
   selectedId = id;
   saveState();
   renderAll();
