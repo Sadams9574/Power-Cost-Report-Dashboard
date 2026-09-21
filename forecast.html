@@ -192,17 +192,24 @@
   </div>
 
   <div class="panel">
-    <h2>Holidays &amp; Non-Work Days</h2>
-    <p class="panel-sub">Every date here is skipped in every finish-date and working-days calculation below, the same way Sundays already are. Click a button to add it — no typing needed — or add a custom date at the bottom.</p>
-    <div id="holidayQuickAdd"></div>
-    <div class="manpower-row" style="flex-wrap:wrap;margin-top:16px;">
-      <label>Custom date</label>
-      <input type="date" id="newHolidayDate">
-      <label>Label (optional)</label>
-      <input type="text" id="newHolidayLabel" placeholder="e.g. Company shutdown" style="width:180px;background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);padding:7px 8px;border-radius:5px;font-size:13px;">
-      <button class="addrow-btn" id="addHolidayBtn" style="margin:0;">+ Add Holiday</button>
+    <div class="block-header">
+      <div>
+        <h2>Holidays &amp; Non-Work Days</h2>
+        <p class="panel-sub" style="margin:4px 0 0;">Every date here is skipped in every finish-date and working-days calculation below, the same way Sundays already are. Click a button to add it — no typing needed — or add a custom date at the bottom.</p>
+      </div>
+      <button class="hide-toggle" id="holidaysToggleBtn">Show Holidays</button>
     </div>
-    <div id="holidayList" style="margin-top:8px;"></div>
+    <div id="holidaysBody" style="display:none;">
+      <div id="holidayQuickAdd"></div>
+      <div class="manpower-row" style="flex-wrap:wrap;margin-top:16px;">
+        <label>Custom date</label>
+        <input type="date" id="newHolidayDate">
+        <label>Label (optional)</label>
+        <input type="text" id="newHolidayLabel" placeholder="e.g. Company shutdown" style="width:180px;background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);padding:7px 8px;border-radius:5px;font-size:13px;">
+        <button class="addrow-btn" id="addHolidayBtn" style="margin:0;">+ Add Holiday</button>
+      </div>
+      <div id="holidayList" style="margin-top:8px;"></div>
+    </div>
   </div>
 
   <div class="tab-bar">
@@ -1389,6 +1396,21 @@ document.getElementById('themeToggle').addEventListener('click', ()=>{
   rows.forEach(row=>{ if(!row.hidden) renderCommodityScenario(row); });
 });
 applyThemeButtonLabel();
+
+function loadHolidaysCollapsed(){
+  try{ return localStorage.getItem('forecastPlannerHolidaysCollapsed') !== 'false'; }catch(e){ return true; } // hidden by default
+}
+function applyHolidaysToggle(collapsed){
+  document.getElementById('holidaysBody').style.display = collapsed ? 'none' : '';
+  document.getElementById('holidaysToggleBtn').textContent = collapsed ? 'Show Holidays' : 'Hide Holidays';
+}
+let holidaysCollapsed = loadHolidaysCollapsed();
+applyHolidaysToggle(holidaysCollapsed);
+document.getElementById('holidaysToggleBtn').addEventListener('click', ()=>{
+  holidaysCollapsed = !holidaysCollapsed;
+  try{ localStorage.setItem('forecastPlannerHolidaysCollapsed', String(holidaysCollapsed)); }catch(e){}
+  applyHolidaysToggle(holidaysCollapsed);
+});
 
 document.getElementById('asOf').textContent = `As of ${fmtDate(new Date())} — inputs are saved in this browser automatically`;
 renderAll();
