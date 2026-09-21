@@ -4,12 +4,36 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Productivity Forecast Planner</title>
+<script>
+  // Applied before first paint so the page never flashes the wrong theme.
+  (function(){
+    var saved = null;
+    try{ saved = localStorage.getItem('forecastPlannerTheme'); }catch(e){}
+    var theme = saved || (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
-  :root{--bg:#0f1720;--card:#1b2530;--card2:#212d3a;--card3:#182330;--accent:#3b9eff;--accent2:#e7a23b;--good:#2ecc71;--bad:#e74c3c;--muted:#8aa0b4;--text:#e7eef5;--input-border:#3b9eff;--input-bg:#132436;}
+  :root, :root[data-theme="dark"]{
+    --bg:#0f1720;--card:#1b2530;--card2:#212d3a;--card3:#182330;
+    --accent:#3b9eff;--accent2:#e7a23b;--f3:#4ea72e;--qty:#7a5cff;
+    --good:#2ecc71;--bad:#e74c3c;--muted:#8aa0b4;--text:#e7eef5;
+    --input-border:#3b9eff;--input-bg:#132436;
+    --border:#2a3744;--border-strong:#33465a;--hover:#22303d;--selected:#1f3a52;
+    --chart-grid:#2a3744;--chart-grid-mini:#26343f;
+  }
+  :root[data-theme="light"]{
+    --bg:#f5f7fa;--card:#ffffff;--card2:#eef2f6;--card3:#eaf2fb;
+    --accent:#2563eb;--accent2:#b45309;--f3:#15803d;--qty:#7c3aed;
+    --good:#15803d;--bad:#dc2626;--muted:#5b6b7a;--text:#16212c;
+    --input-border:#2563eb;--input-bg:#eaf2fb;
+    --border:#d7dee5;--border-strong:#c3ccd6;--hover:#eef2f6;--selected:#dbeafe;
+    --chart-grid:#dbe2e9;--chart-grid-mini:#e4e9ee;
+  }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
-  header{padding:20px 28px;border-bottom:1px solid #2a3744;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+  header{padding:20px 28px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
   header h1{margin:0;font-size:22px;}
   header .sub{color:var(--muted);font-size:13px;}
   .container{padding:0 28px 48px;}
@@ -17,7 +41,7 @@
   .legend-note .chip{display:inline-flex;align-items:center;gap:6px;}
   .legend-note .swatch{width:12px;height:12px;border-radius:3px;display:inline-block;}
   .swatch.input{background:var(--input-bg);border:1.5px solid var(--input-border);}
-  .swatch.calc{background:var(--card2);border:1px solid #2a3744;}
+  .swatch.calc{background:var(--card2);border:1px solid var(--border);}
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;padding:20px 28px;}
   .kpi{background:var(--card);border-radius:10px;padding:16px 18px;}
   .kpi .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em;}
@@ -29,13 +53,13 @@
   .panel .panel-sub{margin:0 0 14px;font-size:12px;color:var(--muted);}
   .table-wrap{overflow-x:auto;}
   table{width:100%;border-collapse:collapse;font-size:12.5px;}
-  th,td{padding:7px 8px;text-align:right;border-bottom:1px solid #2a3744;white-space:nowrap;}
+  th,td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;}
   th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--card);}
   th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em;}
   thead tr:first-child th{border-bottom:none;padding-bottom:2px;}
   tbody tr{cursor:pointer;}
-  tbody tr.selected{background:#1f3a52;}
-  tbody tr:hover{background:#22303d;}
+  tbody tr.selected{background:var(--selected);}
+  tbody tr:hover{background:var(--hover);}
   td.calc{color:var(--muted);}
   td input[type=number], td input[type=text], td input[type=date]{
     width:88px;background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);
@@ -46,7 +70,9 @@
   .pct-input{display:inline-flex;align-items:center;gap:4px;color:var(--muted);}
   .pct-input input{width:70px;}
   .rowdel{background:none;border:none;color:var(--bad);cursor:pointer;font-size:16px;padding:0 6px;}
-  .addrow-btn, .reset-btn{background:var(--card2);border:1px solid #33465a;color:var(--text);padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12.5px;margin-top:12px;margin-right:8px;}
+  .addrow-btn, .reset-btn, .theme-toggle{background:var(--card2);border:1px solid var(--border-strong);color:var(--text);padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12.5px;margin-top:12px;margin-right:8px;}
+  .theme-toggle{margin-top:0;align-self:flex-start;}
+  .theme-toggle:hover{border-color:var(--accent);}
   .addrow-btn:hover, .reset-btn:hover{border-color:var(--accent);}
   .scenario-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
   @media(max-width:1500px){.scenario-grid{grid-template-columns:1fr 1fr;}}
@@ -67,7 +93,7 @@
   .out-tile .v.good{color:var(--good);}
   .out-tile .v.bad{color:var(--bad);}
   .out-tile.highlight{border:1px solid var(--accent);grid-column:1/-1;}
-  select#commoditySelect{background:var(--card2);border:1px solid #33465a;color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;margin-bottom:16px;}
+  select#commoditySelect{background:var(--card2);border:1px solid var(--border-strong);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;margin-bottom:16px;}
   select.curve-select{background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);padding:6px 8px;border-radius:5px;font-size:12px;}
   .chart-wrap{margin-top:6px;}
   .empty-msg{color:var(--muted);font-size:13px;padding:20px;text-align:center;}
@@ -87,6 +113,7 @@
     <h1>Productivity &amp; Forecast Planner</h1>
     <div class="sub" id="asOf">Loading…</div>
   </div>
+  <button class="theme-toggle" id="themeToggle">Light Mode</button>
 </header>
 
 <div class="legend-note">
@@ -143,10 +170,10 @@
             <div class="dist-col">
               <div class="dist-head">
                 <select class="curve-select" id="curve1">
-                  <option value="flat">Flat — even pace</option>
-                  <option value="bell">Bell — ramp up / ramp down</option>
-                  <option value="back">Back-End Loaded — push at the finish</option>
-                  <option value="front">Front-End Loaded — hit hard now</option>
+                  <option value="scurve">Ramp Up → Steady → Taper (S-Curve)</option>
+                  <option value="bell">Bell — peaks mid-project</option>
+                  <option value="back">Back-End Loaded — accelerates to the finish</option>
+                  <option value="front">Front-End Loaded — strongest at the start</option>
                 </select>
                 <span class="peak" id="peak1"></span>
               </div>
@@ -171,10 +198,10 @@
             <div class="dist-col">
               <div class="dist-head">
                 <select class="curve-select" id="curve2">
-                  <option value="flat">Flat — even pace</option>
-                  <option value="bell">Bell — ramp up / ramp down</option>
-                  <option value="back">Back-End Loaded — push at the finish</option>
-                  <option value="front">Front-End Loaded — hit hard now</option>
+                  <option value="scurve">Ramp Up → Steady → Taper (S-Curve)</option>
+                  <option value="bell">Bell — peaks mid-project</option>
+                  <option value="back">Back-End Loaded — accelerates to the finish</option>
+                  <option value="front">Front-End Loaded — strongest at the start</option>
                 </select>
                 <span class="peak" id="peak2"></span>
               </div>
@@ -207,10 +234,10 @@
             <div class="dist-col">
               <div class="dist-head">
                 <select class="curve-select" id="curve3">
-                  <option value="flat">Flat — even pace</option>
-                  <option value="bell">Bell — ramp up / ramp down</option>
-                  <option value="back">Back-End Loaded — push at the finish</option>
-                  <option value="front">Front-End Loaded — hit hard now</option>
+                  <option value="scurve">Ramp Up → Steady → Taper (S-Curve)</option>
+                  <option value="bell">Bell — peaks mid-project</option>
+                  <option value="back">Back-End Loaded — accelerates to the finish</option>
+                  <option value="front">Front-End Loaded — strongest at the start</option>
                 </select>
                 <span class="peak" id="peak3"></span>
               </div>
@@ -300,6 +327,14 @@ const fmt1 = n => (isFinite(n) ? n.toLocaleString('en-US',{minimumFractionDigits
 const fmtPct = n => (isFinite(n) ? (n*100).toFixed(1)+'%' : '—');
 const fmtPF = n => (isFinite(n) ? n.toFixed(3) : '—');
 
+/* ---------- theme ---------- */
+const CHART_THEME = {
+  dark:  { tick:'#8aa0b4', grid:'#2a3744', miniGrid:'#26343f', legendText:'#e7eef5', accent:'#3b9eff', accent2:'#e7a23b', f3:'#4ea72e', qty:'#7a5cff' },
+  light: { tick:'#5b6b7a', grid:'#dbe2e9', miniGrid:'#e4e9ee', legendText:'#16212c', accent:'#2563eb', accent2:'#b45309', f3:'#15803d', qty:'#7c3aed' },
+};
+function currentTheme(){ return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
+function chartColors(){ return CHART_THEME[currentTheme()]; }
+
 /* ---------- model: mirrors the workbook's Sheet1 formulas exactly ---------- */
 function computeRow(r){
   const baselineUR = r.baselineQty ? r.baselineHrs / r.baselineQty : NaN;
@@ -353,16 +388,21 @@ function forecast3(r, c, manpower, qtyPerDay){
 /* ---------- daily distribution curves ---------- */
 // Spreads a fixed total of hours across `n` workdays under a chosen loading shape.
 // Every curve keeps the SAME total hours (so the same finish date) — only the day-to-day pace changes.
+// A smooth 0->1 ease (cosine "S" shape) — no hard corners, no straight ramps.
+function ease(t){ return 0.5 * (1 - Math.cos(Math.PI * Math.min(Math.max(t,0),1))); }
 function curveWeights(n, type){
+  const rampFrac = 0.3, tailFrac = 0.3; // s-curve: 30% ramp-up, 40% steady, 30% taper
   const w = [];
   for(let i=1;i<=n;i++){
     const x = (i-0.5)/n; // 0..1, midpoint of each day's slot
     let wi;
-    if(type==='bell') wi = Math.sin(Math.PI*x);
-    else if(type==='back') wi = x;
-    else if(type==='front') wi = 1-x;
-    else wi = 1; // flat
-    w.push(Math.max(wi, 0.0001));
+    if(type==='bell') wi = Math.sin(Math.PI*x);                          // rises then falls, peaks mid-project, no plateau
+    else if(type==='back') wi = ease(x);                                 // slow start, eased climb to a strong finish
+    else if(type==='front') wi = ease(1-x);                              // strong start, eased wind-down
+    else if(x < rampFrac) wi = ease(x/rampFrac);                         // 'scurve': ramps up slow...
+    else if(x > 1-tailFrac) wi = ease((1-x)/tailFrac);                   // ...runs at a steady pace...
+    else wi = 1;                                                         // ...then tapers off — a blend of back-end + bell
+    w.push(Math.max(wi, 0.05)); // crew never truly hits zero, even at the very edges
   }
   const sum = w.reduce((a,b)=>a+b,0);
   const scale = n/sum; // rescale so the average weight is exactly 1 (preserves total)
@@ -381,7 +421,7 @@ function buildDistribution(f, curveType){
 
 /* ---------- state ---------- */
 const DEFAULT_ROWS = [
-  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, pctComplete:0.08, mp1:80, mp2:60, mp3:80, qtyDay3:38.4, targetDate:'2026-11-05', curve1:'flat', curve2:'flat', curve3:'flat'}
+  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, pctComplete:0.08, mp1:80, mp2:60, mp3:80, qtyDay3:38.4, targetDate:'2026-11-05', curve1:'scurve', curve2:'scurve', curve3:'scurve'}
 ];
 let rows = loadState();
 let selectedId = rows.length ? rows[0].id : null;
@@ -395,9 +435,9 @@ function loadState(){
       const parsed = JSON.parse(saved);
       if(Array.isArray(parsed) && parsed.length){
         parsed.forEach(r=>{
-          if(!r.curve1) r.curve1='flat';
-          if(!r.curve2) r.curve2='flat';
-          if(!r.curve3) r.curve3='flat';
+          if(!r.curve1) r.curve1='scurve';
+          if(!r.curve2) r.curve2='scurve';
+          if(!r.curve3) r.curve3='scurve';
           if(!r.mp3) r.mp3 = r.mp1 || 10;
           if(!r.qtyDay3) r.qtyDay3 = 10;
         });
@@ -541,9 +581,9 @@ function renderScenario(){
   document.getElementById('qtyDay3').value = row.qtyDay3;
   document.getElementById('qtyDay3Range').value = row.qtyDay3;
   document.getElementById('targetDate').value = row.targetDate || '';
-  document.getElementById('curve1').value = row.curve1 || 'flat';
-  document.getElementById('curve2').value = row.curve2 || 'flat';
-  document.getElementById('curve3').value = row.curve3 || 'flat';
+  document.getElementById('curve1').value = row.curve1 || 'scurve';
+  document.getElementById('curve2').value = row.curve2 || 'scurve';
+  document.getElementById('curve3').value = row.curve3 || 'scurve';
 
   const c = computeRow(row);
   const f1 = forecast1(row, c, row.mp1);
@@ -555,9 +595,9 @@ function renderScenario(){
   drawTargetOut(row);
   drawSensChart(row, c);
   drawSensChart3(row, c, row.qtyDay3);
-  drawDistribution(1, f1, row.curve1 || 'flat');
-  drawDistribution(2, f2, row.curve2 || 'flat');
-  drawDistribution(3, f3, row.curve3 || 'flat');
+  drawDistribution(1, f1, row.curve1 || 'scurve');
+  drawDistribution(2, f2, row.curve2 || 'scurve');
+  drawDistribution(3, f3, row.curve3 || 'scurve');
 }
 
 function drawOutputs(elId, f, opts){
@@ -591,6 +631,7 @@ function drawSensChart(row, c){
   const f1dates = manpowerRange.map(m=>fmtDate(forecast1(row, c, m).finishDate));
   const f2dates = manpowerRange.map(m=>fmtDate(forecast2(row, c, m).finishDate));
 
+  const t = chartColors();
   const ctx = document.getElementById('sensChart');
   if(sensChart) sensChart.destroy();
   sensChart = new Chart(ctx, {
@@ -598,15 +639,15 @@ function drawSensChart(row, c){
     data:{
       labels: manpowerRange,
       datasets:[
-        {label:'Forecast 1 — Current UR', data:d1, borderColor:'#3b9eff', backgroundColor:'#3b9eff', pointRadius:3, pointHoverRadius:5, borderWidth:2, tension:0.15, meta:f1dates},
-        {label:'Forecast 2 — Target PF 1.0', data:d2, borderColor:'#e7a23b', backgroundColor:'#e7a23b', pointRadius:3, pointHoverRadius:5, borderWidth:2, tension:0.15, meta:f2dates, borderDash:[6,3]},
+        {label:'Forecast 1 — Current UR', data:d1, borderColor:t.accent, backgroundColor:t.accent, pointRadius:3, pointHoverRadius:5, borderWidth:2, tension:0.15, meta:f1dates},
+        {label:'Forecast 2 — Target PF 1.0', data:d2, borderColor:t.accent2, backgroundColor:t.accent2, pointRadius:3, pointHoverRadius:5, borderWidth:2, tension:0.15, meta:f2dates, borderDash:[6,3]},
       ]
     },
     options:{
       responsive:true,
       interaction:{mode:'index', intersect:false},
       plugins:{
-        legend:{labels:{color:'#e7eef5'}},
+        legend:{labels:{color:t.legendText}},
         tooltip:{
           callbacks:{
             label: ctx0 => {
@@ -617,8 +658,8 @@ function drawSensChart(row, c){
         }
       },
       scales:{
-        x:{title:{display:true,text:'Manpower (crew size)',color:'#8aa0b4'}, ticks:{color:'#8aa0b4'}, grid:{color:'#2a3744'}},
-        y:{title:{display:true,text:'Days Remaining',color:'#8aa0b4'}, ticks:{color:'#8aa0b4'}, grid:{color:'#2a3744'}, beginAtZero:true}
+        x:{title:{display:true,text:'Manpower (crew size)',color:t.tick}, ticks:{color:t.tick}, grid:{color:t.grid}},
+        y:{title:{display:true,text:'Days Remaining',color:t.tick}, ticks:{color:t.tick}, grid:{color:t.grid}, beginAtZero:true}
       }
     }
   });
@@ -627,6 +668,7 @@ function drawSensChart(row, c){
 function drawSensChart3(row, c, qtyPerDay){
   const manpowerRange = [];
   for(let m=10; m<=200; m+=10) manpowerRange.push(m);
+  const t = chartColors();
   const canvas = document.getElementById('sensChart3');
   if(sensChart3) sensChart3.destroy();
   if(!(qtyPerDay > 0)){ sensChart3 = null; return; }
@@ -635,7 +677,7 @@ function drawSensChart3(row, c, qtyPerDay){
     type:'line',
     data:{
       labels: manpowerRange,
-      datasets:[{ label:'UR Required', data: urs, borderColor:'#4ea72e', backgroundColor:'#4ea72e', pointRadius:3, pointHoverRadius:5, borderWidth:2, tension:0.15 }]
+      datasets:[{ label:'UR Required', data: urs, borderColor:t.f3, backgroundColor:t.f3, pointRadius:3, pointHoverRadius:5, borderWidth:2, tension:0.15 }]
     },
     options:{
       responsive:true, maintainAspectRatio:false,
@@ -644,21 +686,22 @@ function drawSensChart3(row, c, qtyPerDay){
         tooltip:{ callbacks:{ label: ctx0 => `At ${ctx0.label} people: ${fmt2(ctx0.parsed.y)} hrs/unit required` } }
       },
       scales:{
-        x:{title:{display:true,text:'Manpower (crew size)',color:'#8aa0b4'}, ticks:{color:'#8aa0b4'}, grid:{color:'#2a3744'}},
-        y:{title:{display:true,text:'Required UR (hrs/unit)',color:'#8aa0b4'}, ticks:{color:'#8aa0b4'}, grid:{color:'#2a3744'}, beginAtZero:true}
+        x:{title:{display:true,text:'Manpower (crew size)',color:t.tick}, ticks:{color:t.tick}, grid:{color:t.grid}},
+        y:{title:{display:true,text:'Required UR (hrs/unit)',color:t.tick}, ticks:{color:t.tick}, grid:{color:t.grid}, beginAtZero:true}
       }
     }
   });
 }
 
 function miniBarOptions(yLabel){
+  const t = chartColors();
   return {
     responsive:true, maintainAspectRatio:false,
     plugins:{ legend:{display:false},
       tooltip:{ callbacks:{ title: items => items[0].label } } },
     scales:{
-      x:{ ticks:{ color:'#8aa0b4', maxRotation:0, autoSkip:true, autoSkipPadding:14, font:{size:10} }, grid:{ display:false } },
-      y:{ title:{display:true,text:yLabel,color:'#8aa0b4',font:{size:10}}, ticks:{ color:'#8aa0b4', font:{size:10} }, grid:{ color:'#26343f' }, beginAtZero:true }
+      x:{ ticks:{ color:t.tick, maxRotation:0, autoSkip:true, autoSkipPadding:14, font:{size:10} }, grid:{ display:false } },
+      y:{ title:{display:true,text:yLabel,color:t.tick,font:{size:10}}, ticks:{ color:t.tick, font:{size:10} }, grid:{ color:t.miniGrid }, beginAtZero:true }
     }
   };
 }
@@ -668,7 +711,8 @@ function drawDistribution(which, f, curveType){
   const mpCanvas = document.getElementById('mpChart'+which);
   const qtyCanvas = document.getElementById('qtyChart'+which);
   const peakEl = document.getElementById('peak'+which);
-  const color = which===1 ? '#3b9eff' : which===2 ? '#e7a23b' : '#4ea72e';
+  const t = chartColors();
+  const color = which===1 ? t.accent : which===2 ? t.accent2 : t.f3;
 
   let mpC = which===1 ? mpChart1 : which===2 ? mpChart2 : mpChart3;
   let qtyC = which===1 ? qtyChart1 : which===2 ? qtyChart2 : qtyChart3;
@@ -692,7 +736,7 @@ function drawDistribution(which, f, curveType){
   });
   const newQty = new Chart(qtyCanvas, {
     type:'bar',
-    data:{ labels, datasets:[{ label:'Qty', data: dist.qtyPerDay, backgroundColor:'#7a5cff', borderRadius:2, maxBarThickness:18 }] },
+    data:{ labels, datasets:[{ label:'Qty', data: dist.qtyPerDay, backgroundColor:t.qty, borderRadius:2, maxBarThickness:18 }] },
     options: miniBarOptions('Qty / day')
   });
   if(which===1){ mpChart1=newMp; qtyChart1=newQty; } else if(which===2){ mpChart2=newMp; qtyChart2=newQty; } else { mpChart3=newMp; qtyChart3=newQty; }
@@ -774,7 +818,7 @@ document.getElementById('commoditySelect').addEventListener('change', e=>{
 });
 document.getElementById('addRowBtn').addEventListener('click', ()=>{
   const id = nextId();
-  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, pctComplete:0, mp1:10, mp2:10, mp3:10, qtyDay3:10, targetDate:'', curve1:'flat', curve2:'flat', curve3:'flat'});
+  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, pctComplete:0, mp1:10, mp2:10, mp3:10, qtyDay3:10, targetDate:'', curve1:'scurve', curve2:'scurve', curve3:'scurve'});
   selectedId = id;
   saveState();
   renderAll();
@@ -792,6 +836,18 @@ function renderAll(){
   renderKPIs();
   renderScenario();
 }
+
+function applyThemeButtonLabel(){
+  document.getElementById('themeToggle').textContent = currentTheme() === 'dark' ? 'Light Mode' : 'Dark Mode';
+}
+document.getElementById('themeToggle').addEventListener('click', ()=>{
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try{ localStorage.setItem('forecastPlannerTheme', next); }catch(e){}
+  applyThemeButtonLabel();
+  renderScenario(); // charts bake their colors in at creation, so redraw them for the new theme
+});
+applyThemeButtonLabel();
 
 document.getElementById('asOf').textContent = `As of ${fmtDate(new Date())} — inputs are saved in this browser automatically`;
 renderAll();
