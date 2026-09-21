@@ -128,19 +128,6 @@
   .qa-btn .qa-date{color:var(--muted);font-size:11px;margin-left:4px;}
   .qa-btn.added .qa-date{color:rgba(255,255,255,0.85);}
   .qa-btn.qa-week{font-weight:600;}
-  table.week-grid{table-layout:fixed;}
-  .week-grid .week-label{min-width:150px;width:150px;white-space:normal;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
-  .week-grid th.week-col{padding:8px 6px;}
-  .week-grid td.week-col, .week-grid th.week-col{width:100px;min-width:100px;text-align:center;}
-  .week-grid th.week-col input[type=date]{width:96px;font-size:11px;padding:4px;text-align:center;}
-  .week-grid td.week-col input[type=number]{width:76px;text-align:center;}
-  .week-grid th.week-col .rowdel{display:block;margin:4px auto 0;}
-  .tab-bar{display:flex;gap:6px;padding:16px 28px 0;}
-  .tab-btn{background:var(--card2);border:1px solid var(--border-strong);border-bottom:none;color:var(--muted);padding:10px 18px;border-radius:8px 8px 0 0;cursor:pointer;font-size:13px;font-weight:600;position:relative;top:1px;}
-  .tab-btn.active{background:var(--card);color:var(--text);}
-  .tab-btn:hover{color:var(--text);}
-  .tab-panel{display:none;}
-  .tab-panel.active{display:block;}
 </style>
 </head>
 <body>
@@ -198,36 +185,20 @@
     <div id="holidayList" style="margin-top:8px;"></div>
   </div>
 
-  <div class="tab-bar">
-    <button class="tab-btn active" data-tab="planner">Scenario Planner</button>
-    <button class="tab-btn" data-tab="manual">Manual Forecast (Weekly)</button>
-  </div>
-
-  <div class="tab-panel active" id="tab-planner">
-    <div class="panel" style="margin-top:0;border-radius:0 8px 8px 8px;">
-      <div class="blocks-toolbar">
-        <div>
-          <h2>Scenario Planner</h2>
-          <p class="panel-sub" style="margin:4px 0 0;">For project controls to sit down and run different scenarios. Forecast 1, 2 and 3 for every commodity, stacked so you can compare them. Hide any you don't need right now — they stay in your data, just out of the way.</p>
-        </div>
-        <div class="btns">
-          <span class="count" id="blocksCount"></span>
-          <button id="expandAllBtn">Show All</button>
-          <button id="collapseAllBtn">Hide All</button>
-        </div>
+  <div class="panel">
+    <div class="blocks-toolbar">
+      <div>
+        <h2>Scenario Planner</h2>
+        <p class="panel-sub" style="margin:4px 0 0;">For project controls to sit down and run different scenarios. Forecast 1, 2 and 3 for every commodity, stacked so you can compare them. Hide any you don't need right now — they stay in your data, just out of the way.</p>
       </div>
-      <div id="commodityBlocks"></div>
-      <div class="empty-msg" id="emptyMsg" style="display:none;">No commodities yet — add one above.</div>
+      <div class="btns">
+        <span class="count" id="blocksCount"></span>
+        <button id="expandAllBtn">Show All</button>
+        <button id="collapseAllBtn">Hide All</button>
+      </div>
     </div>
-  </div>
-
-  <div class="tab-panel" id="tab-manual">
-    <div class="panel" style="margin-top:0;border-radius:0 8px 8px 8px;">
-      <h2>Manual Forecast — Weekly Field Log</h2>
-      <p class="panel-sub">For the superintendent: log the actual crew size and quantity installed each week. This backs into the unit rate you actually achieved that week, projects a finish date from your recent real pace, and — given a target date — backs into the qty/week and manpower needed to hit it, using your own demonstrated productivity instead of an assumed number.</p>
-      <div id="manualBlocks"></div>
-      <div class="empty-msg" id="manualEmptyMsg" style="display:none;">No commodities yet — add one above.</div>
-    </div>
+    <div id="commodityBlocks"></div>
+    <div class="empty-msg" id="emptyMsg" style="display:none;">No commodities yet — add one above.</div>
   </div>
 
 </div>
@@ -401,7 +372,7 @@ function buildDistribution(f, curveType){
 
 /* ---------- state ---------- */
 const DEFAULT_ROWS = [
-  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, pctComplete:0.08, mp1:80, mp2:60, mp3:80, qtyDay3:38.4, targetDate:'2026-11-05', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false, weeklyLog:[], manualTarget:'', manualUR:13.33}
+  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, pctComplete:0.08, mp1:80, mp2:60, mp3:80, qtyDay3:38.4, targetDate:'2026-11-05', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false}
 ];
 let rows = loadState();
 let selectedId = rows.length ? rows[0].id : null;
@@ -434,12 +405,6 @@ function loadState(){
           if(!r.mp3) r.mp3 = r.mp1 || 10;
           if(!r.qtyDay3) r.qtyDay3 = 10;
           if(r.hidden===undefined) r.hidden = false;
-          if(!Array.isArray(r.weeklyLog)) r.weeklyLog = [];
-          if(r.manualTarget===undefined) r.manualTarget = '';
-          if(r.manualUR===undefined){
-            const c = computeRow(r);
-            r.manualUR = isFinite(c.actualUR) ? c.actualUR : (isFinite(c.baselineUR) ? c.baselineUR : 0);
-          }
         });
         return parsed;
       }
@@ -509,7 +474,6 @@ function renderTable(){
       renderCalcCellsOnly(tr, row);
       renderBlockHeaderMeta(row);
       renderCommodityScenario(row);
-      refreshManualCalcs(row);
     });
   });
   tbody.querySelectorAll('.rowdel').forEach(btn=>{
@@ -856,248 +820,6 @@ function drawDistribution(which, f, curveType, id){
   });
 }
 
-/* ---------- Manual Forecast: superintendent's weekly planning exercise ---------- */
-// Weeks run left to right. You type a qty target for each week; manpower needed is
-// backed into it from a Planning Unit Rate (hrs/unit) -- (qty x UR) / 60, the same
-// 10 hrs/day x 6-day week assumption used everywhere else in this tool.
-const MS_PER_WEEK = 7*24*3600*1000;
-
-function computeManualStats(row){
-  const sorted = [...(row.weeklyLog||[])].sort((a,b)=> a.date.localeCompare(b.date));
-  const ur = row.manualUR || 0;
-  let running = 0;
-  const cumBysId = {};
-  sorted.forEach(e=>{ running += (e.qty||0); cumBysId[e.id] = running; });
-  const cumulativeTotal = running;
-  const baselineQty = row.baselineQty || 0;
-  const remainingQty = baselineQty - cumulativeTotal;
-  const n = sorted.length;
-  const lastDate = n ? new Date(sorted[n-1].date + 'T00:00:00') : new Date();
-
-  const last4 = sorted.slice(-4);
-  const trailingAvgQty = last4.length ? last4.reduce((s,e)=>s+(e.qty||0),0)/last4.length : NaN;
-  const trailingAvgManpower = (isFinite(trailingAvgQty) && ur>0) ? (trailingAvgQty*ur)/60 : NaN;
-
-  const weeksRemaining = trailingAvgQty>0 ? remainingQty/trailingAvgQty : NaN;
-  let projectedFinish = null;
-  if(isFinite(weeksRemaining)){
-    projectedFinish = new Date(lastDate);
-    projectedFinish.setDate(projectedFinish.getDate() + Math.ceil(Math.max(weeksRemaining,0))*7);
-  }
-
-  let qtyPerWeekNeeded = NaN, manpowerNeeded = NaN, weeksToTarget = NaN;
-  if(row.manualTarget){
-    const target = new Date(row.manualTarget + 'T00:00:00');
-    weeksToTarget = (target - lastDate) / MS_PER_WEEK;
-    if(weeksToTarget > 0){
-      qtyPerWeekNeeded = remainingQty / weeksToTarget;
-      if(ur > 0) manpowerNeeded = Math.ceil((qtyPerWeekNeeded * ur) / 60);
-    }
-  }
-
-  return {sorted, cumBysId, cumulativeTotal, remainingQty, n, ur, trailingAvgQty, trailingAvgManpower,
-          weeksRemaining, projectedFinish, qtyPerWeekNeeded, manpowerNeeded, weeksToTarget, lastDate};
-}
-
-function manualMetaHTML(row, s){
-  return `
-    <span>Baseline Qty <b>${fmtInt(row.baselineQty)}</b></span>
-    <span>Cumulative Planned <b>${fmtInt(s.cumulativeTotal)}</b></span>
-    <span>Remaining Qty <b>${fmtInt(s.remainingQty)}</b></span>
-  `;
-}
-
-function manualSummaryHTML(s){
-  return `
-    <div class="out-tile"><div class="l">Weeks Planned</div><div class="v">${s.n}</div></div>
-    <div class="out-tile"><div class="l">Trailing 4-Wk Avg Qty/Week</div><div class="v">${fmt2(s.trailingAvgQty)}</div></div>
-    <div class="out-tile emphasize"><div class="l">Trailing 4-Wk Avg Manpower Needed</div><div class="v">${fmt2(s.trailingAvgManpower)}</div></div>
-    <div class="out-tile"><div class="l">Projected Weeks Remaining</div><div class="v">${fmt2(s.weeksRemaining)}</div></div>
-    <div class="out-tile highlight"><div class="l">Projected Finish Date (at planned pace)</div><div class="v">${fmtDate(s.projectedFinish)}</div></div>
-  `;
-}
-
-function manualTargetOutHTML(s){
-  return `
-    <div class="out-tile highlight"><div class="l">Qty/Week Needed to Hit Target</div><div class="v">${fmt2(s.qtyPerWeekNeeded)}</div></div>
-    <div class="out-tile highlight"><div class="l">Manpower Needed to Hit Target</div><div class="v">${fmtInt(s.manpowerNeeded)}</div></div>
-  `;
-}
-
-// Weeks as columns, left to right: date + delete on top, then Qty (input), Manpower Needed,
-// Cumulative Qty and % Complete underneath -- one column per week.
-function manualWeekGridHTML(row, s){
-  const weeks = row.weeklyLog || [];
-  if(!weeks.length){
-    return '<div class="empty-msg" style="text-align:left;padding:10px 0;">No weeks planned yet — click "+ Add Week" below.</div>';
-  }
-  const ur = row.manualUR || 0;
-  const dateCells = weeks.map(e => `
-    <th class="week-col">
-      <input type="date" data-field="date" data-entry="${e.id}" value="${e.date}">
-      <button class="rowdel" data-entry="${e.id}" title="Delete week">✕</button>
-    </th>`).join('');
-  const qtyCells = weeks.map(e => `
-    <td class="week-col"><input type="number" data-field="qty" data-entry="${e.id}" value="${e.qty}" step="any"></td>`).join('');
-  const mpCells = weeks.map(e => {
-    const mp = ur>0 ? Math.ceil((e.qty||0)*ur/60) : NaN;
-    return `<td class="week-col calc" id="weekMp_${e.id}">${fmtInt(mp)}</td>`;
-  }).join('');
-  const cumCells = weeks.map(e => `<td class="week-col calc" id="weekCum_${e.id}">${fmtInt(s.cumBysId[e.id]||0)}</td>`).join('');
-  const pctCells = weeks.map(e => {
-    const pct = row.baselineQty ? (s.cumBysId[e.id]||0)/row.baselineQty : NaN;
-    return `<td class="week-col calc" id="weekPct_${e.id}">${fmtPct(pct)}</td>`;
-  }).join('');
-
-  return `
-  <div class="table-wrap">
-    <table class="week-grid">
-      <thead><tr><th class="week-label">Week Ending</th>${dateCells}</tr></thead>
-      <tbody>
-        <tr><th class="week-label">Qty Target</th>${qtyCells}</tr>
-        <tr><th class="week-label">Manpower Needed</th>${mpCells}</tr>
-        <tr><th class="week-label">Cumulative Qty</th>${cumCells}</tr>
-        <tr><th class="week-label">% Complete</th>${pctCells}</tr>
-      </tbody>
-    </table>
-  </div>`;
-}
-
-function manualBlockHTML(row){
-  const id = row.id;
-  const s = computeManualStats(row);
-  return `
-  <div class="commodity-block" id="manual-block-${id}">
-    <div class="block-header">
-      <div>
-        <h2>${escapeHtml(row.name)}</h2>
-        <div class="block-meta" id="manualMeta_${id}">${manualMetaHTML(row, s)}</div>
-      </div>
-    </div>
-    <div class="block-body">
-      <div class="manpower-row">
-        <label>Planning Unit Rate (hrs/unit)</label>
-        <input type="number" id="manualUR_${id}" min="0" step="0.01" value="${row.manualUR||0}">
-      </div>
-      <p class="panel-sub" style="margin:-6px 0 12px;">Type a qty target for each week — manpower needed is backed into it: (Qty × UR) ÷ 60 (10 hrs/day, 6-day week). Weeks run left to right so the team can work through it together.</p>
-      <div id="weekGrid_${id}">${manualWeekGridHTML(row, s)}</div>
-      <button class="addrow-btn" data-addweek="${id}" style="margin-top:10px;">+ Add Week</button>
-
-      <div class="outputs" id="manualSummary_${id}" style="margin-top:16px;">${manualSummaryHTML(s)}</div>
-
-      <div class="manpower-row" style="margin-top:16px;">
-        <label>Target Finish Date</label>
-        <input type="date" id="manualTarget_${id}" value="${row.manualTarget||''}">
-      </div>
-      <div class="outputs" id="manualTargetOut_${id}">${manualTargetOutHTML(s)}</div>
-    </div>
-  </div>`;
-}
-
-function wireManualBlock(row){
-  const id = row.id;
-  const gridEl = document.getElementById(`weekGrid_${id}`);
-  if(gridEl){
-    gridEl.querySelectorAll('input[data-field]').forEach(inp=>{
-      inp.addEventListener('input', e=>{
-        const entryId = Number(e.target.dataset.entry);
-        const entry = (row.weeklyLog||[]).find(x=>x.id===entryId);
-        if(!entry) return;
-        const field = e.target.dataset.field;
-        if(field==='date') entry.date = e.target.value;
-        else entry.qty = parseFloat(e.target.value) || 0;
-        saveState();
-        refreshManualCalcs(row);
-      });
-    });
-    gridEl.querySelectorAll('.rowdel[data-entry]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const entryId = Number(btn.dataset.entry);
-        row.weeklyLog = (row.weeklyLog||[]).filter(x=>x.id!==entryId);
-        saveState();
-        renderOneManualBlock(row);
-      });
-    });
-  }
-  const addBtn = document.querySelector(`[data-addweek="${id}"]`);
-  if(addBtn){
-    addBtn.addEventListener('click', ()=>{
-      const log = row.weeklyLog || (row.weeklyLog = []);
-      const last = [...log].sort((a,b)=>a.date.localeCompare(b.date)).slice(-1)[0];
-      let nextDate;
-      if(last){ const d = new Date(last.date+'T00:00:00'); d.setDate(d.getDate()+7); nextDate = isoDate(d); }
-      else { nextDate = isoDate(new Date()); }
-      const nextEntryId = log.reduce((m,e)=>Math.max(m,e.id),0) + 1;
-      log.push({id: nextEntryId, date: nextDate, qty: 0});
-      saveState();
-      renderOneManualBlock(row);
-    });
-  }
-  const urEl = document.getElementById(`manualUR_${id}`);
-  if(urEl){
-    urEl.addEventListener('input', e=>{
-      row.manualUR = parseFloat(e.target.value) || 0;
-      saveState();
-      refreshManualCalcs(row);
-    });
-  }
-  const targetEl = document.getElementById(`manualTarget_${id}`);
-  if(targetEl){
-    targetEl.addEventListener('input', e=>{
-      row.manualTarget = e.target.value;
-      saveState();
-      refreshManualCalcs(row);
-    });
-  }
-}
-
-// Lightweight refresh: updates computed cells/tiles in place, never touches input elements,
-// so the field the superintendent is actively typing in never loses focus mid-edit.
-function refreshManualCalcs(row){
-  const id = row.id;
-  const s = computeManualStats(row);
-  const headerH2 = document.querySelector(`#manual-block-${id} .block-header h2`);
-  if(headerH2) headerH2.textContent = row.name;
-  const metaEl = document.getElementById(`manualMeta_${id}`);
-  if(metaEl) metaEl.innerHTML = manualMetaHTML(row, s);
-  const ur = row.manualUR || 0;
-  (row.weeklyLog||[]).forEach(e=>{
-    const cum = s.cumBysId[e.id] || 0;
-    const pct = row.baselineQty ? cum/row.baselineQty : NaN;
-    const mp = ur>0 ? Math.ceil((e.qty||0)*ur/60) : NaN;
-    const mpEl = document.getElementById(`weekMp_${e.id}`);
-    const cumEl = document.getElementById(`weekCum_${e.id}`);
-    const pctEl = document.getElementById(`weekPct_${e.id}`);
-    if(mpEl) mpEl.textContent = fmtInt(mp);
-    if(cumEl) cumEl.textContent = fmtInt(cum);
-    if(pctEl) pctEl.textContent = fmtPct(pct);
-  });
-  const summaryEl = document.getElementById(`manualSummary_${id}`);
-  if(summaryEl) summaryEl.innerHTML = manualSummaryHTML(s);
-  const targetOutEl = document.getElementById(`manualTargetOut_${id}`);
-  if(targetOutEl) targetOutEl.innerHTML = manualTargetOutHTML(s);
-}
-
-function renderOneManualBlock(row){
-  const el = document.getElementById('manual-block-'+row.id);
-  if(el){ el.outerHTML = manualBlockHTML(row); }
-  wireManualBlock(row);
-}
-
-function renderManualTab(){
-  const container = document.getElementById('manualBlocks');
-  const empty = document.getElementById('manualEmptyMsg');
-  if(!container) return;
-  if(!rows.length){
-    container.innerHTML = '';
-    if(empty) empty.style.display = 'block';
-    return;
-  }
-  if(empty) empty.style.display = 'none';
-  container.innerHTML = rows.map(manualBlockHTML).join('');
-  rows.forEach(row=>wireManualBlock(row));
-}
-
 /* ---------- holidays: standard-holiday quick-add ---------- */
 function nextHolidayId(){ return holidays.reduce((m,h)=>Math.max(m,h.id),0) + 1; }
 function isoDate(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -1253,7 +975,7 @@ document.getElementById('collapseAllBtn').addEventListener('click', ()=>{
 });
 document.getElementById('addRowBtn').addEventListener('click', ()=>{
   const id = nextId();
-  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, pctComplete:0, mp1:10, mp2:10, mp3:10, qtyDay3:10, targetDate:'', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false, weeklyLog:[], manualTarget:'', manualUR:0});
+  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, pctComplete:0, mp1:10, mp2:10, mp3:10, qtyDay3:10, targetDate:'', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false});
   selectedId = id;
   saveState();
   renderAll();
@@ -1272,7 +994,6 @@ function renderAll(){
   renderHolidays();
   renderHolidayQuickAdd();
   renderCommodityBlocks();
-  renderManualTab();
 }
 
 function applyThemeButtonLabel(){

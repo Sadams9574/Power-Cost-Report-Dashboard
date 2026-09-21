@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual Weekly Forecast</title>
+<script>
+  // Applied before first paint so the page never flashes the wrong theme.
+  (function(){
+    var saved = null;
+    try{ saved = localStorage.getItem('manualForecastTheme'); }catch(e){}
+    var theme = saved || (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
+<style>
+  :root, :root[data-theme="dark"]{
+    --bg:#0f1720;--card:#1b2530;--card2:#212d3a;--card3:#182330;
+    --accent:#3b9eff;--good:#2ecc71;--bad:#e74c3c;--muted:#8aa0b4;--text:#e7eef5;
+    --input-border:#3b9eff;--input-bg:#132436;
+    --border:#2a3744;--border-strong:#33465a;--hover:#22303d;--selected:#1f3a52;
+  }
+  :root[data-theme="light"]{
+    --bg:#f5f7fa;--card:#ffffff;--card2:#eef2f6;--card3:#eaf2fb;
+    --accent:#2563eb;--good:#15803d;--bad:#dc2626;--muted:#5b6b7a;--text:#16212c;
+    --input-border:#2563eb;--input-bg:#eaf2fb;
+    --border:#d7dee5;--border-strong:#c3ccd6;--hover:#eef2f6;--selected:#dbeafe;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:20px 28px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+  header h1{margin:0;font-size:22px;}
+  header .sub{color:var(--muted);font-size:13px;}
+  .container{padding:20px 28px 48px;}
+  .legend-note{margin:0 28px 0;font-size:12px;color:var(--muted);display:flex;gap:18px;align-items:center;flex-wrap:wrap;padding-top:16px;}
+  .legend-note .chip{display:inline-flex;align-items:center;gap:6px;}
+  .legend-note .swatch{width:12px;height:12px;border-radius:3px;display:inline-block;}
+  .swatch.input{background:var(--input-bg);border:1.5px solid var(--input-border);}
+  .swatch.calc{background:var(--card2);border:1px solid var(--border);}
+  .panel{background:var(--card);border-radius:10px;padding:16px 18px;margin-bottom:16px;}
+  .panel h2{margin:0 0 4px;font-size:15px;color:var(--text);font-weight:600;}
+  .panel .panel-sub{margin:0 0 14px;font-size:12px;color:var(--muted);}
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;}
+  th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--card);}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em;}
+  thead tr:first-child th{border-bottom:none;padding-bottom:2px;}
+  td.calc{color:var(--muted);}
+  td input[type=number], td input[type=text]{
+    width:88px;background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);
+    padding:5px 6px;border-radius:5px;font-size:12.5px;text-align:right;
+  }
+  td input[type=text]{text-align:left;width:120px;}
+  .pct-input{display:inline-flex;align-items:center;gap:4px;color:var(--muted);}
+  .pct-input input{width:70px;}
+  .rowdel{background:none;border:none;color:var(--bad);cursor:pointer;font-size:16px;padding:0 6px;}
+  .addrow-btn, .reset-btn, .theme-toggle{background:var(--card2);border:1px solid var(--border-strong);color:var(--text);padding:8px 14px;border-radius:6px;cursor:pointer;font-size:12.5px;margin-top:12px;margin-right:8px;}
+  .theme-toggle{margin-top:0;}
+  .theme-toggle:hover, .addrow-btn:hover, .reset-btn:hover{border-color:var(--accent);}
+  .manpower-row{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
+  .manpower-row label{font-size:12px;color:var(--muted);white-space:nowrap;}
+  .outputs{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+  .out-tile{background:var(--card2);border-radius:6px;padding:10px 12px;}
+  .out-tile .l{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+  .out-tile .v{font-size:16px;font-weight:600;margin-top:4px;}
+  .out-tile .v.good{color:var(--good);}
+  .out-tile .v.bad{color:var(--bad);}
+  .out-tile.highlight{border:1px solid var(--accent);grid-column:1/-1;}
+  .out-tile.emphasize{border:1px solid var(--accent);}
+  .empty-msg{color:var(--muted);font-size:13px;padding:20px;text-align:center;}
+  .commodity-block{background:var(--card);border-radius:10px;padding:16px 18px;margin-bottom:18px;border:1px solid var(--border);}
+  .block-header h2{margin:0 0 6px;font-size:16px;}
+  .block-meta{font-size:12px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:16px;}
+  .block-meta span{display:inline-flex;align-items:center;gap:6px;}
+  .block-meta b{color:var(--text);}
+  .block-meta b.good{color:var(--good);}
+  .block-meta b.bad{color:var(--bad);}
+  table.week-grid{table-layout:fixed;background:var(--card3);border-radius:8px;}
+  .week-grid .week-label{min-width:150px;width:150px;white-space:normal;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;background:var(--card3);}
+  .week-grid th.week-col{padding:8px 6px;}
+  .week-grid td.week-col, .week-grid th.week-col{width:100px;min-width:100px;text-align:center;}
+  .week-grid th.week-col input[type=date]{width:96px;font-size:11px;padding:4px;text-align:center;background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);border-radius:5px;}
+  .week-grid td.week-col input[type=number]{width:76px;text-align:center;background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);padding:5px;border-radius:5px;font-size:12.5px;}
+  .week-grid th.week-col .rowdel{display:block;margin:4px auto 0;}
+  .week-grid td.calc{background:var(--card3);}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Manual Weekly Forecast</h1>
+    <div class="sub" id="asOf">Loading…</div>
+  </div>
+  <button class="theme-toggle" id="themeToggle">Light Mode</button>
+</header>
+
+<div class="legend-note">
+  <span class="chip"><span class="swatch input"></span> Blue-outlined fields = type your own numbers</span>
+  <span class="chip"><span class="swatch calc"></span> Gray fields = calculated automatically</span>
+</div>
+
+<div class="container">
+
+  <div class="panel">
+    <h2>Commodities / Scope Items</h2>
+    <p class="panel-sub">Same setup as the main Forecast Planner: baseline hours, baseline quantity, hours spent to date, and % complete earned. This is its own separate list — nothing here is shared with the other page.</p>
+    <div class="table-wrap">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th rowspan="2">Commodity</th>
+            <th colspan="4">Inputs</th>
+            <th colspan="3">Calculated</th>
+            <th rowspan="2"></th>
+          </tr>
+          <tr>
+            <th>Baseline Hrs</th><th>Baseline Qty</th><th>Spent Hrs (JTD)</th><th>% Complete Earned (JTD)</th>
+            <th>Baseline UR</th><th>Remaining Qty</th><th>JTD PF</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <button class="addrow-btn" id="addRowBtn">+ Add Commodity</button>
+    <button class="reset-btn" id="resetBtn">Reset to Example (Racking)</button>
+  </div>
+
+  <div class="panel">
+    <h2>Weekly Manpower &amp; Qty — Establish the UR, See the Finish Date</h2>
+    <p class="panel-sub">For each commodity: type in the crew size and the quantity installed for each week, left to right. The unit rate (UR) that pace actually took is backed into it — (Manpower × 60 hrs) ÷ Qty — and the finish date is projected from your most recent weeks.</p>
+    <div id="commodityBlocks"></div>
+    <div class="empty-msg" id="emptyMsg" style="display:none;">No commodities yet — add one above.</div>
+  </div>
+
+</div>
+
+<script>
+/* ---------- date helpers (6-day work week, Sunday off — matches the rest of the tool) ---------- */
+function isWorkday(d){ return d.getDay() !== 0; }
+function isoDate(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function fmtDate(d){
+  if(!d || isNaN(d)) return '—';
+  return d.toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'});
+}
+
+/* ---------- formatting ---------- */
+const fmtInt = n => (isFinite(n) ? Math.round(n).toLocaleString('en-US') : '—');
+const fmt2 = n => (isFinite(n) ? n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—');
+const fmtPct = n => (isFinite(n) ? (n*100).toFixed(1)+'%' : '—');
+const fmtPF = n => (isFinite(n) ? n.toFixed(2) : '—');
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------- theme ---------- */
+function currentTheme(){ return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'; }
+function applyThemeButtonLabel(){
+  document.getElementById('themeToggle').textContent = currentTheme() === 'dark' ? 'Light Mode' : 'Dark Mode';
+}
+document.getElementById('themeToggle').addEventListener('click', ()=>{
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try{ localStorage.setItem('manualForecastTheme', next); }catch(e){}
+  applyThemeButtonLabel();
+});
+applyThemeButtonLabel();
+
+/* ---------- model: same baseline math as the main Forecast Planner's commodity table ---------- */
+function computeRow(r){
+  const baselineUR = r.baselineQty ? r.baselineHrs / r.baselineQty : NaN;
+  const earnedHrs = r.pctComplete * r.baselineHrs;
+  const earnedQty = r.pctComplete * r.baselineQty;
+  const remainingQty = r.baselineQty - earnedQty;
+  const jtdPF = r.spentHrs ? earnedHrs / r.spentHrs : NaN;
+  return {baselineUR, earnedHrs, earnedQty, remainingQty, jtdPF};
+}
+
+const MS_PER_WEEK = 7*24*3600*1000;
+
+// Manpower and Qty are what the superintendent actually knows for each week;
+// UR (hrs/unit) is backed into it -- (Manpower x 60) / Qty -- 10 hrs/day x 6-day week.
+function computeWeeklyStats(row){
+  const sorted = [...(row.weeklyLog||[])].sort((a,b)=> a.date.localeCompare(b.date));
+  let running = 0;
+  const cumBysId = {};
+  sorted.forEach(e=>{ running += (e.qty||0); cumBysId[e.id] = running; });
+  const cumulativeTotal = running;
+  const remainingQty = (row.baselineQty||0) - cumulativeTotal;
+  const n = sorted.length;
+  const lastDate = n ? new Date(sorted[n-1].date + 'T00:00:00') : new Date();
+
+  const last4 = sorted.slice(-4);
+  const sum4Qty = last4.reduce((s,e)=>s+(e.qty||0), 0);
+  const sum4Hrs = last4.reduce((s,e)=>s+((e.manpower||0)*60), 0);
+  const trailingAvgManpower = last4.length ? last4.reduce((s,e)=>s+(e.manpower||0),0)/last4.length : NaN;
+  const trailingAvgQty = last4.length ? sum4Qty/last4.length : NaN;
+  const trailingAvgUR = sum4Qty>0 ? sum4Hrs/sum4Qty : NaN;
+
+  const weeksRemaining = trailingAvgQty>0 ? remainingQty/trailingAvgQty : NaN;
+  let projectedFinish = null;
+  if(isFinite(weeksRemaining)){
+    projectedFinish = new Date(lastDate);
+    projectedFinish.setDate(projectedFinish.getDate() + Math.ceil(Math.max(weeksRemaining,0))*7);
+  }
+
+  return {sorted, cumBysId, cumulativeTotal, remainingQty, n, trailingAvgManpower, trailingAvgQty, trailingAvgUR, weeksRemaining, projectedFinish, lastDate};
+}
+
+/* ---------- state ---------- */
+const DEFAULT_ROWS = [
+  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, pctComplete:0.08, weeklyLog:[]}
+];
+let rows = loadState();
+
+function loadState(){
+  try{
+    const saved = localStorage.getItem('manualForecastRows');
+    if(saved){
+      const parsed = JSON.parse(saved);
+      if(Array.isArray(parsed) && parsed.length){
+        parsed.forEach(r=>{ if(!Array.isArray(r.weeklyLog)) r.weeklyLog = []; });
+        return parsed;
+      }
+    }
+  }catch(e){}
+  return JSON.parse(JSON.stringify(DEFAULT_ROWS));
+}
+function saveState(){
+  try{ localStorage.setItem('manualForecastRows', JSON.stringify(rows)); }catch(e){}
+}
+function nextId(){ return rows.reduce((m,r)=>Math.max(m,r.id),0) + 1; }
+
+/* ---------- render: commodity table ---------- */
+function renderTable(){
+  const tbody = document.querySelector('#dataTable tbody');
+  tbody.innerHTML = rows.map(r=>{
+    const c = computeRow(r);
+    return `
+    <tr data-id="${r.id}">
+      <td><input type="text" data-field="name" value="${r.name.replace(/"/g,'&quot;')}"></td>
+      <td><input type="number" data-field="baselineHrs" value="${r.baselineHrs}" step="any"></td>
+      <td><input type="number" data-field="baselineQty" value="${r.baselineQty}" step="any"></td>
+      <td><input type="number" data-field="spentHrs" value="${r.spentHrs}" step="any"></td>
+      <td><span class="pct-input"><input type="number" data-field="pctComplete" value="${(r.pctComplete*100).toFixed(2)}" step="0.1">%</span></td>
+      <td class="calc">${fmt2(c.baselineUR)}</td>
+      <td class="calc">${fmtInt(c.remainingQty)}</td>
+      <td class="calc ${c.jtdPF>=1?'':'bad'}">${fmtPF(c.jtdPF)}</td>
+      <td><button class="rowdel" data-id="${r.id}" title="Delete row">✕</button></td>
+    </tr>`;
+  }).join('') || '';
+
+  tbody.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const tr = e.target.closest('tr');
+      const id = Number(tr.dataset.id);
+      const row = rows.find(r=>r.id===id);
+      const field = e.target.dataset.field;
+      if(field === 'name'){ row.name = e.target.value; }
+      else if(field === 'pctComplete'){ row.pctComplete = (parseFloat(e.target.value)||0)/100; }
+      else { row[field] = parseFloat(e.target.value) || 0; }
+      saveState();
+      renderCalcCellsOnly(tr, row);
+      refreshBlockCalcs(row);
+    });
+  });
+  tbody.querySelectorAll('.rowdel').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = Number(btn.dataset.id);
+      rows = rows.filter(r=>r.id!==id);
+      saveState();
+      renderAll();
+    });
+  });
+}
+
+function renderCalcCellsOnly(tr, row){
+  const c = computeRow(row);
+  const cells = tr.querySelectorAll('td.calc');
+  cells[0].textContent = fmt2(c.baselineUR);
+  cells[1].textContent = fmtInt(c.remainingQty);
+  cells[2].textContent = fmtPF(c.jtdPF);
+  cells[2].classList.toggle('bad', !(c.jtdPF>=1));
+}
+
+/* ---------- render: per-commodity weekly grid ---------- */
+function blockMetaHTML(row){
+  const s = computeWeeklyStats(row);
+  return `
+    <span>Baseline Qty <b>${fmtInt(row.baselineQty)}</b></span>
+    <span>Cumulative Logged <b>${fmtInt(s.cumulativeTotal)}</b></span>
+    <span>Remaining Qty (from weekly log) <b>${fmtInt(s.remainingQty)}</b></span>
+  `;
+}
+
+function summaryHTML(s){
+  return `
+    <div class="out-tile"><div class="l">Weeks Logged</div><div class="v">${s.n}</div></div>
+    <div class="out-tile"><div class="l">Trailing 4-Wk Avg Manpower</div><div class="v">${fmt2(s.trailingAvgManpower)}</div></div>
+    <div class="out-tile"><div class="l">Trailing 4-Wk Avg Qty/Week</div><div class="v">${fmt2(s.trailingAvgQty)}</div></div>
+    <div class="out-tile emphasize"><div class="l">UR Established (hrs/unit)</div><div class="v">${fmt2(s.trailingAvgUR)}</div></div>
+    <div class="out-tile"><div class="l">Projected Weeks Remaining</div><div class="v">${fmt2(s.weeksRemaining)}</div></div>
+    <div class="out-tile highlight"><div class="l">Forecasted Finish Date</div><div class="v">${fmtDate(s.projectedFinish)}</div></div>
+  `;
+}
+
+function weekGridHTML(row, s){
+  const weeks = row.weeklyLog || [];
+  if(!weeks.length){
+    return '<div class="empty-msg" style="text-align:left;padding:10px 0;">No weeks entered yet — click "+ Add Week" below.</div>';
+  }
+  const dateCells = weeks.map(e => `
+    <th class="week-col">
+      <input type="date" data-field="date" data-entry="${e.id}" value="${e.date}">
+      <button class="rowdel" data-entry="${e.id}" title="Delete week">✕</button>
+    </th>`).join('');
+  const mpCells = weeks.map(e => `
+    <td class="week-col"><input type="number" data-field="manpower" data-entry="${e.id}" value="${e.manpower}" step="any"></td>`).join('');
+  const qtyCells = weeks.map(e => `
+    <td class="week-col"><input type="number" data-field="qty" data-entry="${e.id}" value="${e.qty}" step="any"></td>`).join('');
+  const urCells = weeks.map(e => {
+    const ur = e.qty>0 ? ((e.manpower||0)*60)/e.qty : NaN;
+    return `<td class="week-col calc" id="weekUR_${e.id}">${fmt2(ur)}</td>`;
+  }).join('');
+  const cumCells = weeks.map(e => `<td class="week-col calc" id="weekCum_${e.id}">${fmtInt(s.cumBysId[e.id]||0)}</td>`).join('');
+  const pctCells = weeks.map(e => {
+    const pct = row.baselineQty ? (s.cumBysId[e.id]||0)/row.baselineQty : NaN;
+    return `<td class="week-col calc" id="weekPct_${e.id}">${fmtPct(pct)}</td>`;
+  }).join('');
+
+  return `
+  <div class="table-wrap">
+    <table class="week-grid">
+      <thead><tr><th class="week-label">Week Ending</th>${dateCells}</tr></thead>
+      <tbody>
+        <tr><th class="week-label">Manpower</th>${mpCells}</tr>
+        <tr><th class="week-label">Qty Installed</th>${qtyCells}</tr>
+        <tr><th class="week-label">UR (hrs/unit)</th>${urCells}</tr>
+        <tr><th class="week-label">Cumulative Qty</th>${cumCells}</tr>
+        <tr><th class="week-label">% Complete</th>${pctCells}</tr>
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function blockHTML(row){
+  const id = row.id;
+  const s = computeWeeklyStats(row);
+  return `
+  <div class="commodity-block" id="block-${id}">
+    <div class="block-header">
+      <h2>${escapeHtml(row.name)}</h2>
+      <div class="block-meta" id="meta_${id}">${blockMetaHTML(row)}</div>
+    </div>
+    <div id="grid_${id}">${weekGridHTML(row, s)}</div>
+    <button class="addrow-btn" data-addweek="${id}" style="margin-top:10px;">+ Add Week</button>
+    <div class="outputs" id="summary_${id}" style="margin-top:16px;">${summaryHTML(s)}</div>
+  </div>`;
+}
+
+function wireBlock(row){
+  const id = row.id;
+  const gridEl = document.getElementById(`grid_${id}`);
+  if(gridEl){
+    gridEl.querySelectorAll('input[data-field]').forEach(inp=>{
+      inp.addEventListener('input', e=>{
+        const entryId = Number(e.target.dataset.entry);
+        const entry = (row.weeklyLog||[]).find(x=>x.id===entryId);
+        if(!entry) return;
+        const field = e.target.dataset.field;
+        if(field==='date') entry.date = e.target.value;
+        else entry[field] = parseFloat(e.target.value) || 0;
+        saveState();
+        refreshBlockCalcs(row);
+      });
+    });
+    gridEl.querySelectorAll('.rowdel[data-entry]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const entryId = Number(btn.dataset.entry);
+        row.weeklyLog = (row.weeklyLog||[]).filter(x=>x.id!==entryId);
+        saveState();
+        renderOneBlock(row);
+      });
+    });
+  }
+  const addBtn = document.querySelector(`[data-addweek="${id}"]`);
+  if(addBtn){
+    addBtn.addEventListener('click', ()=>{
+      const log = row.weeklyLog || (row.weeklyLog = []);
+      const last = [...log].sort((a,b)=>a.date.localeCompare(b.date)).slice(-1)[0];
+      let nextDate;
+      if(last){ const d = new Date(last.date+'T00:00:00'); d.setDate(d.getDate()+7); nextDate = isoDate(d); }
+      else { nextDate = isoDate(new Date()); }
+      const nextEntryId = log.reduce((m,e)=>Math.max(m,e.id),0) + 1;
+      log.push({id: nextEntryId, date: nextDate, manpower: 0, qty: 0});
+      saveState();
+      renderOneBlock(row);
+    });
+  }
+}
+
+// Lightweight refresh: updates computed cells/tiles in place, never touches input elements,
+// so the field being actively typed in never loses focus mid-edit.
+function refreshBlockCalcs(row){
+  const id = row.id;
+  const s = computeWeeklyStats(row);
+  const headerH2 = document.querySelector(`#block-${id} .block-header h2`);
+  if(headerH2) headerH2.textContent = row.name;
+  const metaEl = document.getElementById(`meta_${id}`);
+  if(metaEl) metaEl.innerHTML = blockMetaHTML(row);
+  (row.weeklyLog||[]).forEach(e=>{
+    const cum = s.cumBysId[e.id] || 0;
+    const pct = row.baselineQty ? cum/row.baselineQty : NaN;
+    const ur = e.qty>0 ? ((e.manpower||0)*60)/e.qty : NaN;
+    const urEl = document.getElementById(`weekUR_${e.id}`);
+    const cumEl = document.getElementById(`weekCum_${e.id}`);
+    const pctEl = document.getElementById(`weekPct_${e.id}`);
+    if(urEl) urEl.textContent = fmt2(ur);
+    if(cumEl) cumEl.textContent = fmtInt(cum);
+    if(pctEl) pctEl.textContent = fmtPct(pct);
+  });
+  const summaryEl = document.getElementById(`summary_${id}`);
+  if(summaryEl) summaryEl.innerHTML = summaryHTML(s);
+}
+
+function renderOneBlock(row){
+  const el = document.getElementById('block-'+row.id);
+  if(el){ el.outerHTML = blockHTML(row); }
+  wireBlock(row);
+}
+
+function renderBlocks(){
+  const container = document.getElementById('commodityBlocks');
+  const empty = document.getElementById('emptyMsg');
+  if(!rows.length){
+    container.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  container.innerHTML = rows.map(blockHTML).join('');
+  rows.forEach(row=>wireBlock(row));
+}
+
+/* ---------- wiring ---------- */
+document.getElementById('addRowBtn').addEventListener('click', ()=>{
+  const id = nextId();
+  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, pctComplete:0, weeklyLog:[]});
+  saveState();
+  renderAll();
+});
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  if(!confirm('Reset all commodities back to the single Racking example? This clears any rows and weekly entries you added.')) return;
+  rows = JSON.parse(JSON.stringify(DEFAULT_ROWS));
+  saveState();
+  renderAll();
+});
+
+function renderAll(){
+  renderTable();
+  renderBlocks();
+}
+
+document.getElementById('asOf').textContent = `As of ${fmtDate(new Date())} — inputs are saved in this browser automatically`;
+renderAll();
+</script>
+</body>
+</html>
