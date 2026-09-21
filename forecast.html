@@ -319,18 +319,6 @@ function networkdaysIntl(start, end){
   }
   return step > 0 ? count : -count;
 }
-// n consecutive future workdays starting the day after `start`
-function workdaySequence(start, n){
-  const dates = [];
-  let d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  let count = 0;
-  n = Math.min(n, MAX_LOOP_DAYS);
-  while(count < n){
-    d.setDate(d.getDate() + 1);
-    if(isWorkday(d)){ dates.push(new Date(d)); count++; }
-  }
-  return dates;
-}
 function fmtDate(d){
   if(!d || isNaN(d)) return '—';
   return d.toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'});
@@ -441,11 +429,30 @@ function buildDistribution(f, curveType){
   if(!rawN || !isFinite(f.hoursForecasted)) return null;
   if(rawN > MAX_CHART_DAYS) return {tooLong: true};
   const n = rawN;
-  const dates = workdaySequence(new Date(), n);
   const weights = curveWeights(n, curveType);
-  const hrsPerDay = weights.map(w => (f.hoursForecasted/n) * w);
-  const manpowerPerDay = hrsPerDay.map(h => Math.ceil(h/10)); // whole people, rounded up
-  const qtyPerDay = hrsPerDay.map(h => f.ur ? h/f.ur : NaN);
+  const hrsPerWorkday = weights.map(w => (f.hoursForecasted/n) * w);
+
+  // Walk every CALENDAR day, not just the n workdays the hours are spread across, so a
+  // Sunday or holiday shows up on the chart as an explicit zero day instead of being
+  // silently skipped -- otherwise the bars butt up against each other and the schedule
+  // looks continuous even when the crew is actually off that day.
+  const today = new Date();
+  let d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const dates = [];
+  const hrsPerDay = [];
+  let workdayCount = 0;
+  while(workdayCount < n){
+    d.setDate(d.getDate() + 1);
+    dates.push(new Date(d));
+    if(isWorkday(d)){
+      hrsPerDay.push(hrsPerWorkday[workdayCount]);
+      workdayCount++;
+    } else {
+      hrsPerDay.push(0);
+    }
+  }
+  const manpowerPerDay = hrsPerDay.map(h => h>0 ? Math.ceil(h/10) : 0); // whole people, rounded up
+  const qtyPerDay = hrsPerDay.map(h => (h>0 && f.ur) ? h/f.ur : 0);
   return {dates, manpowerPerDay, qtyPerDay};
 }
 
