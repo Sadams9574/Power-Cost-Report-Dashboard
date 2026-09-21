@@ -106,10 +106,12 @@
   .commodity-block{background:var(--card);border-radius:10px;padding:16px 18px;margin-bottom:18px;border:1px solid var(--border);}
   .block-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
   .block-header h2{margin:0 0 6px;font-size:16px;}
-  .block-meta{font-size:12px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap;}
+  .block-meta{font-size:12px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap;align-items:center;}
+  .block-meta span{display:inline-flex;align-items:center;gap:6px;}
   .block-meta b{color:var(--text);}
   .block-meta b.good{color:var(--good);}
   .block-meta b.bad{color:var(--bad);}
+  .meta-date{background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);padding:3px 6px;border-radius:5px;font-size:11.5px;}
   .hide-toggle{background:var(--card2);border:1px solid var(--border-strong);color:var(--text);padding:7px 14px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;}
   .hide-toggle:hover{border-color:var(--accent);}
   .block-body{margin-top:16px;}
@@ -267,7 +269,7 @@ const fmtInt = n => (isFinite(n) ? Math.round(n).toLocaleString('en-US') : '—'
 const fmt2 = n => (isFinite(n) ? n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—');
 const fmt1 = n => (isFinite(n) ? n.toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1}) : '—');
 const fmtPct = n => (isFinite(n) ? (n*100).toFixed(1)+'%' : '—');
-const fmtPF = n => (isFinite(n) ? n.toFixed(3) : '—');
+const fmtPF = n => (isFinite(n) ? n.toFixed(2) : '—');
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -364,7 +366,7 @@ function buildDistribution(f, curveType){
   const dates = workdaySequence(new Date(), n);
   const weights = curveWeights(n, curveType);
   const hrsPerDay = weights.map(w => (f.hoursForecasted/n) * w);
-  const manpowerPerDay = hrsPerDay.map(h => h/10);
+  const manpowerPerDay = hrsPerDay.map(h => Math.ceil(h/10)); // whole people, rounded up
   const qtyPerDay = hrsPerDay.map(h => f.ur ? h/f.ur : NaN);
   return {dates, manpowerPerDay, qtyPerDay};
 }
@@ -510,11 +512,41 @@ const CURVE_OPTIONS = `
 function blockMetaHTML(row){
   const c = computeRow(row);
   const metaCls = c.jtdPF>=1 ? 'good' : 'bad';
+  let daysText = '—', daysCls = '';
+  if(row.targetDate){
+    const target = new Date(row.targetDate + 'T00:00:00');
+    const days = networkdaysIntl(new Date(), target);
+    daysText = fmtInt(days);
+    daysCls = days>=0 ? 'good' : 'bad';
+  }
   return `
     <span>JTD PF <b class="${metaCls}">${fmtPF(c.jtdPF)}</b></span>
     <span>% Complete <b>${fmtPct(row.pctComplete)}</b></span>
     <span>Remaining Qty <b>${fmtInt(c.remainingQty)}</b></span>
+    <span>Target Finish Date <input type="date" class="meta-date" id="targetDateTop_${row.id}" value="${row.targetDate||''}"></span>
+    <span>Working Days Remaining <b id="daysRemainingTop_${row.id}" class="${daysCls}">${daysText}</b></span>
   `;
+}
+
+function updateWorkingDaysBadge(row){
+  const el = document.getElementById(`daysRemainingTop_${row.id}`);
+  if(!el) return;
+  if(!row.targetDate){ el.textContent = '—'; el.className = ''; return; }
+  const target = new Date(row.targetDate + 'T00:00:00');
+  const days = networkdaysIntl(new Date(), target);
+  el.textContent = fmtInt(days);
+  el.className = days>=0 ? 'good' : 'bad';
+}
+
+function wireBlockHeaderMeta(row){
+  const dateEl = document.getElementById(`targetDateTop_${row.id}`);
+  if(dateEl){
+    dateEl.addEventListener('input', e=>{
+      row.targetDate = e.target.value;
+      saveState();
+      updateWorkingDaysBadge(row);
+    });
+  }
 }
 
 function blockBodyHTML(row){
@@ -602,15 +634,6 @@ function blockBodyHTML(row){
           <div class="chart-wrap" style="height:180px;"><canvas id="sensChart3_${id}"></canvas></div>
         </div>
       </div>
-
-      <div class="panel" style="margin-top:16px;background:var(--card2);">
-        <h2 style="font-size:13px;">Target Finish Date Check</h2>
-        <div class="manpower-row">
-          <label>Target Finish Date</label>
-          <input type="date" id="targetDate_${id}">
-        </div>
-        <div class="outputs" id="targetOut_${id}"></div>
-      </div>
     </div>
   `;
 }
@@ -634,7 +657,7 @@ function renderBlockHeaderMeta(row){
   const headerH2 = document.querySelector(`#block-${row.id} .block-header h2`);
   if(headerH2) headerH2.textContent = row.name;
   const metaEl = document.querySelector(`#block-${row.id} .block-meta`);
-  if(metaEl) metaEl.innerHTML = blockMetaHTML(row);
+  if(metaEl){ metaEl.innerHTML = blockMetaHTML(row); wireBlockHeaderMeta(row); }
 }
 
 function syncVal(elId, v){ const el=document.getElementById(elId); if(el) el.value=v; }
@@ -651,6 +674,7 @@ function wireCommodityBlock(row){
       updateBlocksCount();
     });
   }
+  wireBlockHeaderMeta(row); // header (with Target Finish Date) is always present, hidden or not
   if(row.hidden) return;
 
   const onNum = (elId, handler) => { const el=document.getElementById(elId); if(el) el.addEventListener('input', handler); };
@@ -668,7 +692,6 @@ function wireCommodityBlock(row){
   onChg(`curve1_${id}`, e=>{ row.curve1 = e.target.value; after(); });
   onChg(`curve2_${id}`, e=>{ row.curve2 = e.target.value; after(); });
   onChg(`curve3_${id}`, e=>{ row.curve3 = e.target.value; after(); });
-  onNum(`targetDate_${id}`, e=>{ row.targetDate = e.target.value; saveState(); renderCommodityScenario(row); });
 }
 
 function renderOneBlock(row){
@@ -720,7 +743,6 @@ function renderCommodityScenario(row){
   document.getElementById(`mp3Range_${id}`).value = row.mp3;
   document.getElementById(`qtyDay3_${id}`).value = row.qtyDay3;
   document.getElementById(`qtyDay3Range_${id}`).value = row.qtyDay3;
-  document.getElementById(`targetDate_${id}`).value = row.targetDate || '';
   document.getElementById(`curve1_${id}`).value = row.curve1 || 'scurve';
   document.getElementById(`curve2_${id}`).value = row.curve2 || 'scurve';
   document.getElementById(`curve3_${id}`).value = row.curve3 || 'scurve';
@@ -732,7 +754,6 @@ function renderCommodityScenario(row){
   drawOutputs(`out1_${id}`, f1);
   drawOutputs(`out2_${id}`, f2);
   drawOutputs(`out3_${id}`, f3, {highlightUR:true});
-  drawTargetOut(`targetOut_${id}`, row);
   drawSensChart3(row, c, row.qtyDay3, id);
   drawDistribution(1, f1, row.curve1 || 'scurve', id);
   drawDistribution(2, f2, row.curve2 || 'scurve', id);
@@ -753,15 +774,6 @@ function drawOutputs(elId, f, opts){
     {l:'Forecasted Finish Date', v: fmtDate(f.finishDate), cls:'', hi:true},
   ];
   el.innerHTML = tiles.map(t=>`<div class="out-tile ${t.hi?'highlight':''}"><div class="l">${t.l}</div><div class="v ${t.cls||''}">${t.v}</div></div>`).join('');
-}
-
-function drawTargetOut(elId, row){
-  const el = document.getElementById(elId);
-  if(!el) return;
-  if(!row.targetDate){ el.innerHTML = '<div class="out-tile"><div class="l">Working Days Remaining</div><div class="v">—</div></div>'; return; }
-  const target = new Date(row.targetDate + 'T00:00:00');
-  const days = networkdaysIntl(new Date(), target);
-  el.innerHTML = `<div class="out-tile highlight"><div class="l">Working Days Remaining (6-day wk)</div><div class="v ${days>=0?'good':'bad'}">${fmtInt(days)}</div></div>`;
 }
 
 function drawSensChart3(row, c, qtyPerDay, id){
@@ -823,7 +835,7 @@ function drawDistribution(which, f, curveType, id){
 
   const labels = dist.dates.map(fmtDateShort);
   const peakMp = Math.max(...dist.manpowerPerDay);
-  if(peakEl) peakEl.innerHTML = `Peak crew: <b>${fmt1(peakMp)}</b> people/day`;
+  if(peakEl) peakEl.innerHTML = `Peak crew: <b>${fmtInt(peakMp)}</b> people/day`;
 
   setChart(mpKey, new Chart(mpCanvas, {
     type:'bar',
