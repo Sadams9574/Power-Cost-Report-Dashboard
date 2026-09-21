@@ -403,7 +403,7 @@ function buildDistribution(f, curveType){
 
 /* ---------- state ---------- */
 const DEFAULT_ROWS = [
-  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, pctComplete:0.08, mp1:80, mp2:60, mp3:80, qtyDay3:38.4, targetDate:'2026-11-05', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false, weeklyLog:[], compRate:65}
+  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, pctComplete:0.08, mp1:80, mp2:60, mp3:80, qtyDay3:38.4, targetDate:'2026-11-05', curve1:'scurve', curve2:'scurve', curve3:'scurve', curveM:'scurve', hidden:false, weeklyLog:[], compRate:65}
 ];
 let rows = loadState();
 let selectedId = rows.length ? rows[0].id : null;
@@ -420,7 +420,7 @@ function setChart(key, canvas, config){
 }
 function destroyChart(key){ if(charts[key]){ charts[key].destroy(); delete charts[key]; } }
 function destroyRowCharts(id){
-  ['mp1','qty1','mp2','qty2','mp3','qty3'].forEach(p=>destroyChart(p+'_'+id));
+  ['mp1','qty1','mp2','qty2','mp3','qty3','mpM','qtyM'].forEach(p=>destroyChart(p+'_'+id));
 }
 
 function loadState(){
@@ -438,6 +438,7 @@ function loadState(){
           if(r.hidden===undefined) r.hidden = false;
           if(!Array.isArray(r.weeklyLog)) r.weeklyLog = [];
           if(r.compRate===undefined) r.compRate = 0;
+          if(!r.curveM) r.curveM = 'scurve';
         });
         return parsed;
       }
@@ -584,6 +585,8 @@ function wireBlockHeaderMeta(row){
       row.targetDate = e.target.value;
       saveState();
       updateWorkingDaysBadge(row);
+      renderCommodityScenario(row);
+      renderManualForecastOutputs(row);
     });
   }
   const rateEl = document.getElementById(`compRateTop_${row.id}`);
@@ -592,6 +595,7 @@ function wireBlockHeaderMeta(row){
       row.compRate = parseFloat(e.target.value) || 0;
       saveState();
       renderCommodityScenario(row);
+      renderManualForecastOutputs(row);
     });
   }
 }
@@ -922,16 +926,20 @@ function manualMetaHTML(row, s){
   `;
 }
 
-function manualSummaryHTML(s){
-  const tiles = [
-    {l:'Weeks Logged', v: fmtInt(s.n)},
-    {l:'Trailing 4-Wk Avg Manpower', v: fmt1(s.trailingAvgManpower)},
-    {l:'Trailing 4-Wk Avg Qty / Week', v: fmt1(s.trailingAvgQty)},
-    {l:'UR Established (hrs/unit)', v: fmt2(s.trailingAvgUR), em:true},
-    {l:'Projected Weeks Remaining', v: fmt1(s.weeksRemaining)},
-    {l:'Forecasted Finish Date', v: fmtDate(s.projectedFinish), hi:true},
-  ];
-  return tiles.map(t=>`<div class="out-tile ${t.hi?'highlight':''} ${t.em?'emphasize':''}"><div class="l">${t.l}</div><div class="v">${t.v}</div></div>`).join('');
+// Mirrors forecast1/forecast2/forecast3's return shape exactly, off the trailing 4-week
+// average pace the superintendent has actually logged -- so it can reuse drawOutputs /
+// buildDistribution / drawDistribution unchanged, same as every Scenario Planner card.
+function computeManualForecast(row, s){
+  const ur = s.trailingAvgUR;
+  const manpower = s.trailingAvgManpower;
+  const remainingQty = s.remainingQty;
+  const hoursForecasted = isFinite(ur) ? ur * remainingQty : NaN;
+  const daysRemaining = (manpower > 0 && isFinite(hoursForecasted)) ? hoursForecasted / (manpower * 10) : NaN;
+  const qtyPerDayPerPerson = ur ? 10 / ur : NaN;
+  const qtyPerDay = (isFinite(daysRemaining) && daysRemaining > 0) ? remainingQty / daysRemaining : NaN;
+  const forecastedPF = (isFinite(hoursForecasted) && (hoursForecasted + row.spentHrs)) ? row.baselineHrs / (hoursForecasted + row.spentHrs) : NaN;
+  const finishDate = isFinite(daysRemaining) ? workdayIntl(new Date(), Math.ceil(daysRemaining)) : null;
+  return {hoursForecasted, daysRemaining, ur, qtyPerDayPerPerson, qtyPerDay, forecastedPF, finishDate, remainingQty};
 }
 
 function manualWeekGridHTML(row, s){
@@ -969,8 +977,9 @@ function manualWeekGridHTML(row, s){
 
 function manualBlockHTML(row){
   const s = computeManualStats(row);
+  const id = row.id;
   return `
-  <div class="commodity-block" id="mblock-${row.id}" data-id="${row.id}">
+  <div class="commodity-block" id="mblock-${id}" data-id="${id}">
     <div class="block-header">
       <div>
         <h2>${escapeHtml(row.name)}</h2>
@@ -978,19 +987,43 @@ function manualBlockHTML(row){
       </div>
     </div>
     <div class="block-body">
-      <div class="outputs" id="manualSummary_${row.id}">${manualSummaryHTML(s)}</div>
-      <div class="table-wrap" style="margin-top:16px;overflow-x:auto;" id="weekGridWrap_${row.id}">${manualWeekGridHTML(row, s)}</div>
-      <button class="addrow-btn" data-addweek="${row.id}" style="margin-top:12px;">+ Add Week</button>
+      <div class="scenario-card">
+        <h3>Established Pace — From Logged Weeks</h3>
+        <p class="desc">Type in the crew size and the quantity installed for each week, left to right. The unit rate that pace actually took is backed into it, and the same forecast math as Forecast 1-3 projects the finish date, budget, and cost from the trailing 4-week average, 6-day work week.</p>
+        <div class="table-wrap" style="overflow-x:auto;" id="weekGridWrap_${id}">${manualWeekGridHTML(row, s)}</div>
+        <button class="addrow-btn" data-addweek="${id}" style="margin-top:12px;margin-bottom:16px;">+ Add Week</button>
+        <div class="scenario-body">
+          <div class="outputs" id="manualOut_${id}"></div>
+          <div class="dist-col">
+            <div class="dist-head">
+              <select class="curve-select" id="curveM_${id}">${CURVE_OPTIONS}</select>
+              <span class="peak" id="peakM_${id}"></span>
+            </div>
+            <div class="mini-chart-title">Manpower per Day</div>
+            <div class="mini-chart"><canvas id="mpChartM_${id}"></canvas></div>
+            <div class="mini-chart-title">Qty per Day</div>
+            <div class="mini-chart"><canvas id="qtyChartM_${id}"></canvas></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>`;
+}
+
+function renderManualForecastOutputs(row){
+  const id = row.id;
+  const s = computeManualStats(row);
+  const f = computeManualForecast(row, s);
+  const c = computeRow(row);
+  const opts = {remainingBudgetHrs: c.remainingBudgetHrs, compRate: row.compRate||0, targetDate: row.targetDate};
+  drawOutputs(`manualOut_${id}`, f, opts);
+  drawDistribution('M', f, row.curveM || 'scurve', id);
 }
 
 function refreshManualCalcs(row){
   const s = computeManualStats(row);
   const metaEl = document.querySelector(`#mblock-${row.id} .block-meta`);
   if(metaEl) metaEl.innerHTML = manualMetaHTML(row, s);
-  const summaryEl = document.getElementById(`manualSummary_${row.id}`);
-  if(summaryEl) summaryEl.innerHTML = manualSummaryHTML(s);
   s.sorted.forEach(e=>{
     const ur = e.qty>0 ? (e.manpower||0)*60/e.qty : NaN;
     const urEl = document.getElementById(`weekUR_${e.id}`);
@@ -1000,6 +1033,7 @@ function refreshManualCalcs(row){
     const pctEl = document.getElementById(`weekPct_${e.id}`);
     if(pctEl){ const pct = row.baselineQty>0 ? s.cumById[e.id]/row.baselineQty : NaN; pctEl.textContent = fmtPct(pct); }
   });
+  renderManualForecastOutputs(row);
 }
 
 function wireManualBlock(row){
@@ -1021,31 +1055,43 @@ function wireManualBlock(row){
       renderOneManualBlock(row);
     });
   }
+  const curveEl = document.getElementById(`curveM_${id}`);
+  if(curveEl){
+    curveEl.value = row.curveM || 'scurve';
+    curveEl.addEventListener('change', e=>{
+      row.curveM = e.target.value;
+      saveState();
+      renderManualForecastOutputs(row);
+    });
+  }
   const wrap = document.getElementById(`weekGridWrap_${id}`);
-  if(!wrap) return;
-  wrap.querySelectorAll('input[data-entry]').forEach(inp=>{
-    inp.addEventListener('input', e=>{
-      const eid = Number(e.target.dataset.entry);
-      const entry = row.weeklyLog.find(x=>x.id===eid);
-      if(!entry) return;
-      if(e.target.type === 'date'){ entry.date = e.target.value; saveState(); renderOneManualBlock(row); return; }
-      const field = e.target.dataset.field;
-      entry[field] = parseFloat(e.target.value) || 0;
-      saveState();
-      refreshManualCalcs(row);
+  if(wrap){
+    wrap.querySelectorAll('input[data-entry]').forEach(inp=>{
+      inp.addEventListener('input', e=>{
+        const eid = Number(e.target.dataset.entry);
+        const entry = row.weeklyLog.find(x=>x.id===eid);
+        if(!entry) return;
+        if(e.target.type === 'date'){ entry.date = e.target.value; saveState(); renderOneManualBlock(row); return; }
+        const field = e.target.dataset.field;
+        entry[field] = parseFloat(e.target.value) || 0;
+        saveState();
+        refreshManualCalcs(row);
+      });
     });
-  });
-  wrap.querySelectorAll('.rowdel[data-entry]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const eid = Number(btn.dataset.entry);
-      row.weeklyLog = row.weeklyLog.filter(x=>x.id!==eid);
-      saveState();
-      renderOneManualBlock(row);
+    wrap.querySelectorAll('.rowdel[data-entry]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const eid = Number(btn.dataset.entry);
+        row.weeklyLog = row.weeklyLog.filter(x=>x.id!==eid);
+        saveState();
+        renderOneManualBlock(row);
+      });
     });
-  });
+  }
+  renderManualForecastOutputs(row);
 }
 
 function renderOneManualBlock(row){
+  destroyChart('mpM_'+row.id); destroyChart('qtyM_'+row.id);
   const el = document.getElementById('mblock-'+row.id);
   if(el){ el.outerHTML = manualBlockHTML(row); }
   wireManualBlock(row);
@@ -1055,6 +1101,7 @@ function renderManualTab(){
   const container = document.getElementById('manualBlocks');
   const empty = document.getElementById('manualEmptyMsg');
   if(!container) return;
+  rows.forEach(r=>{ destroyChart('mpM_'+r.id); destroyChart('qtyM_'+r.id); });
   if(!rows.length){
     container.innerHTML = '';
     if(empty) empty.style.display = 'block';
@@ -1252,7 +1299,7 @@ document.getElementById('collapseAllBtn').addEventListener('click', ()=>{
 });
 document.getElementById('addRowBtn').addEventListener('click', ()=>{
   const id = nextId();
-  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, pctComplete:0, mp1:10, mp2:10, mp3:10, qtyDay3:10, targetDate:'', curve1:'scurve', curve2:'scurve', curve3:'scurve', hidden:false, weeklyLog:[], compRate:0});
+  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, pctComplete:0, mp1:10, mp2:10, mp3:10, qtyDay3:10, targetDate:'', curve1:'scurve', curve2:'scurve', curve3:'scurve', curveM:'scurve', hidden:false, weeklyLog:[], compRate:0});
   selectedId = id;
   saveState();
   renderAll();
