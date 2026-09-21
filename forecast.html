@@ -88,6 +88,12 @@
   .out-tile .v.bad{color:var(--bad);}
   .out-tile.highlight{border:1px solid var(--accent);grid-column:1/-1;}
   .out-tile.emphasize{border:1px solid var(--accent);}
+  .out-tile.wide{grid-column:1/-1;}
+  .out-tile.wide .row-vals{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,150px));gap:6px 24px;margin-top:6px;justify-content:start;}
+  .out-tile.wide .row-vals .rl{display:block;font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.02em;}
+  .out-tile.wide .row-vals .rv{display:block;font-size:14px;font-weight:600;color:var(--text);margin-top:2px;}
+  .out-tile.wide .row-vals .rv.good{color:var(--good);}
+  .out-tile.wide .row-vals .rv.bad{color:var(--bad);}
   select.curve-select{background:var(--input-bg);border:1.5px solid var(--input-border);color:var(--text);padding:6px 8px;border-radius:5px;font-size:12px;}
   .chart-wrap{margin-top:6px;}
   .empty-msg{color:var(--muted);font-size:13px;padding:20px;text-align:center;}
@@ -305,6 +311,7 @@ const fmt1 = n => (isFinite(n) ? n.toLocaleString('en-US',{minimumFractionDigits
 const fmtPct = n => (isFinite(n) ? (n*100).toFixed(1)+'%' : '—');
 const fmtPF = n => (isFinite(n) ? n.toFixed(2) : '—');
 const fmtMoney = n => (isFinite(n) ? '$'+Math.round(Math.abs(n)).toLocaleString('en-US') : '—');
+const fmtMoneySigned = n => (isFinite(n) ? (n<0?'-':n>0?'+':'')+'$'+Math.round(Math.abs(n)).toLocaleString('en-US') : '—');
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -806,68 +813,77 @@ function renderCommodityScenario(row){
   drawDistribution(3, f3, row.curve3 || 'scurve', id);
 }
 
+// A signed delta string -- "+7.50" / "-0.65" / "0.00" -- so the sign alone tells you
+// over vs. under without needing a label that flips per row.
+function fmtDelta(n, fmtFn){
+  if(!isFinite(n)) return '—';
+  return (n > 0 ? '+' : '') + fmtFn(n);
+}
+function simpleTileHTML(l, v, opts){
+  opts = opts || {};
+  return `<div class="out-tile ${opts.hi?'highlight':''} ${opts.em?'emphasize':''}"><div class="l">${l}</div><div class="v ${opts.cls||''}">${v}</div></div>`;
+}
+function rowTileHTML(label, items){
+  const cells = items.map(it=>`<div><span class="rl">${it.l}</span><span class="rv ${it.cls||''}">${it.v}</span></div>`).join('');
+  return `<div class="out-tile wide"><div class="l">${label}</div><div class="row-vals">${cells}</div></div>`;
+}
+
 function drawOutputs(elId, f, opts){
   opts = opts || {};
   const el = document.getElementById(elId);
   if(!el) return;
-  const tiles = [
+  const parts = [];
+
+  parts.push(rowTileHTML('Pace', [
     {l:'Days Remaining', v: fmt2(f.daysRemaining)},
-    {l:'Hours Forecasted', v: fmtInt(f.hoursForecasted)},
-    {l:'UR' + (opts.highlightUR ? ' Required' : ''), v: fmt2(f.ur), em: !!opts.highlightUR},
-  ];
-  const budgetUR = opts.baselineUR;
-  if(isFinite(budgetUR)){
-    tiles.push({l:'Budget UR', v: fmt2(budgetUR)});
-    if(isFinite(f.ur)){
-      const urDelta = f.ur - budgetUR; // UR is hrs/unit -- higher than budget is worse (bad), lower is better (good)
-      const urLabel = urDelta > 0 ? 'UR Over Budget' : urDelta < 0 ? 'UR Under Budget' : 'UR On Budget';
-      const urCls = urDelta > 0 ? 'bad' : urDelta < 0 ? 'good' : '';
-      tiles.push({l: urLabel, v: fmt2(Math.abs(urDelta)), cls: urCls});
-    } else {
-      tiles.push({l:'UR Delta', v:'—'});
-    }
-  }
-  tiles.push({l:'Qty / Day / Person', v: fmt2(f.qtyPerDayPerPerson)});
-  const budgetQtyPerDayPerPerson = (isFinite(budgetUR) && budgetUR>0) ? 10/budgetUR : NaN;
-  if(isFinite(budgetQtyPerDayPerPerson)){
-    tiles.push({l:'Budget Qty / Day / Person', v: fmt2(budgetQtyPerDayPerPerson)});
-    if(isFinite(f.qtyPerDayPerPerson)){
-      const qtyDelta = f.qtyPerDayPerPerson - budgetQtyPerDayPerPerson; // qty/day/person -- higher than budget is better (good)
-      const qtyLabel = qtyDelta > 0 ? 'Qty/Person Above Budget' : qtyDelta < 0 ? 'Qty/Person Below Budget' : 'Qty/Person On Budget';
-      const qtyCls = qtyDelta > 0 ? 'good' : qtyDelta < 0 ? 'bad' : '';
-      tiles.push({l: qtyLabel, v: fmt2(Math.abs(qtyDelta)), cls: qtyCls});
-    } else {
-      tiles.push({l:'Qty/Person Delta', v:'—'});
-    }
-  }
-  tiles.push(
     {l:'Total Qty / Day', v: fmt2(f.qtyPerDay)},
     {l:'Forecasted PF', v: fmtPF(f.forecastedPF), cls: f.forecastedPF>=1?'good':'bad'},
-    {l:'Forecasted Finish Date', v: fmtDate(f.finishDate), cls:'', hi:true}
-  );
+  ]));
+
+  const budgetUR = opts.baselineUR;
+  const urItems = [{l:'Actual', v: fmt2(f.ur)}];
+  if(isFinite(budgetUR)){
+    const urDelta = isFinite(f.ur) ? f.ur - budgetUR : NaN; // UR is hrs/unit -- over budget (higher) is bad
+    urItems.push({l:'Budget', v: fmt2(budgetUR)});
+    urItems.push({l:'Delta', v: fmtDelta(urDelta, fmt2), cls: urDelta>0?'bad':urDelta<0?'good':''});
+  }
+  parts.push(rowTileHTML('UR' + (opts.highlightUR ? ' Required' : '') + ' (hrs / unit)', urItems));
+
+  const budgetQtyPerDayPerPerson = (isFinite(budgetUR) && budgetUR>0) ? 10/budgetUR : NaN;
+  const qtyItems = [{l:'Actual', v: fmt2(f.qtyPerDayPerPerson)}];
+  if(isFinite(budgetQtyPerDayPerPerson)){
+    const qtyDelta = isFinite(f.qtyPerDayPerPerson) ? f.qtyPerDayPerPerson - budgetQtyPerDayPerPerson : NaN; // higher than budget is good
+    qtyItems.push({l:'Budget', v: fmt2(budgetQtyPerDayPerPerson)});
+    qtyItems.push({l:'Delta', v: fmtDelta(qtyDelta, fmt2), cls: qtyDelta>0?'good':qtyDelta<0?'bad':''});
+  }
+  parts.push(rowTileHTML('Qty / Day / Person', qtyItems));
+
+  const hoursItems = [{l:'Forecasted', v: fmtInt(f.hoursForecasted)}];
+  let overageHrs = NaN;
+  if(isFinite(f.hoursForecasted) && isFinite(opts.remainingBudgetHrs)){
+    overageHrs = f.hoursForecasted - opts.remainingBudgetHrs; // over budget (more hours needed) is bad
+    hoursItems.push({l:'Budget', v: fmtInt(opts.remainingBudgetHrs)});
+    hoursItems.push({l:'Delta', v: fmtDelta(overageHrs, fmtInt), cls: overageHrs>0?'bad':overageHrs<0?'good':''});
+    const cost = overageHrs * (opts.compRate||0);
+    hoursItems.push({l:'Cost Impact', v: fmtMoneySigned(cost), cls: cost>0?'bad':cost<0?'good':''});
+  }
+  parts.push(rowTileHTML('Hours', hoursItems));
+
   if(opts.targetDate){
     const target = new Date(opts.targetDate + 'T00:00:00');
-    tiles.push({l:'Target Finish Date', v: fmtDate(target)});
+    const finishItems = [{l:'Forecasted', v: fmtDate(f.finishDate)}, {l:'Target', v: fmtDate(target)}];
     if(f.finishDate && !isNaN(f.finishDate)){
-      const diffDays = Math.round((target.getTime() - f.finishDate.getTime()) / 86400000);
-      const deltaLabel = diffDays > 0 ? 'Ahead of Target' : diffDays < 0 ? 'Behind Target' : 'On Target';
-      const deltaCls = diffDays > 0 ? 'good' : diffDays < 0 ? 'bad' : '';
-      tiles.push({l: deltaLabel, v: diffDays===0 ? 'On Target' : fmtInt(Math.abs(diffDays)) + ' Days', cls: deltaCls});
+      const diffDays = Math.round((target.getTime() - f.finishDate.getTime()) / 86400000); // positive = finish is before target (ahead)
+      finishItems.push({l:'Delta', v: (diffDays>0?'+':'')+fmtInt(diffDays)+' Days', cls: diffDays>0?'good':diffDays<0?'bad':''});
     } else {
-      tiles.push({l:'Vs. Target', v:'—'});
+      finishItems.push({l:'Delta', v:'—'});
     }
+    parts.push(rowTileHTML('Finish Date vs. Target', finishItems));
+  } else {
+    parts.push(simpleTileHTML('Forecasted Finish Date', fmtDate(f.finishDate), {hi:true}));
   }
-  if(isFinite(f.hoursForecasted) && isFinite(opts.remainingBudgetHrs)){
-    const overageHrs = f.hoursForecasted - opts.remainingBudgetHrs;
-    const hrsLabel = overageHrs > 0 ? 'Hours Over Budget' : overageHrs < 0 ? 'Hours Under Budget' : 'Hours On Budget';
-    const hrsCls = overageHrs > 0 ? 'bad' : overageHrs < 0 ? 'good' : '';
-    tiles.push({l: hrsLabel, v: fmtInt(Math.abs(overageHrs)), cls: hrsCls});
-    const cost = overageHrs * (opts.compRate||0);
-    const costLabel = cost > 0 ? 'Cost Overage' : cost < 0 ? 'Cost Savings' : 'Cost Impact';
-    const costCls = cost > 0 ? 'bad' : cost < 0 ? 'good' : '';
-    tiles.push({l: costLabel, v: fmtMoney(cost), cls: costCls});
-  }
-  el.innerHTML = tiles.map(t=>`<div class="out-tile ${t.hi?'highlight':''} ${t.em?'emphasize':''}"><div class="l">${t.l}</div><div class="v ${t.cls||''}">${t.v}</div></div>`).join('');
+
+  el.innerHTML = parts.join('');
 }
 
 
