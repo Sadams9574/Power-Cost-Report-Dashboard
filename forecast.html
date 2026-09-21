@@ -1072,6 +1072,26 @@ function addHolidayIfNew(date, label){
   holidays.push({id: nextHolidayId(), date, label});
   return true;
 }
+function removeHolidaysByDates(dates){
+  const set = new Set(dates);
+  const before = holidays.length;
+  holidays = holidays.filter(h=>!set.has(h.date));
+  return holidays.length !== before;
+}
+// every date the quick-add buttons control (2026-2028 standard holidays + Thanksgiving/Christmas weeks) --
+// used to keep those out of the custom holiday list below, since the buttons themselves show their state
+function quickAddDateSet(){
+  const set = new Set();
+  [2026,2027,2028].forEach(year=>{
+    const items = standardHolidays(year);
+    items.forEach(h=>set.add(h.date));
+    const tgDate = items.find(h=>h.label==='Thanksgiving Day').date;
+    const xmasDate = items.find(h=>h.label==='Christmas Day').date;
+    weekOffDates(tgDate).forEach(d=>set.add(d));
+    weekOffDates(xmasDate).forEach(d=>set.add(d));
+  });
+  return set;
+}
 
 function quickAddRowHTML(year){
   const items = standardHolidays(year);
@@ -1100,7 +1120,11 @@ function renderHolidayQuickAdd(){
   el.innerHTML = [2026,2027,2028].map(quickAddRowHTML).join('');
   el.querySelectorAll('.qa-btn[data-qa-date]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      if(addHolidayIfNew(btn.dataset.qaDate, btn.dataset.qaLabel)){
+      const date = btn.dataset.qaDate;
+      const changed = holidays.some(h=>h.date===date)
+        ? removeHolidaysByDates([date])
+        : addHolidayIfNew(date, btn.dataset.qaLabel);
+      if(changed){
         rebuildHolidaySet(); saveHolidays();
         renderHolidays(); renderHolidayQuickAdd(); renderCommodityBlocks();
       }
@@ -1113,9 +1137,15 @@ function renderHolidayQuickAdd(){
       const isTg = btn.dataset.qaWeek === 'tg';
       const anchor = items.find(h=>h.label===(isTg?'Thanksgiving Day':'Christmas Day')).date;
       const label = isTg ? 'Thanksgiving Week' : 'Christmas Week';
-      let added = false;
-      weekOffDates(anchor).forEach(date=>{ if(addHolidayIfNew(date, label)) added = true; });
-      if(added){
+      const weekDates = weekOffDates(anchor);
+      const allAdded = weekDates.every(date=>holidays.some(h=>h.date===date));
+      let changed = false;
+      if(allAdded){
+        changed = removeHolidaysByDates(weekDates);
+      } else {
+        weekDates.forEach(date=>{ if(addHolidayIfNew(date, label)) changed = true; });
+      }
+      if(changed){
         rebuildHolidaySet(); saveHolidays();
         renderHolidays(); renderHolidayQuickAdd(); renderCommodityBlocks();
       }
@@ -1127,9 +1157,11 @@ function renderHolidayQuickAdd(){
 function renderHolidays(){
   const el = document.getElementById('holidayList');
   if(!el) return;
-  const sorted = [...holidays].sort((a,b)=> a.date.localeCompare(b.date));
+  // quick-add buttons above already show their own on/off state -- only list custom dates here
+  const quickDates = quickAddDateSet();
+  const sorted = holidays.filter(h=>!quickDates.has(h.date)).sort((a,b)=> a.date.localeCompare(b.date));
   if(!sorted.length){
-    el.innerHTML = '<div class="empty-msg" style="padding:6px 0;text-align:left;">No holidays added yet — Sundays are still skipped by default.</div>';
+    el.innerHTML = '<div class="empty-msg" style="padding:6px 0;text-align:left;">No custom holidays added — Sundays are still skipped by default, and the buttons above cover the standard ones.</div>';
     return;
   }
   el.innerHTML = sorted.map(h=>`
