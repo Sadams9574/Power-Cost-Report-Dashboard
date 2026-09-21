@@ -383,17 +383,19 @@ function forecast1(r, c, manpower){
   const finishDate = isFinite(daysRemaining) ? workdayIntl(new Date(), Math.ceil(daysRemaining)) : null;
   return {hoursForecasted, daysRemaining, ur, qtyPerDayPerPerson, qtyPerDay, forecastedPF, finishDate, remainingQty:c.remainingQty};
 }
-// Forecast 2: at a target Productivity Factor of 1.0
-function forecast2(r, c, manpower){
-  const hoursForecasted = c.remainingBudgetHrs;
+// Forecast 2: at a chosen target Productivity Factor (1.00 = exactly on budget, higher = better than budget)
+function forecast2(r, c, manpower, targetPF){
+  targetPF = targetPF || 1;
+  // Total hours the whole job (JTD + remaining) needs to land at, to finish at targetPF
+  // overall -- baselineHrs/targetPF -- minus what's already been spent is what's left to
+  // forecast. At targetPF=1 this is exactly remainingBudgetHrs (baselineHrs - spentHrs).
+  const hoursForecasted = (r.baselineHrs / targetPF) - r.spentHrs;
   const daysRemaining = manpower > 0 ? hoursForecasted / (manpower * 10) : NaN;
-  const ur = c.urNeededPF1;
+  const ur = c.remainingQty ? hoursForecasted / c.remainingQty : NaN;
   const qtyPerDayPerPerson = ur ? 10 / ur : NaN;
   const qtyPerDay = daysRemaining ? c.remainingQty / daysRemaining : NaN;
-  // hoursForecasted is exactly remainingBudgetHrs (baselineHrs - spentHrs) by construction,
-  // so the resulting overall PF is always exactly 1.00 -- that's the whole point of this
-  // scenario. (c.pfNeededRemaining is a different number -- the productivity needed on just
-  // the remaining scope to get there -- used below to derive the required UR, not this.)
+  // By construction hoursForecasted + spentHrs always equals baselineHrs/targetPF, so this
+  // reduces to exactly targetPF -- confirms the forecast actually lands where it was aimed.
   const forecastedPF = (hoursForecasted + r.spentHrs) ? r.baselineHrs / (hoursForecasted + r.spentHrs) : NaN;
   const finishDate = isFinite(daysRemaining) ? workdayIntl(new Date(), Math.ceil(daysRemaining)) : null;
   return {hoursForecasted, daysRemaining, ur, qtyPerDayPerPerson, qtyPerDay, forecastedPF, finishDate, remainingQty:c.remainingQty};
@@ -479,7 +481,7 @@ function buildDistribution(f, curveType){
 
 /* ---------- state ---------- */
 const DEFAULT_ROWS = [
-  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, earnedQty:240, mp1:80, mp2:60, mp3:80, qtyDay3:38.4, targetDate:'2026-11-05', curve1:'scurve', curve2:'scurve', curve3:'scurve', curveM:'scurve', hidden:false, weeklyLog:[], compRate:65}
+  {id:1, name:'Racking', baselineHrs:40000, baselineQty:3000, spentHrs:5000, earnedQty:240, mp1:80, mp2:60, mp3:80, qtyDay3:38.4, targetPF2:1, targetDate:'2026-11-05', curve1:'scurve', curve2:'scurve', curve3:'scurve', curveM:'scurve', hidden:false, weeklyLog:[], compRate:65}
 ];
 let rows = loadState();
 let selectedId = rows.length ? rows[0].id : null;
@@ -515,6 +517,7 @@ function loadState(){
           if(!Array.isArray(r.weeklyLog)) r.weeklyLog = [];
           if(r.compRate===undefined) r.compRate = 0;
           if(!r.curveM) r.curveM = 'scurve';
+          if(!r.targetPF2) r.targetPF2 = 1;
           if(r.earnedQty===undefined){ r.earnedQty = (r.pctComplete||0) * (r.baselineQty||0); delete r.pctComplete; }
         });
         return parsed;
@@ -625,6 +628,9 @@ const CURVE_OPTIONS = `
   <option value="flatdrop">Flat → Drop-Off — steady pace, then eases off mid-project</option>
   <option value="flatdrop4wk">Flat → Fast Drop-Off — steady pace, then drops to 0 over the last 4 weeks</option>
 `;
+// 1.00 through 3.00 in steps of 0.05, for Forecast 2's target-PF picker
+const TARGET_PF_OPTIONS = Array.from({length: 41}, (_, i) => (1 + i * 0.05).toFixed(2))
+  .map(v => `<option value="${v}">${v}</option>`).join('');
 
 function blockMetaHTML(row){
   const c = computeRow(row);
@@ -709,12 +715,18 @@ function blockBodyHTML(row){
         </div>
 
         <div class="scenario-card">
-          <h3>Forecast 2 — At Target PF of 1.0</h3>
-          <p class="desc">Type in a crew size. Finish date is calculated assuming productivity improves to hit an overall Productivity Factor of 1.0, 6-day work week.</p>
-          <div class="manpower-row">
-            <label>Manpower FC</label>
-            <input type="number" id="mp2_${id}" min="1" step="1">
-            <input type="range" id="mp2Range_${id}" min="1" max="200" step="1">
+          <h3>Forecast 2 — At a Target PF</h3>
+          <p class="desc">Type in a crew size and pick a target Productivity Factor. Finish date is calculated assuming productivity holds to that target for the rest of the job, 6-day work week.</p>
+          <div class="manpower-row split">
+            <div class="field">
+              <label>Manpower FC</label>
+              <input type="number" id="mp2_${id}" min="1" step="1">
+              <input type="range" id="mp2Range_${id}" min="1" max="200" step="1">
+            </div>
+            <div class="field">
+              <label>Target PF</label>
+              <select class="curve-select" id="targetPF2_${id}">${TARGET_PF_OPTIONS}</select>
+            </div>
           </div>
           <div class="scenario-body">
             <div class="outputs" id="out2_${id}"></div>
@@ -824,6 +836,7 @@ function wireCommodityBlock(row){
   onChg(`curve1_${id}`, e=>{ row.curve1 = e.target.value; after(); });
   onChg(`curve2_${id}`, e=>{ row.curve2 = e.target.value; after(); });
   onChg(`curve3_${id}`, e=>{ row.curve3 = e.target.value; after(); });
+  onChg(`targetPF2_${id}`, e=>{ row.targetPF2 = parseFloat(e.target.value) || 1; after(); });
 }
 
 function renderOneBlock(row){
@@ -876,10 +889,11 @@ function renderCommodityScenario(row){
   document.getElementById(`curve1_${id}`).value = row.curve1 || 'scurve';
   document.getElementById(`curve2_${id}`).value = row.curve2 || 'scurve';
   document.getElementById(`curve3_${id}`).value = row.curve3 || 'scurve';
+  document.getElementById(`targetPF2_${id}`).value = (row.targetPF2 || 1).toFixed(2);
 
   const c = computeRow(row);
   const f1 = forecast1(row, c, row.mp1);
-  const f2 = forecast2(row, c, row.mp2);
+  const f2 = forecast2(row, c, row.mp2, row.targetPF2 || 1);
   const f3 = forecast3(row, c, row.mp3, row.qtyDay3);
   const costOpts = {remainingBudgetHrs: c.remainingBudgetHrs, compRate: row.compRate||0, targetDate: row.targetDate, baselineUR: c.baselineUR};
   drawOutputs(`out1_${id}`, f1, costOpts);
@@ -1503,7 +1517,7 @@ document.getElementById('collapseAllBtn').addEventListener('click', ()=>{
 });
 document.getElementById('addRowBtn').addEventListener('click', ()=>{
   const id = nextId();
-  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, earnedQty:0, mp1:10, mp2:10, mp3:10, qtyDay3:10, targetDate:'', curve1:'scurve', curve2:'scurve', curve3:'scurve', curveM:'scurve', hidden:false, weeklyLog:[], compRate:0});
+  rows.push({id, name:'New Item', baselineHrs:0, baselineQty:0, spentHrs:0, earnedQty:0, mp1:10, mp2:10, mp3:10, qtyDay3:10, targetPF2:1, targetDate:'', curve1:'scurve', curve2:'scurve', curve3:'scurve', curveM:'scurve', hidden:false, weeklyLog:[], compRate:0});
   selectedId = id;
   saveState();
   renderAll();
