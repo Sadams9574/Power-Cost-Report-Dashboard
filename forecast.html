@@ -409,6 +409,7 @@ function ease(t){ return 0.5 * (1 - Math.cos(Math.PI * Math.min(Math.max(t,0),1)
 function curveWeights(n, type){
   const rampFrac = 0.3, tailFrac = 0.3; // s-curve: 30% ramp-up, 40% steady, 30% taper
   const dropFrac = 0.5; // flat-then-drop: full pace through the midpoint, then eases down
+  const dropWindowDays = 24; // flat-then-fast-drop: last 4 weeks of a 6-day work week, regardless of total length
   const w = [];
   for(let i=1;i<=n;i++){
     const x = (i-0.5)/n; // 0..1, midpoint of each day's slot
@@ -417,6 +418,11 @@ function curveWeights(n, type){
     else if(type==='back') wi = ease(x);                                 // slow start, eased climb to a strong finish
     else if(type==='front') wi = ease(1-x);                              // strong start, eased wind-down
     else if(type==='flatdrop') wi = x < dropFrac ? 1 : ease(1-(x-dropFrac)/(1-dropFrac)); // no ramp -- full pace right away, holds flat, then eases off starting mid-project (for scopes already running)
+    else if(type==='flatdrop4wk'){                                       // no ramp, flat pace, then a fast drop to zero over just the final 4 weeks
+      const dropStart = Math.max(0, n - dropWindowDays);                 // day index (0-based) the drop begins on
+      const span = Math.max(1, n - dropStart);
+      wi = (i-1) < dropStart ? 1 : ease(1 - (i - dropStart)/span);
+    }
     else if(x < rampFrac) wi = ease(x/rampFrac);                         // 'scurve': ramps up slow...
     else if(x > 1-tailFrac) wi = ease((1-x)/tailFrac);                   // ...runs at a steady pace...
     else wi = 1;                                                         // ...then tapers off — a blend of back-end + bell
@@ -608,6 +614,7 @@ const CURVE_OPTIONS = `
   <option value="back">Back-End Loaded — accelerates to the finish</option>
   <option value="front">Front-End Loaded — strongest at the start</option>
   <option value="flatdrop">Flat → Drop-Off — steady pace, then eases off mid-project</option>
+  <option value="flatdrop4wk">Flat → Fast Drop-Off — steady pace, then drops to 0 over the last 4 weeks</option>
 `;
 
 function blockMetaHTML(row){
