@@ -797,7 +797,7 @@ function renderCommodityScenario(row){
   const f1 = forecast1(row, c, row.mp1);
   const f2 = forecast2(row, c, row.mp2);
   const f3 = forecast3(row, c, row.mp3, row.qtyDay3);
-  const costOpts = {remainingBudgetHrs: c.remainingBudgetHrs, compRate: row.compRate||0, targetDate: row.targetDate};
+  const costOpts = {remainingBudgetHrs: c.remainingBudgetHrs, compRate: row.compRate||0, targetDate: row.targetDate, baselineUR: c.baselineUR};
   drawOutputs(`out1_${id}`, f1, costOpts);
   drawOutputs(`out2_${id}`, f2, costOpts);
   drawOutputs(`out3_${id}`, f3, {...costOpts, highlightUR:true});
@@ -814,11 +814,37 @@ function drawOutputs(elId, f, opts){
     {l:'Days Remaining', v: fmt2(f.daysRemaining)},
     {l:'Hours Forecasted', v: fmtInt(f.hoursForecasted)},
     {l:'UR' + (opts.highlightUR ? ' Required' : ''), v: fmt2(f.ur), em: !!opts.highlightUR},
-    {l:'Qty / Day / Person', v: fmt2(f.qtyPerDayPerPerson)},
+  ];
+  const budgetUR = opts.baselineUR;
+  if(isFinite(budgetUR)){
+    tiles.push({l:'Budget UR', v: fmt2(budgetUR)});
+    if(isFinite(f.ur)){
+      const urDelta = f.ur - budgetUR; // UR is hrs/unit -- higher than budget is worse (bad), lower is better (good)
+      const urLabel = urDelta > 0 ? 'UR Over Budget' : urDelta < 0 ? 'UR Under Budget' : 'UR On Budget';
+      const urCls = urDelta > 0 ? 'bad' : urDelta < 0 ? 'good' : '';
+      tiles.push({l: urLabel, v: fmt2(Math.abs(urDelta)), cls: urCls});
+    } else {
+      tiles.push({l:'UR Delta', v:'—'});
+    }
+  }
+  tiles.push({l:'Qty / Day / Person', v: fmt2(f.qtyPerDayPerPerson)});
+  const budgetQtyPerDayPerPerson = (isFinite(budgetUR) && budgetUR>0) ? 10/budgetUR : NaN;
+  if(isFinite(budgetQtyPerDayPerPerson)){
+    tiles.push({l:'Budget Qty / Day / Person', v: fmt2(budgetQtyPerDayPerPerson)});
+    if(isFinite(f.qtyPerDayPerPerson)){
+      const qtyDelta = f.qtyPerDayPerPerson - budgetQtyPerDayPerPerson; // qty/day/person -- higher than budget is better (good)
+      const qtyLabel = qtyDelta > 0 ? 'Qty/Person Above Budget' : qtyDelta < 0 ? 'Qty/Person Below Budget' : 'Qty/Person On Budget';
+      const qtyCls = qtyDelta > 0 ? 'good' : qtyDelta < 0 ? 'bad' : '';
+      tiles.push({l: qtyLabel, v: fmt2(Math.abs(qtyDelta)), cls: qtyCls});
+    } else {
+      tiles.push({l:'Qty/Person Delta', v:'—'});
+    }
+  }
+  tiles.push(
     {l:'Total Qty / Day', v: fmt2(f.qtyPerDay)},
     {l:'Forecasted PF', v: fmtPF(f.forecastedPF), cls: f.forecastedPF>=1?'good':'bad'},
-    {l:'Forecasted Finish Date', v: fmtDate(f.finishDate), cls:'', hi:true},
-  ];
+    {l:'Forecasted Finish Date', v: fmtDate(f.finishDate), cls:'', hi:true}
+  );
   if(opts.targetDate){
     const target = new Date(opts.targetDate + 'T00:00:00');
     tiles.push({l:'Target Finish Date', v: fmtDate(target)});
@@ -1013,7 +1039,7 @@ function renderManualForecastOutputs(row){
   const s = computeManualStats(row);
   const f = computeManualForecast(row, s);
   const c = computeRow(row);
-  const opts = {remainingBudgetHrs: c.remainingBudgetHrs, compRate: row.compRate||0, targetDate: row.targetDate};
+  const opts = {remainingBudgetHrs: c.remainingBudgetHrs, compRate: row.compRate||0, targetDate: row.targetDate, baselineUR: c.baselineUR};
   drawOutputs(`manualOut_${id}`, f, opts);
   drawDistribution('M', f, row.curveM || 'scurve', id);
 }
