@@ -164,6 +164,11 @@
   .week-grid th.week-col input[type=date]{width:96px;font-size:11px;padding:4px;text-align:center;}
   .week-grid td.week-col input[type=number]{width:76px;text-align:center;}
   .week-grid th.week-col .rowdel{display:block;margin:4px auto 0;}
+  table.mini-week-table{table-layout:auto;width:auto;border-collapse:collapse;margin-top:2px;}
+  .mini-week-table th, .mini-week-table td{padding:4px 8px;text-align:center;white-space:nowrap;}
+  .mini-week-table .week-label{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.02em;text-align:left;padding-right:12px;}
+  .mini-week-table th.week-col{font-size:9.5px;color:var(--muted);font-weight:600;}
+  .mini-week-table td.week-col{font-size:11px;font-weight:600;color:var(--text);}
 </style>
 </head>
 <body>
@@ -693,6 +698,8 @@ function blockBodyHTML(row){
               <div class="mini-chart"><canvas id="mpChart1_${id}"></canvas></div>
               <div class="mini-chart-title">Qty per Day</div>
               <div class="mini-chart"><canvas id="qtyChart1_${id}"></canvas></div>
+              <div class="mini-chart-title">Weekly Manpower &amp; Qty</div>
+              <div class="table-wrap"><table class="mini-week-table" id="weekTable1_${id}"></table></div>
             </div>
           </div>
         </div>
@@ -716,6 +723,8 @@ function blockBodyHTML(row){
               <div class="mini-chart"><canvas id="mpChart2_${id}"></canvas></div>
               <div class="mini-chart-title">Qty per Day</div>
               <div class="mini-chart"><canvas id="qtyChart2_${id}"></canvas></div>
+              <div class="mini-chart-title">Weekly Manpower &amp; Qty</div>
+              <div class="table-wrap"><table class="mini-week-table" id="weekTable2_${id}"></table></div>
             </div>
           </div>
           <div class="curve-legend">Same total remaining hours and the same finish date either way — the curve only changes how the crew and daily output are spread between today and the finish date.</div>
@@ -747,6 +756,8 @@ function blockBodyHTML(row){
               <div class="mini-chart"><canvas id="mpChart3_${id}"></canvas></div>
               <div class="mini-chart-title">Qty per Day</div>
               <div class="mini-chart"><canvas id="qtyChart3_${id}"></canvas></div>
+              <div class="mini-chart-title">Weekly Manpower &amp; Qty</div>
+              <div class="table-wrap"><table class="mini-week-table" id="weekTable3_${id}"></table></div>
             </div>
           </div>
           <div class="curve-legend">Days remaining is driven by the Qty/Day target alone — Manpower only changes the Unit Rate this pace requires.</div>
@@ -969,11 +980,53 @@ function miniBarOptions(yLabel){
   };
 }
 
+// The Saturday that closes out the Mon-Sat work week containing `d` -- same week
+// boundary the Manual Forecast tab and the holiday "week off" buttons already use.
+function weekEndingDate(d){
+  const day = d.getDay(); // 0=Sun..6=Sat
+  const monday = new Date(d);
+  monday.setDate(monday.getDate() + (day===0 ? -6 : 1-day));
+  const sat = new Date(monday);
+  sat.setDate(sat.getDate()+5);
+  return sat;
+}
+// Collapses a distribution's daily bars into one row per week -- average crew size
+// across the days actually worked that week, and total qty installed that week.
+function weeklyRollup(dist){
+  const map = new Map();
+  dist.dates.forEach((d,i)=>{
+    const key = isoDate(weekEndingDate(d));
+    if(!map.has(key)) map.set(key, {key, mpSum:0, mpCount:0, qtySum:0});
+    const w = map.get(key);
+    const mp = dist.manpowerPerDay[i];
+    if(mp>0){ w.mpSum += mp; w.mpCount++; }
+    w.qtySum += dist.qtyPerDay[i];
+  });
+  return [...map.values()].sort((a,b)=>a.key.localeCompare(b.key)).map(w=>({
+    key: w.key,
+    manpower: w.mpCount ? Math.round(w.mpSum/w.mpCount) : 0,
+    qty: w.qtySum,
+  }));
+}
+function weekTableHTML(weeks){
+  if(!weeks.length) return '';
+  const headCols = weeks.map(w=>`<th class="week-col">${fmtDateShort(new Date(w.key+'T00:00:00'))}</th>`).join('');
+  const mpCols = weeks.map(w=>`<td class="week-col">${fmtInt(w.manpower)}</td>`).join('');
+  const qtyCols = weeks.map(w=>`<td class="week-col">${fmtInt(w.qty)}</td>`).join('');
+  return `
+    <thead><tr><th class="week-label">Week Ending</th>${headCols}</tr></thead>
+    <tbody>
+      <tr><td class="week-label">Manpower</td>${mpCols}</tr>
+      <tr><td class="week-label">Qty</td>${qtyCols}</tr>
+    </tbody>`;
+}
+
 function drawDistribution(which, f, curveType, id){
   const dist = buildDistribution(f, curveType);
   const mpCanvas = document.getElementById(`mpChart${which}_${id}`);
   const qtyCanvas = document.getElementById(`qtyChart${which}_${id}`);
   const peakEl = document.getElementById(`peak${which}_${id}`);
+  const weekTableEl = document.getElementById(`weekTable${which}_${id}`);
   const mpKey = `mp${which}_${id}`, qtyKey = `qty${which}_${id}`;
   if(!mpCanvas || !qtyCanvas) return;
   const t = chartColors();
@@ -982,17 +1035,20 @@ function drawDistribution(which, f, curveType, id){
   if(!dist){
     destroyChart(mpKey); destroyChart(qtyKey);
     if(peakEl) peakEl.textContent = 'Not enough data yet';
+    if(weekTableEl) weekTableEl.innerHTML = '';
     return;
   }
   if(dist.tooLong){
     destroyChart(mpKey); destroyChart(qtyKey);
     if(peakEl) peakEl.textContent = `Forecast window is over ${MAX_CHART_DAYS.toLocaleString('en-US')} days — check your inputs`;
+    if(weekTableEl) weekTableEl.innerHTML = '';
     return;
   }
 
   const labels = dist.dates.map(fmtDateShort);
   const peakMp = Math.max(...dist.manpowerPerDay);
   if(peakEl) peakEl.innerHTML = `Peak crew: <b>${fmtInt(peakMp)}</b> people/day`;
+  if(weekTableEl) weekTableEl.innerHTML = weekTableHTML(weeklyRollup(dist));
 
   setChart(mpKey, mpCanvas, {
     type:'bar',
@@ -1117,6 +1173,8 @@ function manualBlockHTML(row){
             <div class="mini-chart"><canvas id="mpChartM_${id}"></canvas></div>
             <div class="mini-chart-title">Qty per Day</div>
             <div class="mini-chart"><canvas id="qtyChartM_${id}"></canvas></div>
+            <div class="mini-chart-title">Weekly Manpower &amp; Qty</div>
+            <div class="table-wrap"><table class="mini-week-table" id="weekTableM_${id}"></table></div>
           </div>
         </div>
       </div>
