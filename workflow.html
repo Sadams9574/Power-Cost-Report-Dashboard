@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project Setup Workflow</title>
+<style>
+  :root{--bg:#0f1720;--card:#1b2530;--accent:#3b9eff;--good:#2ecc71;--bad:#e74c3c;--warn:#f1c40f;--muted:#8aa0b4;--text:#e7eef5;--line:#2a3744;}
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;}
+  header{padding:14px 28px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+  header h1{margin:0;font-size:22px;}
+  header .sub{color:var(--muted);font-size:13px;}
+  header a{color:var(--accent);text-decoration:none;}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  button,.btn{background:var(--card);color:var(--text);border:1px solid var(--line);padding:7px 12px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit;}
+  button:hover,.btn:hover{border-color:var(--accent);}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#08121c;font-weight:600;}
+  button.active{border-color:var(--accent);color:var(--accent);}
+  .legend{display:flex;gap:14px;padding:8px 28px;color:var(--muted);font-size:12px;border-bottom:1px solid var(--line);flex-wrap:wrap;}
+  .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:var(--c);}
+  #wrap{flex:1;overflow:auto;position:relative;}
+  #board{position:relative;width:2600px;height:1600px;
+    background-image:radial-gradient(#22303d 1px,transparent 1px);background-size:20px 20px;}
+  #links{position:absolute;inset:0;width:100%;height:100%;overflow:visible;}
+  #links path.hit{stroke:transparent;stroke-width:14;fill:none;cursor:pointer;pointer-events:stroke;}
+  #links path.vis{stroke:var(--muted);stroke-width:2;fill:none;pointer-events:none;}
+  #links g.sel path.vis{stroke:var(--accent);}
+  #links text{fill:var(--muted);font-size:12px;pointer-events:none;}
+  .node{position:absolute;width:190px;min-height:64px;background:var(--card);border:1px solid var(--line);
+    border-left:5px solid var(--c,var(--muted));border-radius:10px;padding:10px 12px;cursor:grab;user-select:none;touch-action:none;
+    box-shadow:0 4px 14px rgba(0,0,0,.35);}
+  .node:hover{border-color:#3a4a5a;border-left-color:var(--c,var(--muted));}
+  .node.sel{outline:2px solid var(--accent);outline-offset:2px;}
+  .node.dragging{cursor:grabbing;opacity:.9;}
+  .node .t{font-weight:600;font-size:14px;line-height:1.25;}
+  .node .d{color:var(--muted);font-size:12px;margin-top:4px;line-height:1.3;white-space:pre-wrap;}
+  .node .own{display:inline-block;margin-top:6px;font-size:11px;color:var(--c,var(--muted));text-transform:uppercase;letter-spacing:.05em;}
+  .port{position:absolute;right:-8px;top:50%;width:14px;height:14px;margin-top:-7px;border-radius:50%;
+    background:var(--bg);border:2px solid var(--accent);cursor:crosshair;opacity:0;transition:opacity .15s;}
+  .node:hover .port,.node.sel .port{opacity:1;}
+  .connecting .node{cursor:crosshair;}
+  .connecting .node:hover{outline:2px dashed var(--good);outline-offset:2px;}
+  /* editor */
+  #editor{position:fixed;right:20px;top:120px;width:300px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;
+    display:none;box-shadow:0 10px 30px rgba(0,0,0,.5);z-index:10;}
+  #editor h2{margin:0 0 12px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  #editor label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;}
+  #editor input,#editor textarea,#editor select{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:7px 9px;border-radius:6px;font:inherit;font-size:13px;}
+  #editor textarea{min-height:70px;resize:vertical;}
+  #editor .row{display:flex;gap:8px;margin-top:14px;justify-content:space-between;}
+  button.danger{border-color:var(--bad);color:var(--bad);}
+  .hint{color:var(--muted);font-size:12px;}
+  @media(max-width:700px){header,.legend{padding-left:16px;padding-right:16px;}#editor{left:16px;right:16px;width:auto;top:auto;bottom:16px;}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Project Setup Workflow</h1>
+    <div class="sub">Drag boxes to move · drag the blue dot to draw an arrow · double-click to edit · Delete key removes selection · <a href="index.html">← Dashboard</a></div>
+  </div>
+  <div class="toolbar">
+    <button class="primary" id="addBtn">+ Add Box</button>
+    <button id="connectBtn" title="Click a box, then another box">Connect</button>
+    <button id="exportBtn">Export</button>
+    <label class="btn">Import<input type="file" id="importFile" accept="application/json" hidden></label>
+    <button id="pngBtn">Save Image</button>
+    <button id="resetBtn">Reset</button>
+  </div>
+</header>
+<div class="legend">
+  <span style="--c:var(--muted)">Not Started</span>
+  <span style="--c:var(--accent)">In Progress</span>
+  <span style="--c:var(--good)">Complete</span>
+  <span style="--c:var(--warn)">Waiting / Review</span>
+  <span style="--c:var(--bad)">Blocked</span>
+  <span class="hint" id="status"></span>
+</div>
+
+<div id="wrap">
+  <div id="board">
+    <svg id="links">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#8aa0b4"/>
+        </marker>
+        <marker id="arrowSel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#3b9eff"/>
+        </marker>
+      </defs>
+      <g id="linkLayer"></g>
+      <path id="ghost" class="vis" style="stroke:var(--accent);stroke-dasharray:6 4;display:none" marker-end="url(#arrowSel)"/>
+    </svg>
+  </div>
+</div>
+
+<div id="editor">
+  <h2 id="edTitle">Edit Box</h2>
+  <div id="nodeFields">
+    <label>Title</label><input id="fTitle">
+    <label>Details</label><textarea id="fDesc"></textarea>
+    <label>Owner</label><input id="fOwner" placeholder="e.g. PM, Cost Control, Accounting">
+    <label>Status</label>
+    <select id="fStatus">
+      <option value="todo">Not Started</option>
+      <option value="doing">In Progress</option>
+      <option value="done">Complete</option>
+      <option value="wait">Waiting / Review</option>
+      <option value="blocked">Blocked</option>
+    </select>
+  </div>
+  <div id="linkFields">
+    <label>Arrow label</label><input id="fLabel" placeholder="optional, e.g. Approved">
+  </div>
+  <div class="row">
+    <button class="danger" id="delBtn">Delete</button>
+    <button class="primary" id="closeEd">Done</button>
+  </div>
+</div>
+
+<script>
+const STATUS = {todo:'var(--muted)',doing:'var(--accent)',done:'var(--good)',wait:'var(--warn)',blocked:'var(--bad)'};
+const STATUS_HEX = {todo:'#8aa0b4',doing:'#3b9eff',done:'#2ecc71',wait:'#f1c40f',blocked:'#e74c3c'};
+const KEY = 'projectSetupWorkflow.v1';
+
+const TEMPLATE = {
+  nodes:[
+    {id:'n1',x:40, y:60, title:'Contract Award',        desc:'Signed contract / NTP received',            owner:'Operations',   status:'done'},
+    {id:'n2',x:300,y:60, title:'Create Job Number',     desc:'Open job in ERP / accounting',               owner:'Accounting',   status:'doing'},
+    {id:'n3',x:560,y:60, title:'Load Budget & Cost Codes',desc:'Import estimate into cost codes',          owner:'Cost Control', status:'todo'},
+    {id:'n4',x:820,y:60, title:'Budget Review',         desc:'PM + estimator sign off on budget',          owner:'PM',           status:'todo'},
+    {id:'n5',x:560,y:240,title:'Baseline Schedule',     desc:'Resource-loaded schedule',                   owner:'Scheduler',    status:'todo'},
+    {id:'n6',x:820,y:240,title:'Procurement Plan',      desc:'Long-lead materials & subcontracts',         owner:'Procurement',  status:'todo'},
+    {id:'n7',x:1080,y:150,title:'Kickoff Meeting',      desc:'Internal + client kickoff',                  owner:'PM',           status:'todo'},
+    {id:'n8',x:1340,y:150,title:'Monthly Cost Report Setup',desc:'Link job to Power Cost Report Dashboard',owner:'Cost Control', status:'todo'}
+  ],
+  links:[
+    {id:'l1',from:'n1',to:'n2',label:''},
+    {id:'l2',from:'n2',to:'n3',label:''},
+    {id:'l3',from:'n3',to:'n4',label:''},
+    {id:'l4',from:'n2',to:'n5',label:''},
+    {id:'l5',from:'n5',to:'n6',label:''},
+    {id:'l6',from:'n4',to:'n7',label:'Approved'},
+    {id:'l7',from:'n6',to:'n7',label:''},
+    {id:'l8',from:'n7',to:'n8',label:''}
+  ]
+};
+
+let state = load();
+let sel = null;            // {type:'node'|'link', id}
+let connectMode = false, connectFrom = null;
+const board = document.getElementById('board');
+const linkLayer = document.getElementById('linkLayer');
+const ghost = document.getElementById('ghost');
+const $ = id => document.getElementById(id);
+
+function load(){
+  try{ const s = JSON.parse(localStorage.getItem(KEY)); if(s && s.nodes) return s; }catch(e){}
+  return structuredClone(TEMPLATE);
+}
+let saveTimer;
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); flash('Saved'); }catch(e){ flash('Could not save in this browser'); }
+  },250);
+}
+function flash(msg){ const s=$('status'); s.textContent=msg; clearTimeout(flash.t); flash.t=setTimeout(()=>s.textContent='',1500); }
+const uid = p => p + Math.random().toString(36).slice(2,8);
+const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nodeById = id => state.nodes.find(n=>n.id===id);
+
+/* ---------- rendering ---------- */
+function render(){
+  board.querySelectorAll('.node').forEach(e=>e.remove());
+  for(const n of state.nodes){
+    const el = document.createElement('div');
+    el.className = 'node' + (sel?.type==='node'&&sel.id===n.id?' sel':'');
+    el.dataset.id = n.id;
+    el.style.left = n.x+'px'; el.style.top = n.y+'px';
+    el.style.setProperty('--c', STATUS[n.status]||STATUS.todo);
+    el.innerHTML = `<div class="t">${esc(n.title)}</div>`+
+      (n.desc?`<div class="d">${esc(n.desc)}</div>`:'')+
+      (n.owner?`<div class="own">${esc(n.owner)}</div>`:'')+
+      `<div class="port" title="Drag to another box to connect"></div>`;
+    board.appendChild(el);
+  }
+  renderLinks();
+}
+
+function box(n){
+  const el = board.querySelector(`.node[data-id="${n.id}"]`);
+  const w = el?el.offsetWidth:190, h = el?el.offsetHeight:64;
+  return {x:n.x,y:n.y,w,h,cx:n.x+w/2,cy:n.y+h/2};
+}
+// point where the line from the box centre toward (tx,ty) leaves the box
+function edge(b,tx,ty,pad=4){
+  const dx=tx-b.cx, dy=ty-b.cy;
+  if(!dx&&!dy) return {x:b.cx,y:b.cy};
+  const sx=(b.w/2+pad)/Math.abs(dx||1e-9), sy=(b.h/2+pad)/Math.abs(dy||1e-9), s=Math.min(sx,sy);
+  return {x:b.cx+dx*s,y:b.cy+dy*s};
+}
+function renderLinks(){
+  linkLayer.innerHTML='';
+  for(const l of state.links){
+    const a=nodeById(l.from), b=nodeById(l.to); if(!a||!b) continue;
+    const A=box(a), B=box(b);
+    const p1=edge(A,B.cx,B.cy), p2=edge(B,A.cx,A.cy);
+    const d=`M${p1.x},${p1.y} L${p2.x},${p2.y}`;
+    const isSel = sel?.type==='link'&&sel.id===l.id;
+    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+    if(isSel) g.classList.add('sel');
+    g.innerHTML=`<path class="hit" d="${d}"/><path class="vis" d="${d}" marker-end="url(#${isSel?'arrowSel':'arrow'})"/>`+
+      (l.label?`<text x="${(p1.x+p2.x)/2}" y="${(p1.y+p2.y)/2-6}" text-anchor="middle">${esc(l.label)}</text>`:'');
+    g.querySelector('.hit').addEventListener('pointerdown',e=>{e.stopPropagation();select({type:'link',id:l.id});});
+    g.querySelector('.hit').addEventListener('dblclick',e=>{e.stopPropagation();openEditor();});
+    linkLayer.appendChild(g);
+  }
+}
+
+/* ---------- selection & editor ---------- */
+function select(s){ sel=s; render(); if(!s) closeEditor(); else if($('editor').style.display==='block') openEditor(); }
+function openEditor(){
+  if(!sel) return;
+  const isNode = sel.type==='node';
+  $('nodeFields').style.display = isNode?'':'none';
+  $('linkFields').style.display = isNode?'none':'';
+  $('edTitle').textContent = isNode?'Edit Box':'Edit Arrow';
+  if(isNode){ const n=nodeById(sel.id); $('fTitle').value=n.title; $('fDesc').value=n.desc||''; $('fOwner').value=n.owner||''; $('fStatus').value=n.status||'todo'; }
+  else{ const l=state.links.find(l=>l.id===sel.id); $('fLabel').value=l.label||''; }
+  $('editor').style.display='block';
+  (isNode?$('fTitle'):$('fLabel')).focus();
+}
+function closeEditor(){ $('editor').style.display='none'; }
+function onField(){
+  if(!sel) return;
+  if(sel.type==='node'){ Object.assign(nodeById(sel.id),{title:$('fTitle').value,desc:$('fDesc').value,owner:$('fOwner').value,status:$('fStatus').value}); }
+  else{ state.links.find(l=>l.id===sel.id).label=$('fLabel').value; }
+  render(); save();
+}
+['fTitle','fDesc','fOwner','fLabel'].forEach(id=>$(id).addEventListener('input',onField));
+$('fStatus').addEventListener('change',onField);
+$('closeEd').onclick=closeEditor;
+$('delBtn').onclick=deleteSelected;
+
+function deleteSelected(){
+  if(!sel) return;
+  if(sel.type==='node'){ state.nodes=state.nodes.filter(n=>n.id!==sel.id); state.links=state.links.filter(l=>l.from!==sel.id&&l.to!==sel.id); }
+  else state.links=state.links.filter(l=>l.id!==sel.id);
+  sel=null; closeEditor(); render(); save();
+}
+function addLink(from,to){
+  if(from===to||state.links.some(l=>l.from===from&&l.to===to)) return;
+  state.links.push({id:uid('l'),from,to,label:''}); save();
+}
+
+/* ---------- pointer interaction: drag boxes, drag ports to connect ---------- */
+let drag=null;
+function boardPt(e){ const r=board.getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; }
+
+board.addEventListener('pointerdown',e=>{
+  const nodeEl=e.target.closest('.node');
+  if(!nodeEl){ if(!e.target.closest('#links g')) select(null); return; }
+  const id=nodeEl.dataset.id, n=nodeById(id), p=boardPt(e);
+
+  if(connectMode){
+    if(!connectFrom){ connectFrom=id; select({type:'node',id}); flash('Now click the box to point to'); }
+    else{ addLink(connectFrom,id); connectFrom=null; select(null); flash('Arrow added'); }
+    return;
+  }
+  if(e.target.classList.contains('port')){
+    drag={mode:'link',from:id};
+    ghost.style.display='';
+  } else {
+    drag={mode:'move',id,ox:p.x-n.x,oy:p.y-n.y,el:nodeEl,moved:false};
+    if(!(sel?.type==='node'&&sel.id===id)){ select({type:'node',id}); drag.el=board.querySelector(`.node[data-id="${id}"]`); }
+    drag.el.classList.add('dragging');
+  }
+  board.setPointerCapture(e.pointerId);
+  e.preventDefault();
+});
+board.addEventListener('pointermove',e=>{
+  if(!drag) return;
+  const p=boardPt(e);
+  if(drag.mode==='move'){
+    const n=nodeById(drag.id);
+    n.x=Math.max(0,Math.round((p.x-drag.ox)/10)*10);
+    n.y=Math.max(0,Math.round((p.y-drag.oy)/10)*10);
+    drag.el.style.left=n.x+'px'; drag.el.style.top=n.y+'px';
+    drag.moved=true; renderLinks();
+  } else {
+    const A=box(nodeById(drag.from)), s=edge(A,p.x,p.y);
+    ghost.setAttribute('d',`M${s.x},${s.y} L${p.x},${p.y}`);
+  }
+});
+board.addEventListener('pointerup',e=>{
+  if(!drag) return;
+  if(drag.mode==='move'){ drag.el.classList.remove('dragging'); if(drag.moved) save(); }
+  else{
+    ghost.style.display='none';
+    const target=document.elementsFromPoint(e.clientX,e.clientY).find(el=>el.classList?.contains('node'));
+    if(target){ addLink(drag.from,target.dataset.id); render(); }
+  }
+  drag=null;
+});
+board.addEventListener('dblclick',e=>{
+  const nodeEl=e.target.closest('.node');
+  if(nodeEl){ select({type:'node',id:nodeEl.dataset.id}); openEditor(); return; }
+  if(!e.target.closest('#links g')){ const p=boardPt(e); addNode(p.x-95,p.y-32); }
+});
+
+document.addEventListener('keydown',e=>{
+  if(e.target.matches('input,textarea,select')) return;
+  if((e.key==='Delete'||e.key==='Backspace')&&sel){ e.preventDefault(); deleteSelected(); }
+  if(e.key==='Escape'){ setConnect(false); select(null); }
+});
+
+/* ---------- toolbar ---------- */
+function addNode(x,y){
+  const wrap=$('wrap');
+  const n={id:uid('n'),x:Math.round((x??wrap.scrollLeft+60)/10)*10,y:Math.round((y??wrap.scrollTop+60)/10)*10,title:'New Step',desc:'',owner:'',status:'todo'};
+  state.nodes.push(n); select({type:'node',id:n.id}); openEditor(); save();
+}
+function setConnect(on){ connectMode=on; connectFrom=null; $('connectBtn').classList.toggle('active',on); board.classList.toggle('connecting',on); if(on) flash('Click the starting box'); }
+$('addBtn').onclick=()=>addNode();
+$('connectBtn').onclick=()=>setConnect(!connectMode);
+$('resetBtn').onclick=()=>{ if(confirm('Reset to the default project setup template? Your changes will be lost.')){ state=structuredClone(TEMPLATE); sel=null; closeEditor(); render(); save(); } };
+$('exportBtn').onclick=()=>{
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));
+  a.download='project-setup-workflow.json'; a.click(); URL.revokeObjectURL(a.href);
+};
+$('importFile').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  f.text().then(t=>{ const s=JSON.parse(t); if(!s.nodes||!s.links) throw 0; state=s; sel=null; render(); save(); flash('Imported'); })
+   .catch(()=>alert('That file is not a workflow export.'));
+  e.target.value='';
+};
+
+/* ---------- export as PNG (draws the diagram onto a canvas) ---------- */
+$('pngBtn').onclick=()=>{
+  if(!state.nodes.length) return;
+  const bs=state.nodes.map(box), pad=40;
+  const minX=Math.min(...bs.map(b=>b.x))-pad, minY=Math.min(...bs.map(b=>b.y))-pad;
+  const W=Math.max(...bs.map(b=>b.x+b.w))+pad-minX, H=Math.max(...bs.map(b=>b.y+b.h))+pad-minY;
+  const c=document.createElement('canvas'), k=2; c.width=W*k; c.height=H*k;
+  const g=c.getContext('2d'); g.scale(k,k); g.translate(-minX,-minY);
+  g.fillStyle='#0f1720'; g.fillRect(minX,minY,W,H);
+  g.font='12px Segoe UI, Arial';
+  for(const l of state.links){
+    const a=nodeById(l.from), b=nodeById(l.to); if(!a||!b) continue;
+    const A=box(a),B=box(b),p1=edge(A,B.cx,B.cy),p2=edge(B,A.cx,A.cy),ang=Math.atan2(p2.y-p1.y,p2.x-p1.x);
+    g.strokeStyle=g.fillStyle='#8aa0b4'; g.lineWidth=2;
+    g.beginPath(); g.moveTo(p1.x,p1.y); g.lineTo(p2.x,p2.y); g.stroke();
+    g.beginPath(); g.moveTo(p2.x,p2.y); g.lineTo(p2.x-10*Math.cos(ang-.45),p2.y-10*Math.sin(ang-.45)); g.lineTo(p2.x-10*Math.cos(ang+.45),p2.y-10*Math.sin(ang+.45)); g.fill();
+    if(l.label){ g.textAlign='center'; g.fillText(l.label,(p1.x+p2.x)/2,(p1.y+p2.y)/2-6); }
+  }
+  state.nodes.forEach((n,i)=>{
+    const b=bs[i], col=STATUS_HEX[n.status]||STATUS_HEX.todo;
+    g.fillStyle='#1b2530'; g.strokeStyle='#2a3744'; g.lineWidth=1;
+    g.beginPath(); g.roundRect(b.x,b.y,b.w,b.h,10); g.fill(); g.stroke();
+    g.fillStyle=col; g.beginPath(); g.roundRect(b.x,b.y,5,b.h,[10,0,0,10]); g.fill();
+    g.textAlign='left'; g.fillStyle='#e7eef5'; g.font='600 14px Segoe UI, Arial'; g.fillText(n.title,b.x+14,b.y+24,b.w-24);
+    g.font='12px Segoe UI, Arial'; g.fillStyle='#8aa0b4'; if(n.desc) g.fillText(n.desc.split('\n')[0],b.x+14,b.y+42,b.w-24);
+    if(n.owner){ g.fillStyle=col; g.font='11px Segoe UI, Arial'; g.fillText(n.owner.toUpperCase(),b.x+14,b.y+b.h-10,b.w-24); }
+  });
+  const a=document.createElement('a'); a.href=c.toDataURL('image/png'); a.download='project-setup-workflow.png'; a.click();
+};
+
+render();
+</script>
+</body>
+</html>
