@@ -5,114 +5,136 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Project Setup Workflow</title>
 <style>
-  :root{--bg:#0f1720;--card:#1b2530;--accent:#3b9eff;--good:#2ecc71;--bad:#e74c3c;--warn:#f1c40f;--muted:#8aa0b4;--text:#e7eef5;--line:#2a3744;}
+  :root{
+    --green:#1E5631; --orange:#F5A623; --teal:#1ABC9C;
+    --arrow:#555559; --box-line:#AAAAAA; --grid:#D9D9D9; --muted:#666666;
+    --bg:#FFFFFF; --text:#1E5631; --sel:#3b9eff;
+  }
   *{box-sizing:border-box;}
   html,body{height:100%;}
-  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;}
-  header{padding:14px 28px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
-  header h1{margin:0;font-size:22px;}
-  header .sub{color:var(--muted);font-size:13px;}
-  header a{color:var(--accent);text-decoration:none;}
-  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
-  button,.btn{background:var(--card);color:var(--text);border:1px solid var(--line);padding:7px 12px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit;}
-  button:hover,.btn:hover{border-color:var(--accent);}
-  button.primary{background:var(--accent);border-color:var(--accent);color:#08121c;font-weight:600;}
-  button.active{border-color:var(--accent);color:var(--accent);}
-  .legend{display:flex;gap:14px;padding:8px 28px;color:var(--muted);font-size:12px;border-bottom:1px solid var(--line);flex-wrap:wrap;}
-  .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:var(--c);}
-  #wrap{flex:1;overflow:auto;position:relative;}
-  #board{position:relative;width:2600px;height:1600px;
-    background-image:radial-gradient(#22303d 1px,transparent 1px);background-size:20px 20px;}
-  #links{position:absolute;inset:0;width:100%;height:100%;overflow:visible;}
-  #links path.hit{stroke:transparent;stroke-width:14;fill:none;cursor:pointer;pointer-events:stroke;}
-  #links path.vis{stroke:var(--muted);stroke-width:2;fill:none;pointer-events:none;}
-  #links g.sel path.vis{stroke:var(--accent);}
-  #links text{fill:var(--muted);font-size:12px;pointer-events:none;}
-  .node{position:absolute;width:190px;min-height:64px;background:var(--card);border:1px solid var(--line);
-    border-left:5px solid var(--c,var(--muted));border-radius:10px;padding:10px 12px;cursor:grab;user-select:none;touch-action:none;
-    box-shadow:0 4px 14px rgba(0,0,0,.35);}
-  .node:hover{border-color:#3a4a5a;border-left-color:var(--c,var(--muted));}
-  .node.sel{outline:2px solid var(--accent);outline-offset:2px;}
-  .node.dragging{cursor:grabbing;opacity:.9;}
-  .node .t{font-weight:600;font-size:14px;line-height:1.25;}
-  .node .d{color:var(--muted);font-size:12px;margin-top:4px;line-height:1.3;white-space:pre-wrap;}
-  .node .own{display:inline-block;margin-top:6px;font-size:11px;color:var(--c,var(--muted));text-transform:uppercase;letter-spacing:.05em;}
-  .port{position:absolute;right:-8px;top:50%;width:14px;height:14px;margin-top:-7px;border-radius:50%;
-    background:var(--bg);border:2px solid var(--accent);cursor:crosshair;opacity:0;transition:opacity .15s;}
-  .node:hover .port,.node.sel .port{opacity:1;}
+  body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;}
+  header{padding:12px 20px 8px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;}
+  header h1{margin:0;font-size:24px;color:var(--green);font-weight:700;}
+  header .sub{color:var(--muted);font-size:13px;margin-top:2px;}
+  header a{color:var(--green);}
+  .toolbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+  button,.btn{background:#fff;color:var(--green);border:1px solid var(--green);padding:6px 11px;border-radius:4px;font:600 12px Arial,sans-serif;cursor:pointer;}
+  button:hover,.btn:hover{background:#eef5f0;}
+  button.primary{background:var(--green);color:#fff;}
+  button.primary:hover{background:#174426;}
+  button.active{background:var(--orange);border-color:var(--orange);color:#fff;}
+  .help{padding:0 20px 8px;color:var(--muted);font-size:12px;}
+  .help b{color:var(--green);}
+  #status{color:var(--orange);font-weight:700;margin-left:8px;}
+  #wrap{flex:1;overflow:auto;padding:0 20px 12px;}
+  #board{position:relative;}
+  .lane-row{position:absolute;left:0;border-bottom:1px solid var(--grid);}
+  .lane-label,.step-head,.corner{position:absolute;background:var(--green);color:#fff;font-weight:700;font-size:11px;
+    display:flex;align-items:center;padding:4px 8px;white-space:pre-line;line-height:1.2;user-select:none;}
+  .step-head{justify-content:center;text-align:center;border-right:1px solid #2d6e44;cursor:text;}
+  .lane-label{border-bottom:1px solid #2d6e44;cursor:text;}
+  .col-line{position:absolute;top:0;border-left:1px dashed #EEEEEE;}
+  #links{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;}
+  #links .hit{stroke:transparent;stroke-width:14;fill:none;pointer-events:stroke;cursor:grab;}
+  #links .vis{stroke:var(--arrow);stroke-width:1.5;fill:none;}
+  #links g.sel .vis{stroke:var(--sel);stroke-width:2.5;}
+  #links text{fill:var(--muted);font-size:11px;font-weight:700;}
+  .node{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;padding:6px 8px;
+    font-weight:700;font-size:11px;line-height:1.25;white-space:pre-wrap;cursor:grab;user-select:none;touch-action:none;}
+  .node.action{background:var(--green);color:#fff;border:1px solid var(--box-line);}
+  .node.trigger{background:var(--orange);color:#fff;border:1px solid var(--box-line);}
+  .node.milestone{background:var(--teal);color:#fff;border:1px solid var(--box-line);}
+  .node.review{background:#fff;color:var(--green);border:2px dashed var(--orange);}
+  .node.signoff{background:#fff;color:var(--green);border:2px solid var(--orange);}
+  .node.sel{outline:2px solid var(--sel);outline-offset:2px;z-index:2;}
+  .node.dragging{cursor:grabbing;opacity:.85;z-index:3;}
+  .port{position:absolute;right:-7px;top:50%;width:12px;height:12px;margin-top:-6px;border-radius:50%;
+    background:#fff;border:2px solid var(--orange);cursor:crosshair;opacity:0;}
+  .rs{position:absolute;right:-5px;bottom:-5px;width:10px;height:10px;background:var(--sel);cursor:nwse-resize;opacity:0;}
+  .node:hover .port,.node.sel .port,.node.sel .rs{opacity:1;}
   .connecting .node{cursor:crosshair;}
-  .connecting .node:hover{outline:2px dashed var(--good);outline-offset:2px;}
-  /* editor */
-  #editor{position:fixed;right:20px;top:120px;width:300px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;
-    display:none;box-shadow:0 10px 30px rgba(0,0,0,.5);z-index:10;}
-  #editor h2{margin:0 0 12px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+  .legend div{font:700 11px Arial,sans-serif;padding:6px 14px;min-width:150px;text-align:center;}
+  #editor{position:fixed;right:20px;top:110px;width:290px;background:#fff;border:1px solid var(--green);border-top:6px solid var(--green);
+    padding:14px;display:none;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:10;}
+  #editor h2{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;}
   #editor label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;}
-  #editor input,#editor textarea,#editor select{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:7px 9px;border-radius:6px;font:inherit;font-size:13px;}
-  #editor textarea{min-height:70px;resize:vertical;}
-  #editor .row{display:flex;gap:8px;margin-top:14px;justify-content:space-between;}
-  button.danger{border-color:var(--bad);color:var(--bad);}
-  .hint{color:var(--muted);font-size:12px;}
-  @media(max-width:700px){header,.legend{padding-left:16px;padding-right:16px;}#editor{left:16px;right:16px;width:auto;top:auto;bottom:16px;}}
+  #editor input,#editor textarea,#editor select{width:100%;border:1px solid var(--box-line);color:#222;padding:6px 8px;font:13px Arial,sans-serif;}
+  #editor textarea{min-height:80px;resize:vertical;}
+  #editor .row{display:flex;justify-content:space-between;margin-top:14px;}
+  button.danger{border-color:#c0392b;color:#c0392b;}
+  @media print{
+    header .toolbar,.help,#editor,.port,.rs{display:none!important;}
+    #wrap{overflow:visible;}
+    .node.sel{outline:none;}
+    @page{size:landscape;margin:8mm;}
+    body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  }
 </style>
 </head>
 <body>
 <header>
   <div>
-    <h1>Project Setup Workflow</h1>
-    <div class="sub">Drag boxes to move · drag the blue dot to draw an arrow · double-click to edit · Delete key removes selection · <a href="index.html">← Dashboard</a></div>
+    <h1>PROJECT SETUP WORKFLOW</h1>
+    <div class="sub">Swim lane view — who does what, in sequence · <a href="index.html">Back to dashboard</a></div>
   </div>
   <div class="toolbar">
-    <button class="primary" id="addBtn">+ Add Box</button>
-    <button id="connectBtn" title="Click a box, then another box">Connect</button>
+    <button class="primary" id="addBtn">+ Box</button>
+    <button id="connectBtn">Connect</button>
+    <button id="laneBtn">+ Lane</button>
+    <button id="stepBtn">+ Step</button>
     <button id="exportBtn">Export</button>
     <label class="btn">Import<input type="file" id="importFile" accept="application/json" hidden></label>
     <button id="pngBtn">Save Image</button>
+    <button id="printBtn">Print / PDF</button>
     <button id="resetBtn">Reset</button>
   </div>
 </header>
-<div class="legend">
-  <span style="--c:var(--muted)">Not Started</span>
-  <span style="--c:var(--accent)">In Progress</span>
-  <span style="--c:var(--good)">Complete</span>
-  <span style="--c:var(--warn)">Waiting / Review</span>
-  <span style="--c:var(--bad)">Blocked</span>
-  <span class="hint" id="status"></span>
+<div class="help">
+  <b>Drag</b> a box to move it · drag the <b>orange dot</b> onto another box to draw an arrow ·
+  drag an <b>arrow</b> to slide its bend · <b>double-click</b> a box, arrow, lane or step to edit ·
+  <b>Delete</b> removes the selection · double-click empty space to add a box
+  <span id="status"></span>
 </div>
 
 <div id="wrap">
   <div id="board">
     <svg id="links">
       <defs>
-        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-          <path d="M0,0 L10,5 L0,10 z" fill="#8aa0b4"/>
-        </marker>
-        <marker id="arrowSel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-          <path d="M0,0 L10,5 L0,10 z" fill="#3b9eff"/>
-        </marker>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#555559"/></marker>
+        <marker id="ahSel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="#3b9eff"/></marker>
       </defs>
       <g id="linkLayer"></g>
-      <path id="ghost" class="vis" style="stroke:var(--accent);stroke-dasharray:6 4;display:none" marker-end="url(#arrowSel)"/>
+      <path id="ghost" class="vis" style="stroke:var(--orange);stroke-dasharray:6 4;display:none" marker-end="url(#ah)"/>
     </svg>
+  </div>
+  <div class="legend">
+    <div class="node action" style="position:static">Action — work performed</div>
+    <div class="node review" style="position:static">Review gate (dashed)</div>
+    <div class="node trigger" style="position:static">Trigger — award notification</div>
+    <div class="node milestone" style="position:static">Milestone</div>
+    <div class="node signoff" style="position:static">Sign-off gate (solid)</div>
   </div>
 </div>
 
 <div id="editor">
   <h2 id="edTitle">Edit Box</h2>
   <div id="nodeFields">
-    <label>Title</label><input id="fTitle">
-    <label>Details</label><textarea id="fDesc"></textarea>
-    <label>Owner</label><input id="fOwner" placeholder="e.g. PM, Cost Control, Accounting">
-    <label>Status</label>
-    <select id="fStatus">
-      <option value="todo">Not Started</option>
-      <option value="doing">In Progress</option>
-      <option value="done">Complete</option>
-      <option value="wait">Waiting / Review</option>
-      <option value="blocked">Blocked</option>
+    <label>Text</label><textarea id="fText"></textarea>
+    <label>Type</label>
+    <select id="fType">
+      <option value="action">Action — work performed</option>
+      <option value="trigger">Trigger</option>
+      <option value="milestone">Milestone</option>
+      <option value="review">Review gate (dashed)</option>
+      <option value="signoff">Sign-off gate (solid)</option>
     </select>
+    <label>Notes (shown on hover)</label><input id="fNotes" placeholder="Responsible, comments…">
   </div>
   <div id="linkFields">
-    <label>Arrow label</label><input id="fLabel" placeholder="optional, e.g. Approved">
+    <label>Arrow label</label><input id="fLabel" placeholder="optional">
   </div>
   <div class="row">
     <button class="danger" id="delBtn">Delete</button>
@@ -121,251 +143,327 @@
 </div>
 
 <script>
-const STATUS = {todo:'var(--muted)',doing:'var(--accent)',done:'var(--good)',wait:'var(--warn)',blocked:'var(--bad)'};
-const STATUS_HEX = {todo:'#8aa0b4',doing:'#3b9eff',done:'#2ecc71',wait:'#f1c40f',blocked:'#e74c3c'};
-const KEY = 'projectSetupWorkflow.v1';
+const LABEL_W=130, COL_W=160, HEAD_H=50, LANE_H=96, BW=138, BH=80;
+const COLORS={green:'#1E5631',orange:'#F5A623',teal:'#1ABC9C',arrow:'#555559',line:'#AAAAAA',grid:'#D9D9D9',sel:'#3b9eff'};
+const KEY='projectSetupWorkflow.v2';
 
-const TEMPLATE = {
-  nodes:[
-    {id:'n1',x:40, y:60, title:'Contract Award',        desc:'Signed contract / NTP received',            owner:'Operations',   status:'done'},
-    {id:'n2',x:300,y:60, title:'Create Job Number',     desc:'Open job in ERP / accounting',               owner:'Accounting',   status:'doing'},
-    {id:'n3',x:560,y:60, title:'Load Budget & Cost Codes',desc:'Import estimate into cost codes',          owner:'Cost Control', status:'todo'},
-    {id:'n4',x:820,y:60, title:'Budget Review',         desc:'PM + estimator sign off on budget',          owner:'PM',           status:'todo'},
-    {id:'n5',x:560,y:240,title:'Baseline Schedule',     desc:'Resource-loaded schedule',                   owner:'Scheduler',    status:'todo'},
-    {id:'n6',x:820,y:240,title:'Procurement Plan',      desc:'Long-lead materials & subcontracts',         owner:'Procurement',  status:'todo'},
-    {id:'n7',x:1080,y:150,title:'Kickoff Meeting',      desc:'Internal + client kickoff',                  owner:'PM',           status:'todo'},
-    {id:'n8',x:1340,y:150,title:'Monthly Cost Report Setup',desc:'Link job to Power Cost Report Dashboard',owner:'Cost Control', status:'todo'}
-  ],
-  links:[
-    {id:'l1',from:'n1',to:'n2',label:''},
-    {id:'l2',from:'n2',to:'n3',label:''},
-    {id:'l3',from:'n3',to:'n4',label:''},
-    {id:'l4',from:'n2',to:'n5',label:''},
-    {id:'l5',from:'n5',to:'n6',label:''},
-    {id:'l6',from:'n4',to:'n7',label:'Approved'},
-    {id:'l7',from:'n6',to:'n7',label:''},
-    {id:'l8',from:'n7',to:'n8',label:''}
-  ]
-};
+/* ---------- default layout: matches Project_Setup_Workflow.xlsx ---------- */
+function cell(step,lane,span=1){ // step 1-based, lane 0-based
+  return {x:LABEL_W+(step-1)*COL_W+(COL_W-BW)/2, y:HEAD_H+lane*LANE_H+(LANE_H-BH)/2, w:BW, h:BH+(span-1)*LANE_H};
+}
+function makeTemplate(){
+  const N=(id,step,lane,type,text,notes='',span=1)=>({id,type,text,notes,...cell(step,lane,span)});
+  const nodes=[
+    N('a1',1,0,'trigger','Award Notification\n(notify team; file estimate docs)','Estimating · Starts the workflow.'),
+    N('a2',2,3,'milestone','Contract Signature\n(milestone dates locked)','Operations · Locked dates drive the baseline schedule.'),
+    N('a3',3,1,'action','Complete Job Setup Form\n(send to Accounting)','Project Controls · Required before a job number can be created.'),
+    N('a4',4,4,'action','Create Job Folder\n& Job Number','Accounts Receivable · All job documents filed here going forward.'),
+    N('a5',5,1,'action','Begin Fit to Start','Project Controls'),
+    N('a6',5,3,'action','Begin Fit to Start','Operations'),
+    N('a7',5,5,'action','Begin Fit to Start','Purchasing'),
+    N('a8',5,7,'action','Begin Fit to Start','Safety'),
+    N('a9',6,1,'action','Place Estimate & Risk Sheet\nin Folder (matches contract value)','Project Controls · Must match the contract value.'),
+    N('a10',6,0,'signoff','SIGN-OFF: Estimate Turnover\n(Estimator + PC)','Record in Sign-Off Log.'),
+    N('a11',7,1,'action','Confirm Estimate &\nDefine Risk Register','Project Controls'),
+    N('a12',7,2,'action','Convert to or verify/update P6 estimate schedule to baseline','Scheduling · Runs in parallel with Step 8.'),
+    N('a13',7,3,'action','Review SOW; Build Sub List,\nEquipment List, Long-Lead Materials List','Operations · Lists feed the Step 8 reviews.'),
+    N('a14',8,5,'action','Review Materials List,\nVendors, Lead Times','Purchasing · Lead times feed the baseline schedule.'),
+    N('a15',8,6,'action',"Review Sub List, W-9's,\nSetup Sub Log",'Subcontracts · Sub input feeds the joint review.'),
+    N('a16',8,8,'action','Review Equipment List,\nOwn vs. Rent','Equipment · Affects cost and availability.'),
+    N('a17',9,1,'review','REVIEW: Joint Review\nConfirm/Agree\n(PC + Scheduling + Operations)\n→ feeds Baseline sign-off','PC + Scheduling + Operations',3),
+    N('a18',10,1,'action','Phase the Job\n(by cost code)','Project Controls · Cost codes used for all commitments.'),
+    N('a19',10,2,'milestone','Review Schedule &\nPublish Baseline','Scheduling'),
+    N('a20',10,3,'signoff','SIGN-OFF: Approve Baseline\n(PM)','Record in Sign-Off Log.'),
+    N('a21',11,1,'action','Setup Cost Report, Billing\nReport & Change Order Log','Project Controls'),
+    N('a22',11,3,'review','REVIEW: PM Review – Cost Report\n& Budget / SOV Tie-Out\n(PM + PC + AR)','Review only – no sign-off.'),
+    N('a23',12,1,'action','Setup Progress Tracker\n& Commodity Curves','Project Controls'),
+    N('a24',12,3,'signoff','SIGN-OFF: Superintendent /\nSite Manager Agrees to\nProgress & Commodity Curves','Record in Sign-Off Log.'),
+    N('a25',13,5,'review',"REVIEW: Review PO's\nBefore Issue\n(Purchasing)",'Review only – no sign-off.'),
+    N('a26',13,6,'review','REVIEW: Review Subcontracts\nBefore Issue\n(Subcontracts)','Review only – no sign-off.'),
+    N('a27',14,5,'action',"Issue Long-Lead\nPO's",'Purchasing · Code to Step 10 cost codes.'),
+    N('a28',14,6,'action','Issue\nSubcontracts','Subcontracts · Code to Step 10 cost codes.'),
+    N('a29',14,3,'action','Pre-Mobilization Meeting\n(logistics, safety, subs)','Operations · Confirms readiness before mobilizing.'),
+    N('a30',15,3,'action','Begin to Mobilize\nto Site','Operations · End of setup workflow.'),
+  ];
+  const pairs=[['a1','a2'],['a2','a3'],['a3','a4'],['a4','a5'],['a4','a6'],['a4','a7'],['a4','a8'],
+    ['a5','a9'],['a9','a10'],['a9','a11'],['a6','a13'],['a13','a14'],['a13','a15'],['a13','a16'],
+    ['a11','a17'],['a12','a17'],['a13','a17'],['a14','a17'],['a15','a17'],['a16','a17'],
+    ['a17','a18'],['a17','a19'],['a17','a20'],['a18','a21'],['a21','a22'],['a21','a23'],['a23','a24'],
+    ['a24','a25'],['a24','a26'],['a25','a27'],['a26','a28'],['a27','a29'],['a28','a29'],['a29','a30']];
+  return {
+    lanes:['ESTIMATING','PROJECT CONTROLS','SCHEDULING','OPERATIONS','ACCOUNTS\nRECEIVABLE','PURCHASING','SUBCONTRACTS','SAFETY','EQUIPMENT'],
+    steps:['1 AWARD','2 CONTRACT\nSIGNATURE','3 JOB SETUP\nFORM','4 JOB FOLDER\n& JOB NUMBER','5 FIT TO\nSTART','6 ESTIMATE &\nRISK FILED',
+      '7 CONFIRM\n& PLAN','8 VENDOR/SUB/\nEQUIP REVIEW','9 SCHEDULE/\nCOST REVIEW','10 BASELINE SCHEDULE\n& PHASE JOB','11 COST/BILLING/\nCO SETUP',
+      '12 PROGRESS &\nCOMMODITY CURVES','13 BUYOUT\nREVIEW',"14 ISSUE PO's / SUBS\n& PRE-MOB",'15 MOBILIZE\nTO SITE'],
+    nodes, links:pairs.map(([from,to],i)=>({id:'k'+i,from,to,t:.5,label:''}))
+  };
+}
 
-let state = load();
-let sel = null;            // {type:'node'|'link', id}
-let connectMode = false, connectFrom = null;
-const board = document.getElementById('board');
-const linkLayer = document.getElementById('linkLayer');
-const ghost = document.getElementById('ghost');
-const $ = id => document.getElementById(id);
+/* ---------- state ---------- */
+let state=load(), sel=null, connectMode=false, connectFrom=null, drag=null;
+const $=id=>document.getElementById(id);
+const board=$('board'), svg=$('links'), linkLayer=$('linkLayer'), ghost=$('ghost');
+const uid=p=>p+Math.random().toString(36).slice(2,8);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nodeById=id=>state.nodes.find(n=>n.id===id);
+const snap=v=>Math.round(v/10)*10;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
 function load(){
-  try{ const s = JSON.parse(localStorage.getItem(KEY)); if(s && s.nodes) return s; }catch(e){}
-  return structuredClone(TEMPLATE);
+  try{const s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.nodes&&s.lanes) return s;}catch(e){}
+  return makeTemplate();
 }
-let saveTimer;
+let saveT;
 function save(){
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(()=>{
-    try{ localStorage.setItem(KEY, JSON.stringify(state)); flash('Saved'); }catch(e){ flash('Could not save in this browser'); }
-  },250);
+  clearTimeout(saveT);
+  saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(state));flash('Saved');}catch(e){flash('Could not save in this browser');}},250);
 }
-function flash(msg){ const s=$('status'); s.textContent=msg; clearTimeout(flash.t); flash.t=setTimeout(()=>s.textContent='',1500); }
-const uid = p => p + Math.random().toString(36).slice(2,8);
-const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const nodeById = id => state.nodes.find(n=>n.id===id);
+function flash(m){$('status').textContent=m;clearTimeout(flash.t);flash.t=setTimeout(()=>$('status').textContent='',1500);}
+const boardW=()=>LABEL_W+state.steps.length*COL_W, boardH=()=>HEAD_H+state.lanes.length*LANE_H;
+
+/* ---------- arrow routing (elbow connectors like Excel) ---------- */
+function route(l){
+  const A=nodeById(l.from), B=nodeById(l.to); if(!A||!B) return null;
+  const t=l.t??.5;
+  const overlap=(a1,a2,b1,b2)=>{const lo=Math.max(a1,b1)+10, hi=Math.min(a2,b2)-10; return lo<=hi?(lo+hi)/2:null;};
+  if(B.x>=A.x+A.w+16 || B.x+B.w<=A.x-16){           // horizontal flow
+    const fwd=B.x>=A.x+A.w+16;
+    const x1=fwd?A.x+A.w:A.x, x2=fwd?B.x:B.x+B.w;
+    const o=overlap(A.y,A.y+A.h,B.y,B.y+B.h);
+    const y1=o??A.y+A.h/2, y2=o??B.y+B.h/2, mx=x1+(x2-x1)*t;
+    return {axis:'x',a:x1,b:x2,pts:[[x1,y1],[mx,y1],[mx,y2],[x2,y2]]};
+  }
+  const down=B.y>=A.y+A.h/2;                         // vertical flow
+  const y1=down?A.y+A.h:A.y, y2=down?B.y:B.y+B.h;
+  const o=overlap(A.x,A.x+A.w,B.x,B.x+B.w);
+  const x1=o??A.x+A.w/2, x2=o??B.x+B.w/2, my=y1+(y2-y1)*t;
+  return {axis:'y',a:y1,b:y2,pts:[[x1,y1],[x1,my],[x2,my],[x2,y2]]};
+}
+const ptsToD=p=>'M'+p.map(q=>q.join(',')).join(' L');
 
 /* ---------- rendering ---------- */
 function render(){
-  board.querySelectorAll('.node').forEach(e=>e.remove());
+  const W=boardW(), H=boardH();
+  board.style.width=W+'px'; board.style.height=H+'px';
+  svg.setAttribute('width',W); svg.setAttribute('height',H);
+  board.querySelectorAll('.lane-row,.lane-label,.step-head,.corner,.col-line,.node').forEach(e=>e.remove());
+  const add=(cls,css,html='',data={})=>{const d=document.createElement('div');d.className=cls;Object.assign(d.style,css);d.innerHTML=html;Object.assign(d.dataset,data);board.insertBefore(d,svg);return d;};
+  add('corner',{left:0,top:0,width:LABEL_W+'px',height:HEAD_H+'px'});
+  state.steps.forEach((s,i)=>{
+    add('step-head',{left:LABEL_W+i*COL_W+'px',top:0,width:COL_W+'px',height:HEAD_H+'px'},esc(s),{step:i});
+    add('col-line',{left:LABEL_W+i*COL_W+'px',height:H+'px'});
+  });
+  state.lanes.forEach((s,i)=>{
+    add('lane-row',{top:HEAD_H+i*LANE_H+'px',width:W+'px',height:LANE_H+'px'});
+    add('lane-label',{left:0,top:HEAD_H+i*LANE_H+'px',width:LABEL_W+'px',height:LANE_H+'px'},esc(s),{lane:i});
+  });
   for(const n of state.nodes){
-    const el = document.createElement('div');
-    el.className = 'node' + (sel?.type==='node'&&sel.id===n.id?' sel':'');
-    el.dataset.id = n.id;
-    el.style.left = n.x+'px'; el.style.top = n.y+'px';
-    el.style.setProperty('--c', STATUS[n.status]||STATUS.todo);
-    el.innerHTML = `<div class="t">${esc(n.title)}</div>`+
-      (n.desc?`<div class="d">${esc(n.desc)}</div>`:'')+
-      (n.owner?`<div class="own">${esc(n.owner)}</div>`:'')+
-      `<div class="port" title="Drag to another box to connect"></div>`;
+    const el=document.createElement('div');
+    el.className=`node ${n.type}`+(sel?.type==='node'&&sel.id===n.id?' sel':'');
+    Object.assign(el.style,{left:n.x+'px',top:n.y+'px',width:n.w+'px',height:n.h+'px'});
+    el.dataset.id=n.id; if(n.notes) el.title=n.notes;
+    el.innerHTML=esc(n.text)+'<div class="port" title="Drag onto another box"></div><div class="rs" title="Resize"></div>';
     board.appendChild(el);
   }
   renderLinks();
 }
-
-function box(n){
-  const el = board.querySelector(`.node[data-id="${n.id}"]`);
-  const w = el?el.offsetWidth:190, h = el?el.offsetHeight:64;
-  return {x:n.x,y:n.y,w,h,cx:n.x+w/2,cy:n.y+h/2};
-}
-// point where the line from the box centre toward (tx,ty) leaves the box
-function edge(b,tx,ty,pad=4){
-  const dx=tx-b.cx, dy=ty-b.cy;
-  if(!dx&&!dy) return {x:b.cx,y:b.cy};
-  const sx=(b.w/2+pad)/Math.abs(dx||1e-9), sy=(b.h/2+pad)/Math.abs(dy||1e-9), s=Math.min(sx,sy);
-  return {x:b.cx+dx*s,y:b.cy+dy*s};
-}
 function renderLinks(){
   linkLayer.innerHTML='';
   for(const l of state.links){
-    const a=nodeById(l.from), b=nodeById(l.to); if(!a||!b) continue;
-    const A=box(a), B=box(b);
-    const p1=edge(A,B.cx,B.cy), p2=edge(B,A.cx,A.cy);
-    const d=`M${p1.x},${p1.y} L${p2.x},${p2.y}`;
-    const isSel = sel?.type==='link'&&sel.id===l.id;
+    const r=route(l); if(!r) continue;
+    const isSel=sel?.type==='link'&&sel.id===l.id, d=ptsToD(r.pts);
     const g=document.createElementNS('http://www.w3.org/2000/svg','g');
     if(isSel) g.classList.add('sel');
-    g.innerHTML=`<path class="hit" d="${d}"/><path class="vis" d="${d}" marker-end="url(#${isSel?'arrowSel':'arrow'})"/>`+
-      (l.label?`<text x="${(p1.x+p2.x)/2}" y="${(p1.y+p2.y)/2-6}" text-anchor="middle">${esc(l.label)}</text>`:'');
-    g.querySelector('.hit').addEventListener('pointerdown',e=>{e.stopPropagation();select({type:'link',id:l.id});});
-    g.querySelector('.hit').addEventListener('dblclick',e=>{e.stopPropagation();openEditor();});
+    const mid=r.pts[1], mid2=r.pts[2];
+    g.innerHTML=`<path class="vis" d="${d}" marker-end="url(#${isSel?'ahSel':'ah'})"/><path class="hit" d="${d}" data-id="${l.id}"/>`+
+      (l.label?`<text x="${(mid[0]+mid2[0])/2+4}" y="${(mid[1]+mid2[1])/2-4}">${esc(l.label)}</text>`:'');
     linkLayer.appendChild(g);
   }
 }
 
 /* ---------- selection & editor ---------- */
-function select(s){ sel=s; render(); if(!s) closeEditor(); else if($('editor').style.display==='block') openEditor(); }
+function select(s){sel=s;render();if(!s)closeEditor();else if($('editor').style.display==='block')openEditor();}
 function openEditor(){
   if(!sel) return;
-  const isNode = sel.type==='node';
-  $('nodeFields').style.display = isNode?'':'none';
-  $('linkFields').style.display = isNode?'none':'';
-  $('edTitle').textContent = isNode?'Edit Box':'Edit Arrow';
-  if(isNode){ const n=nodeById(sel.id); $('fTitle').value=n.title; $('fDesc').value=n.desc||''; $('fOwner').value=n.owner||''; $('fStatus').value=n.status||'todo'; }
-  else{ const l=state.links.find(l=>l.id===sel.id); $('fLabel').value=l.label||''; }
+  const isNode=sel.type==='node';
+  $('nodeFields').style.display=isNode?'':'none';
+  $('linkFields').style.display=isNode?'none':'';
+  $('edTitle').textContent=isNode?'Edit Box':'Edit Arrow';
+  if(isNode){const n=nodeById(sel.id);$('fText').value=n.text;$('fType').value=n.type;$('fNotes').value=n.notes||'';}
+  else $('fLabel').value=state.links.find(l=>l.id===sel.id).label||'';
   $('editor').style.display='block';
-  (isNode?$('fTitle'):$('fLabel')).focus();
+  (isNode?$('fText'):$('fLabel')).focus();
 }
-function closeEditor(){ $('editor').style.display='none'; }
+function closeEditor(){$('editor').style.display='none';}
 function onField(){
   if(!sel) return;
-  if(sel.type==='node'){ Object.assign(nodeById(sel.id),{title:$('fTitle').value,desc:$('fDesc').value,owner:$('fOwner').value,status:$('fStatus').value}); }
-  else{ state.links.find(l=>l.id===sel.id).label=$('fLabel').value; }
-  render(); save();
+  if(sel.type==='node') Object.assign(nodeById(sel.id),{text:$('fText').value,type:$('fType').value,notes:$('fNotes').value});
+  else state.links.find(l=>l.id===sel.id).label=$('fLabel').value;
+  render();save();
 }
-['fTitle','fDesc','fOwner','fLabel'].forEach(id=>$(id).addEventListener('input',onField));
-$('fStatus').addEventListener('change',onField);
+['fText','fNotes','fLabel'].forEach(id=>$(id).addEventListener('input',onField));
+$('fType').addEventListener('change',onField);
 $('closeEd').onclick=closeEditor;
 $('delBtn').onclick=deleteSelected;
-
 function deleteSelected(){
   if(!sel) return;
-  if(sel.type==='node'){ state.nodes=state.nodes.filter(n=>n.id!==sel.id); state.links=state.links.filter(l=>l.from!==sel.id&&l.to!==sel.id); }
+  if(sel.type==='node'){state.nodes=state.nodes.filter(n=>n.id!==sel.id);state.links=state.links.filter(l=>l.from!==sel.id&&l.to!==sel.id);}
   else state.links=state.links.filter(l=>l.id!==sel.id);
-  sel=null; closeEditor(); render(); save();
+  sel=null;closeEditor();render();save();
 }
 function addLink(from,to){
   if(from===to||state.links.some(l=>l.from===from&&l.to===to)) return;
-  state.links.push({id:uid('l'),from,to,label:''}); save();
+  state.links.push({id:uid('k'),from,to,t:.5,label:''});save();
 }
 
-/* ---------- pointer interaction: drag boxes, drag ports to connect ---------- */
-let drag=null;
-function boardPt(e){ const r=board.getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; }
-
+/* ---------- pointer interaction ---------- */
+function bp(e){const r=board.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
 board.addEventListener('pointerdown',e=>{
-  const nodeEl=e.target.closest('.node');
-  if(!nodeEl){ if(!e.target.closest('#links g')) select(null); return; }
-  const id=nodeEl.dataset.id, n=nodeById(id), p=boardPt(e);
-
-  if(connectMode){
-    if(!connectFrom){ connectFrom=id; select({type:'node',id}); flash('Now click the box to point to'); }
-    else{ addLink(connectFrom,id); connectFrom=null; select(null); flash('Arrow added'); }
-    return;
-  }
-  if(e.target.classList.contains('port')){
-    drag={mode:'link',from:id};
-    ghost.style.display='';
-  } else {
-    drag={mode:'move',id,ox:p.x-n.x,oy:p.y-n.y,el:nodeEl,moved:false};
-    if(!(sel?.type==='node'&&sel.id===id)){ select({type:'node',id}); drag.el=board.querySelector(`.node[data-id="${id}"]`); }
-    drag.el.classList.add('dragging');
-  }
+  const p=bp(e), nodeEl=e.target.closest('.node'), hit=e.target.closest('.hit');
+  if(hit){
+    const l=state.links.find(k=>k.id===hit.dataset.id), r=route(l);
+    select({type:'link',id:l.id});
+    drag={mode:'bend',l,r};
+  } else if(nodeEl){
+    const id=nodeEl.dataset.id, n=nodeById(id);
+    if(connectMode){
+      if(!connectFrom){connectFrom=id;select({type:'node',id});flash('Now click the box the arrow points to');}
+      else{addLink(connectFrom,id);connectFrom=null;select(null);flash('Arrow added');}
+      return;
+    }
+    if(!(sel?.type==='node'&&sel.id===id)) select({type:'node',id});
+    const el=board.querySelector(`.node[data-id="${id}"]`);
+    if(e.target.classList.contains('port')){drag={mode:'link',from:id};ghost.style.display='';}
+    else if(e.target.classList.contains('rs')) drag={mode:'resize',n,el};
+    else {drag={mode:'move',n,el,ox:p.x-n.x,oy:p.y-n.y,moved:false};el.classList.add('dragging');}
+  } else { select(null); return; }
   board.setPointerCapture(e.pointerId);
   e.preventDefault();
 });
 board.addEventListener('pointermove',e=>{
   if(!drag) return;
-  const p=boardPt(e);
+  const p=bp(e);
   if(drag.mode==='move'){
-    const n=nodeById(drag.id);
-    n.x=Math.max(0,Math.round((p.x-drag.ox)/10)*10);
-    n.y=Math.max(0,Math.round((p.y-drag.oy)/10)*10);
-    drag.el.style.left=n.x+'px'; drag.el.style.top=n.y+'px';
-    drag.moved=true; renderLinks();
-  } else {
-    const A=box(nodeById(drag.from)), s=edge(A,p.x,p.y);
-    ghost.setAttribute('d',`M${s.x},${s.y} L${p.x},${p.y}`);
+    const n=drag.n;
+    n.x=clamp(snap(p.x-drag.ox),0,boardW()-n.w); n.y=clamp(snap(p.y-drag.oy),HEAD_H,boardH()-n.h);
+    Object.assign(drag.el.style,{left:n.x+'px',top:n.y+'px'}); drag.moved=true; renderLinks();
+  } else if(drag.mode==='resize'){
+    const n=drag.n; n.w=Math.max(70,snap(p.x-n.x)); n.h=Math.max(40,snap(p.y-n.y));
+    Object.assign(drag.el.style,{width:n.w+'px',height:n.h+'px'}); drag.moved=true; renderLinks();
+  } else if(drag.mode==='bend'){
+    const {a,b,axis}=drag.r; if(a===b) return;
+    drag.l.t=clamp(((axis==='x'?p.x:p.y)-a)/(b-a),0.05,0.95); drag.moved=true; renderLinks();
+  } else if(drag.mode==='link'){
+    const A=nodeById(drag.from);
+    ghost.setAttribute('d',`M${A.x+A.w},${A.y+A.h/2} L${p.x},${p.y}`);
   }
 });
 board.addEventListener('pointerup',e=>{
   if(!drag) return;
-  if(drag.mode==='move'){ drag.el.classList.remove('dragging'); if(drag.moved) save(); }
-  else{
+  if(drag.mode==='move') drag.el.classList.remove('dragging');
+  if(drag.mode==='link'){
     ghost.style.display='none';
-    const target=document.elementsFromPoint(e.clientX,e.clientY).find(el=>el.classList?.contains('node'));
-    if(target){ addLink(drag.from,target.dataset.id); render(); }
-  }
+    const t=document.elementsFromPoint(e.clientX,e.clientY).find(el=>el.classList?.contains('node')&&el.dataset.id);
+    if(t) addLink(drag.from,t.dataset.id);
+    render();
+  } else if(drag.moved) save();
   drag=null;
 });
 board.addEventListener('dblclick',e=>{
-  const nodeEl=e.target.closest('.node');
-  if(nodeEl){ select({type:'node',id:nodeEl.dataset.id}); openEditor(); return; }
-  if(!e.target.closest('#links g')){ const p=boardPt(e); addNode(p.x-95,p.y-32); }
+  const nodeEl=e.target.closest('.node'), hit=e.target.closest('.hit');
+  if(nodeEl){select({type:'node',id:nodeEl.dataset.id});openEditor();return;}
+  if(hit){select({type:'link',id:hit.dataset.id});openEditor();return;}
+  const lane=e.target.closest('.lane-label'), step=e.target.closest('.step-head');
+  if(lane) return renameHeader('lanes',+lane.dataset.lane);
+  if(step) return renameHeader('steps',+step.dataset.step);
+  const p=bp(e); if(p.y>HEAD_H&&p.x>LABEL_W) addNode(p.x-BW/2,p.y-BH/2);
 });
-
 document.addEventListener('keydown',e=>{
   if(e.target.matches('input,textarea,select')) return;
-  if((e.key==='Delete'||e.key==='Backspace')&&sel){ e.preventDefault(); deleteSelected(); }
-  if(e.key==='Escape'){ setConnect(false); select(null); }
+  if((e.key==='Delete'||e.key==='Backspace')&&sel){e.preventDefault();deleteSelected();}
+  if(e.key==='Escape'){setConnect(false);select(null);}
 });
+
+/* ---------- lanes & steps ---------- */
+function renameHeader(kind,i){
+  const label=kind==='lanes'?'lane':'step';
+  const v=prompt(`Rename ${label} (use \\n for a line break). Leave blank to remove this ${label} and its boxes.`,state[kind][i].replace(/\n/g,'\\n'));
+  if(v===null) return;
+  if(v.trim()===''){
+    if(!confirm(`Remove this ${label} and every box in it?`)) return;
+    const horiz=kind==='steps', start=horiz?LABEL_W+i*COL_W:HEAD_H+i*LANE_H, size=horiz?COL_W:LANE_H;
+    const inside=n=>{const c=horiz?n.x+n.w/2:n.y+n.h/2;return c>=start&&c<start+size;};
+    const gone=new Set(state.nodes.filter(inside).map(n=>n.id));
+    state.nodes=state.nodes.filter(n=>!gone.has(n.id));
+    state.links=state.links.filter(l=>!gone.has(l.from)&&!gone.has(l.to));
+    state.nodes.forEach(n=>{ if(horiz){if(n.x>=start+size)n.x-=size;} else if(n.y>=start+size) n.y-=size; });
+    state[kind].splice(i,1);
+  } else state[kind][i]=v.replace(/\\n/g,'\n');
+  sel=null;render();save();
+}
+$('laneBtn').onclick=()=>{const v=prompt('New lane name:','NEW LANE');if(v){state.lanes.push(v.toUpperCase());render();save();}};
+$('stepBtn').onclick=()=>{const v=prompt('New step name:',`${state.steps.length+1} NEW STEP`);if(v){state.steps.push(v.toUpperCase());render();save();}};
 
 /* ---------- toolbar ---------- */
 function addNode(x,y){
-  const wrap=$('wrap');
-  const n={id:uid('n'),x:Math.round((x??wrap.scrollLeft+60)/10)*10,y:Math.round((y??wrap.scrollTop+60)/10)*10,title:'New Step',desc:'',owner:'',status:'todo'};
-  state.nodes.push(n); select({type:'node',id:n.id}); openEditor(); save();
+  const w=$('wrap');
+  const n={id:uid('n'),type:'action',text:'New Step',notes:'',w:BW,h:BH,
+    x:snap(x??Math.max(LABEL_W+10,w.scrollLeft+LABEL_W+20)),y:snap(y??HEAD_H+10)};
+  state.nodes.push(n);select({type:'node',id:n.id});openEditor();save();
 }
-function setConnect(on){ connectMode=on; connectFrom=null; $('connectBtn').classList.toggle('active',on); board.classList.toggle('connecting',on); if(on) flash('Click the starting box'); }
+function setConnect(on){connectMode=on;connectFrom=null;$('connectBtn').classList.toggle('active',on);board.classList.toggle('connecting',on);if(on)flash('Click the starting box');}
 $('addBtn').onclick=()=>addNode();
 $('connectBtn').onclick=()=>setConnect(!connectMode);
-$('resetBtn').onclick=()=>{ if(confirm('Reset to the default project setup template? Your changes will be lost.')){ state=structuredClone(TEMPLATE); sel=null; closeEditor(); render(); save(); } };
+$('printBtn').onclick=()=>{select(null);setTimeout(()=>window.print(),50);};
+$('resetBtn').onclick=()=>{if(confirm('Reset to the original Project Setup Workflow layout? Your changes will be lost.')){state=makeTemplate();sel=null;closeEditor();render();save();}};
 $('exportBtn').onclick=()=>{
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));
-  a.download='project-setup-workflow.json'; a.click(); URL.revokeObjectURL(a.href);
+  a.download='project-setup-workflow.json';a.click();URL.revokeObjectURL(a.href);
 };
 $('importFile').onchange=e=>{
   const f=e.target.files[0]; if(!f) return;
-  f.text().then(t=>{ const s=JSON.parse(t); if(!s.nodes||!s.links) throw 0; state=s; sel=null; render(); save(); flash('Imported'); })
+  f.text().then(t=>{const s=JSON.parse(t);if(!s.nodes||!s.links||!s.lanes||!s.steps)throw 0;state=s;sel=null;render();save();flash('Imported');})
    .catch(()=>alert('That file is not a workflow export.'));
   e.target.value='';
 };
 
-/* ---------- export as PNG (draws the diagram onto a canvas) ---------- */
+/* ---------- PNG export (redraws the chart on a canvas) ---------- */
 $('pngBtn').onclick=()=>{
-  if(!state.nodes.length) return;
-  const bs=state.nodes.map(box), pad=40;
-  const minX=Math.min(...bs.map(b=>b.x))-pad, minY=Math.min(...bs.map(b=>b.y))-pad;
-  const W=Math.max(...bs.map(b=>b.x+b.w))+pad-minX, H=Math.max(...bs.map(b=>b.y+b.h))+pad-minY;
-  const c=document.createElement('canvas'), k=2; c.width=W*k; c.height=H*k;
-  const g=c.getContext('2d'); g.scale(k,k); g.translate(-minX,-minY);
-  g.fillStyle='#0f1720'; g.fillRect(minX,minY,W,H);
-  g.font='12px Segoe UI, Arial';
+  const W=boardW(), H=boardH(), TOP=60, k=2;
+  const c=document.createElement('canvas'); c.width=(W+20)*k; c.height=(H+TOP+20)*k;
+  const g=c.getContext('2d'); g.scale(k,k);
+  g.fillStyle='#fff'; g.fillRect(0,0,W+20,H+TOP+20);
+  g.fillStyle=COLORS.green; g.font='bold 22px Arial'; g.fillText('PROJECT SETUP WORKFLOW',10,30);
+  g.fillStyle='#666'; g.font='12px Arial'; g.fillText('Swim lane view — who does what, in sequence',10,48);
+  g.translate(10,TOP);
+  const wrap=(text,x,y,maxW,lh,align)=>{
+    const lines=[]; for(const para of String(text).split('\n')){let cur='';for(const w of para.split(' ')){const t=cur?cur+' '+w:w;if(g.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;}else cur=t;}lines.push(cur);}
+    g.textAlign=align; const y0=y-(lines.length-1)*lh/2; lines.forEach((l,i)=>g.fillText(l,x,y0+i*lh));
+  };
+  g.textBaseline='middle';
+  state.lanes.forEach((s,i)=>{const y=HEAD_H+i*LANE_H;g.strokeStyle=COLORS.grid;g.beginPath();g.moveTo(0,y+LANE_H);g.lineTo(W,y+LANE_H);g.stroke();
+    g.fillStyle=COLORS.green;g.fillRect(0,y,LABEL_W,LANE_H);g.fillStyle='#fff';g.font='bold 11px Arial';wrap(s,8,y+LANE_H/2,LABEL_W-16,13,'left');});
+  g.fillStyle=COLORS.green; g.fillRect(0,0,W,HEAD_H);
+  state.steps.forEach((s,i)=>{g.fillStyle='#fff';g.font='bold 11px Arial';wrap(s,LABEL_W+i*COL_W+COL_W/2,HEAD_H/2,COL_W-10,13,'center');});
   for(const l of state.links){
-    const a=nodeById(l.from), b=nodeById(l.to); if(!a||!b) continue;
-    const A=box(a),B=box(b),p1=edge(A,B.cx,B.cy),p2=edge(B,A.cx,A.cy),ang=Math.atan2(p2.y-p1.y,p2.x-p1.x);
-    g.strokeStyle=g.fillStyle='#8aa0b4'; g.lineWidth=2;
-    g.beginPath(); g.moveTo(p1.x,p1.y); g.lineTo(p2.x,p2.y); g.stroke();
-    g.beginPath(); g.moveTo(p2.x,p2.y); g.lineTo(p2.x-10*Math.cos(ang-.45),p2.y-10*Math.sin(ang-.45)); g.lineTo(p2.x-10*Math.cos(ang+.45),p2.y-10*Math.sin(ang+.45)); g.fill();
-    if(l.label){ g.textAlign='center'; g.fillText(l.label,(p1.x+p2.x)/2,(p1.y+p2.y)/2-6); }
+    const r=route(l); if(!r) continue; const p=r.pts, [ex,ey]=p[3];
+    let q=p.length-2; while(q>0&&p[q][0]===ex&&p[q][1]===ey) q--;
+    const ang=Math.atan2(ey-p[q][1],ex-p[q][0]);
+    g.strokeStyle=g.fillStyle=COLORS.arrow; g.lineWidth=1.5; g.setLineDash([]);
+    g.beginPath(); p.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y)); g.stroke();
+    g.beginPath(); g.moveTo(ex,ey); g.lineTo(ex-8*Math.cos(ang-.45),ey-8*Math.sin(ang-.45)); g.lineTo(ex-8*Math.cos(ang+.45),ey-8*Math.sin(ang+.45)); g.fill();
+    if(l.label){g.font='bold 11px Arial';g.fillStyle='#666';g.textAlign='left';g.fillText(l.label,(p[1][0]+p[2][0])/2+4,(p[1][1]+p[2][1])/2-8);}
   }
-  state.nodes.forEach((n,i)=>{
-    const b=bs[i], col=STATUS_HEX[n.status]||STATUS_HEX.todo;
-    g.fillStyle='#1b2530'; g.strokeStyle='#2a3744'; g.lineWidth=1;
-    g.beginPath(); g.roundRect(b.x,b.y,b.w,b.h,10); g.fill(); g.stroke();
-    g.fillStyle=col; g.beginPath(); g.roundRect(b.x,b.y,5,b.h,[10,0,0,10]); g.fill();
-    g.textAlign='left'; g.fillStyle='#e7eef5'; g.font='600 14px Segoe UI, Arial'; g.fillText(n.title,b.x+14,b.y+24,b.w-24);
-    g.font='12px Segoe UI, Arial'; g.fillStyle='#8aa0b4'; if(n.desc) g.fillText(n.desc.split('\n')[0],b.x+14,b.y+42,b.w-24);
-    if(n.owner){ g.fillStyle=col; g.font='11px Segoe UI, Arial'; g.fillText(n.owner.toUpperCase(),b.x+14,b.y+b.h-10,b.w-24); }
-  });
+  for(const n of state.nodes){
+    const fill={action:COLORS.green,trigger:COLORS.orange,milestone:COLORS.teal}[n.type]||'#fff';
+    g.fillStyle=fill; g.fillRect(n.x,n.y,n.w,n.h);
+    const gate=n.type==='review'||n.type==='signoff';
+    g.strokeStyle=gate?COLORS.orange:COLORS.line; g.lineWidth=gate?2:1; g.setLineDash(n.type==='review'?[6,4]:[]);
+    g.strokeRect(n.x,n.y,n.w,n.h); g.setLineDash([]);
+    g.fillStyle=gate?COLORS.green:'#fff'; g.font='bold 11px Arial';
+    wrap(n.text,n.x+n.w/2,n.y+n.h/2,n.w-14,13.5,'center');
+  }
   const a=document.createElement('a'); a.href=c.toDataURL('image/png'); a.download='project-setup-workflow.png'; a.click();
 };
 
