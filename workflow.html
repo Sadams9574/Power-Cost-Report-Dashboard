@@ -32,11 +32,43 @@
   .ro-note{display:none;color:var(--orange);font-weight:700;}
   .readonly .ro-note{display:inline;}
   .readonly .toolbar,.readonly .help,.readonly .port,.readonly .rs{display:none!important;}
+  .locked .ed,.locked .help,.locked .port,.locked .rs{display:none!important;}
+  .locked .node,.locked #links .hit,.locked .lane-label,.locked .step-head{cursor:default;}
+  .lock-note{display:none;color:var(--green);}
+  .locked:not(.readonly) .lock-note{display:inline;}
+  #editBtn.editing{background:var(--orange);border-color:var(--orange);}
   .readonly .node,.readonly #links .hit{cursor:default;}
   #seedBar{margin:0 20px 10px;padding:10px 12px;border:2px dashed var(--orange);font-size:13px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
   [hidden]{display:none!important;}
   #status{color:var(--orange);font-weight:700;margin-left:8px;}
-  #wrap{flex:1;overflow:auto;padding:0 20px 12px;}
+  #main{flex:1;display:flex;min-height:0;}
+  #wrap{flex:1;min-width:0;overflow:auto;padding:0 20px 12px;}
+  #cpanel{width:320px;flex:none;display:flex;flex-direction:column;border-left:1px solid var(--grid);background:#FAFBFA;min-height:0;}
+  body.cp-closed #cpanel{display:none;}
+  .cp-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--green);color:#fff;}
+  .cp-head h2{margin:0;font-size:13px;letter-spacing:.04em;}
+  .cp-head button{background:transparent;border:1px solid rgba(255,255,255,.5);color:#fff;padding:2px 9px;font-size:14px;}
+  #cpList{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:10px;}
+  .cp-empty{color:var(--muted);font-size:12px;}
+  .cmt{background:#fff;border:1px solid var(--grid);border-left:3px solid var(--green);padding:8px 10px;font-size:12px;color:#222;}
+  .cmt.onbox{border-left-color:var(--orange);}
+  .cmt .who{font-weight:700;color:var(--green);}
+  .cmt .when{color:var(--muted);font-size:11px;margin-left:6px;}
+  .cmt .txt{margin-top:4px;white-space:pre-wrap;overflow-wrap:anywhere;}
+  .cmt .on{display:inline-block;margin-top:6px;font-size:11px;color:var(--green);background:#FEF3DE;border:1px solid var(--orange);padding:1px 6px;cursor:pointer;}
+  .cmt .del{float:right;border:none;background:none;color:var(--muted);font-size:11px;padding:0;cursor:pointer;}
+  .cmt .del:hover{color:#c0392b;}
+  #cpForm{border-top:1px solid var(--grid);padding:10px 14px;display:flex;flex-direction:column;gap:6px;}
+  #cpForm textarea{width:100%;border:1px solid var(--box-line);padding:6px 8px;font:13px Arial,sans-serif;color:#222;resize:vertical;}
+  #cpForm textarea:focus{outline:2px solid var(--orange);outline-offset:0;}
+  #cpOn{font-size:12px;color:var(--green);background:#FEF3DE;border:1px solid var(--orange);padding:3px 6px;}
+  #cpOn button{border:none;background:none;padding:0 2px;color:var(--muted);}
+  .cp-actions{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .cp-hint{font-size:11px;color:var(--muted);}
+  #cpOpen{position:fixed;right:14px;bottom:14px;z-index:9;box-shadow:0 4px 12px rgba(0,0,0,.15);}
+  .cbadge{position:absolute;top:-8px;right:-8px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--orange);color:#fff;
+    font-size:10px;line-height:18px;text-align:center;box-shadow:0 0 0 2px #fff;}
+  @media (max-width:800px){#main{flex-direction:column;}#wrap{flex:none;}#cpanel{width:auto;border-left:none;border-top:1px solid var(--grid);max-height:60vh;}}
   #board{position:relative;}
   .lane-row{position:absolute;left:0;border-bottom:1px solid var(--grid);}
   .lane-label,.step-head,.corner{position:absolute;background:var(--green);color:#fff;font-weight:700;font-size:11px;
@@ -66,7 +98,7 @@
   .connecting .node{cursor:crosshair;}
   .legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
   .legend div{font:700 11px Arial,sans-serif;padding:6px 14px;min-width:150px;text-align:center;}
-  #editor{position:fixed;right:20px;top:110px;width:290px;background:#fff;border:1px solid var(--green);border-top:6px solid var(--green);
+  #editor{position:fixed;right:340px;top:110px;width:290px;background:#fff;border:1px solid var(--green);border-top:6px solid var(--green);
     padding:14px;display:none;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:10;}
   #editor h2{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;}
   #editor label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;}
@@ -93,8 +125,9 @@
   table.sign input:focus{outline:2px solid var(--orange);outline-offset:0;}
   table.sign input:disabled{background:#f6f6f6;}
   button.danger{border-color:#c0392b;color:#c0392b;}
+  body.cp-closed #editor{right:20px;}
   @media print{
-    header .toolbar,.help,#editor,.port,.rs{display:none!important;}
+    header .toolbar,.help,#editor,.port,.rs,#cpanel,#cpOpen,.cbadge{display:none!important;}
     #wrap{overflow:visible;}
     .node.sel{outline:none;}
     @page{size:landscape;margin:8mm;}
@@ -109,15 +142,16 @@
     <div class="sub">Swim lane view — who does what, in sequence · <a href="index.html">Back to dashboard</a></div>
   </div>
   <div class="toolbar">
-    <button class="primary" id="addBtn">+ Box</button>
-    <button id="connectBtn">Connect</button>
-    <button id="laneBtn">+ Lane</button>
-    <button id="stepBtn">+ Step</button>
+    <button class="primary" id="editBtn">✎ Make Changes</button>
+    <button class="ed" id="addBtn">+ Box</button>
+    <button class="ed" id="connectBtn">Connect</button>
+    <button class="ed" id="laneBtn">+ Lane</button>
+    <button class="ed" id="stepBtn">+ Step</button>
     <button id="exportBtn">Export</button>
-    <label class="btn">Import<input type="file" id="importFile" accept="application/json" hidden></label>
+    <label class="btn ed">Import<input type="file" id="importFile" accept="application/json" hidden></label>
     <button id="pngBtn">Save Image</button>
     <button id="printBtn">Print / PDF</button>
-    <button id="resetBtn">Reset</button>
+    <button class="ed" id="resetBtn">Reset</button>
   </div>
 </header>
 <div class="help">
@@ -126,9 +160,10 @@
   <b>Delete</b> removes the selection · double-click empty space to add a box
   <span id="status"></span>
 </div>
-<div class="modebar"><span id="mode">Connecting…</span><span class="ro-note">View only — ask the owner for edit access to make changes.</span></div>
+<div class="modebar"><span id="mode">Connecting…</span><span class="lock-note">Locked — click <b>✎ Make Changes</b> to edit.</span><span class="ro-note">View only — ask the owner for edit access to make changes.</span></div>
 <div id="seedBar" hidden>This shared chart is empty. <button class="primary" id="seedBtn">Load the original 15-step layout</button></div>
 
+<div id="main">
 <div id="wrap">
   <div id="board">
     <svg id="links">
@@ -160,6 +195,22 @@
 <tr><td class="type review">Review</td><td>Check / confirm before moving forward. No formal approval recorded.</td></tr>
 <tr><td class="type signoff">Sign-Off</td><td>Formal approval by the named person(s). Next step does not start until signed; record date &amp; initials in the Sign-Off Log.</td></tr>
 </tbody></table></div></section>
+</div>
+
+<aside id="cpanel" aria-label="Comments">
+  <div class="cp-head">
+    <h2>COMMENTS <span id="cpCount"></span></h2>
+    <button id="cpToggle" title="Hide comments" aria-label="Hide comments">›</button>
+  </div>
+  <div id="cpList" aria-live="polite"></div>
+  <form id="cpForm">
+    <div id="cpOn" hidden>On: <b id="cpOnName"></b> <button type="button" id="cpOnClear" title="Comment on the whole chart instead">✕</button></div>
+    <textarea id="cpText" rows="3" placeholder="Add a comment… (click a box first to comment on it)"></textarea>
+    <div class="cp-actions"><span class="cp-hint">Enter to post · Shift+Enter for a new line</span><button class="primary" type="submit" id="cpPost">Post</button></div>
+    <div id="cpRo" class="cp-hint" hidden>View only — you can read comments but not add them.</div>
+  </form>
+</aside>
+<button id="cpOpen" hidden>💬 Comments <span id="cpOpenCount"></span></button>
 </div>
 
 <div id="editor">
@@ -328,7 +379,17 @@ function applyRemote(k,docs){
   if(k==='layout') layoutSeen=true;
   if(drag) needsRender=true; else render();
 }
-function setReadOnly(on){readOnly=on;document.body.classList.toggle('readonly',on);if(typeof renderSignoffs==='function')renderSignoffs();if(on){closeEditor();setConnect(false);}}
+// Page opens locked; "Make Changes" unlocks editing until "Done" is clicked.
+let editing=false;
+const canEditNow=()=>editing&&!readOnly;
+function setEditing(on){
+  editing=on&&!readOnly;
+  document.body.classList.toggle('locked',!editing);
+  const b=$('editBtn'); b.textContent=editing?'✓ Done':'✎ Make Changes'; b.classList.toggle('editing',editing);
+  if(!editing){closeEditor();setConnect(false);if(sel)select(null);}
+  if(typeof renderSignoffs==='function') renderSignoffs();
+}
+function setReadOnly(on){readOnly=on;if(on){$('cpText').disabled=true;$('cpPost').disabled=true;$('cpRo').hidden=false;}if(on){editing=false;document.body.classList.add('locked');}document.body.classList.toggle('readonly',on);if(typeof renderSignoffs==='function')renderSignoffs();if(on){closeEditor();setConnect(false);}}
 async function connect(){
   const c=window.claude; if(!c||typeof c.use!=='function'){ $('mode').textContent='Saved in this browser only'; return; }
   let d; try{ d=await c.use('db'); }catch(e){ d=null; }
@@ -342,6 +403,7 @@ async function connect(){
   const onErr=()=>{$('mode').textContent='Connection lost — reload the page';$('mode').classList.remove('live');};
   const checkEmpty=()=>{ if(seen.nodes&&seen.layout) $('seedBar').hidden=!(state.nodes.length===0&&state.lanes.length===0&&!readOnly); };
   signoffs={}; renderSignoffs();
+  connectComments(c);
   db.collection('signoffs').onSnapshot(sn=>{signoffs={};for(const d of sn.docs) if(d.exists) signoffs[d.id]=d.data();renderSignoffs();},onErr);
   for(const k of ['nodes','links','layout']){
     db.collection(k).onSnapshot(s=>{
@@ -396,10 +458,12 @@ function render(){
     el.className=`node ${n.type}`+(sel?.type==='node'&&sel.id===n.id?' sel':'');
     Object.assign(el.style,{left:n.x+'px',top:n.y+'px',width:n.w+'px',height:n.h+'px'});
     el.dataset.id=n.id; if(n.desc) el.title=n.desc;
-    el.innerHTML=esc(n.text)+'<div class="port" title="Drag onto another box"></div><div class="rs" title="Resize"></div>';
+    const nc=commentCount(n.id);
+    el.innerHTML=esc(n.text)+(nc?`<span class="cbadge" title="${nc} comment${nc>1?'s':''}">${nc}</span>`:'')+'<div class="port" title="Drag onto another box"></div><div class="rs" title="Resize"></div>';
     board.appendChild(el);
   }
   renderLinks();
+  if(typeof renderComposerTarget==='function') renderComposerTarget();
   if(typeof renderTables==='function'&&document.getElementById('recapBody')) renderTables();
 }
 function renderLinks(){
@@ -465,7 +529,11 @@ function addLink(from,to){
 /* ---------- pointer interaction ---------- */
 function bp(e){const r=board.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
 board.addEventListener('pointerdown',e=>{
-  if(readOnly) return;
+  if(!canEditNow()){ // locked: a click only picks a box to comment on
+    const nodeEl=e.target.closest('.node');
+    if(nodeEl) select({type:'node',id:nodeEl.dataset.id}); else if(sel) select(null);
+    return;
+  }
   const p=bp(e), nodeEl=e.target.closest('.node'), hit=e.target.closest('.hit');
   if(hit){
     const l=state.links.find(k=>k.id===hit.dataset.id), r=route(l);
@@ -519,7 +587,7 @@ board.addEventListener('pointerup',e=>{
   if(needsRender){needsRender=false;render();}
 });
 board.addEventListener('dblclick',e=>{
-  if(readOnly) return;
+  if(!canEditNow()) return;
   // the first click may have re-drawn the chart, so look at what is under the pointer now
   const under=document.elementFromPoint(e.clientX,e.clientY)||e.target;
   const nodeEl=under.closest('.node'), hit=under.closest('.hit');
@@ -531,7 +599,7 @@ board.addEventListener('dblclick',e=>{
   const p=bp(e); if(p.y>HEAD_H&&p.x>LABEL_W) addNode(p.x-BW/2,p.y-BH/2);
 });
 document.addEventListener('keydown',e=>{
-  if(readOnly||e.target.matches('input,textarea,select')) return;
+  if(!canEditNow()||e.target.matches('input,textarea,select')) return;
   if((e.key==='Delete'||e.key==='Backspace')&&sel&&(sel.type==='node'||sel.type==='link')){e.preventDefault();deleteSelected();}
   if(e.key==='Escape'){setConnect(false);select(null);}
 });
@@ -661,7 +729,7 @@ try{signoffs=JSON.parse(localStorage.getItem(KEY+'.signoffs'))||{};}catch(e){}
 function renderSignoffs(){
   for(const inp of document.querySelectorAll('#signBody input')){
     if(document.activeElement!==inp) inp.value=signoffs[inp.dataset.k]?.[inp.dataset.f]||'';
-    inp.disabled=readOnly;
+    inp.disabled=!canEditNow();
   }
 }
 $('signBody').addEventListener('change',e=>{
@@ -671,9 +739,78 @@ $('signBody').addEventListener('change',e=>{
   else { try{localStorage.setItem(KEY+'.signoffs',JSON.stringify(signoffs));flash('Saved');}catch(e){flash('Could not save in this browser');} }
 });
 
+/* ---------- comments panel ----------
+   Live mode: one document per comment in comments/<id> ({text, author, at, node}).
+   Only the author's id is stored; names are looked up when drawing. */
+let comments=[], me=null, userApi=null, isOwner=false, names={};
+try{comments=JSON.parse(localStorage.getItem(KEY+'.comments'))||[];}catch(e){}
+function commentCount(id){return comments.filter(c=>c.node===id).length;}
+function boxLabel(id){const n=nodeById(id);if(!n) return '';
+  return n.text.replace(/^\s*(REVIEW|SIGN-OFF)\s*:\s*/i,'').split('\n').filter(l=>!/^\s*[(→]/.test(l)).join(' ')
+    .replace(/\s*\([^)]*\)/g,'').replace(/\s+/g,' ').trim();}
+function renderComposerTarget(){
+  const n=sel?.type==='node'?nodeById(sel.id):null;
+  $('cpOn').hidden=!n; if(n) $('cpOnName').textContent=boxLabel(n.id);
+}
+function fmtWhen(t){const d=new Date(t);return isNaN(d)?'':d.toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}
+async function renderComments(){
+  const list=$('cpList'); const n=comments.length;
+  $('cpCount').textContent=n?`(${n})`:''; $('cpOpenCount').textContent=n?`(${n})`:'';
+  if(userApi){ const ids=[...new Set(comments.map(c=>c.author).filter(Boolean))];
+    try{ if(ids.length) names=await userApi.profiles(ids); }catch(e){} }
+  list.replaceChildren();
+  if(!n){const p=document.createElement('div');p.className='cp-empty';p.textContent='No comments yet. Be the first to add one below.';list.append(p);}
+  for(const c of comments){
+    const d=document.createElement('div'); d.className='cmt'+(c.node&&nodeById(c.node)?' onbox':'');
+    const who=document.createElement('span'); who.className='who';
+    who.textContent=(!live||(me&&c.author===me))?'You':((names[c.author]&&names[c.author].name)||'Someone');
+    const when=document.createElement('span'); when.className='when'; when.textContent=fmtWhen(c.at);
+    if(!live||(me&&c.author===me)||isOwner){const del=document.createElement('button');del.className='del';del.type='button';del.textContent='Delete';del.title='Delete this comment';
+      del.onclick=()=>deleteComment(c.id);d.append(del);}
+    const txt=document.createElement('div'); txt.className='txt'; txt.textContent=c.text;
+    d.append(who,when,txt);
+    if(c.node&&nodeById(c.node)){const on=document.createElement('span');on.className='on';on.textContent='On: '+boxLabel(c.node);on.title='Show this box on the chart';
+      on.onclick=()=>{select({type:'node',id:c.node});board.querySelector(`.node[data-id="${c.node}"]`)?.scrollIntoView({behavior:'smooth',block:'center',inline:'center'});};
+      d.append(document.createElement('br'),on);}
+    list.append(d);
+  }
+  list.scrollTop=list.scrollHeight;
+  render();
+}
+function saveLocalComments(){try{localStorage.setItem(KEY+'.comments',JSON.stringify(comments));}catch(e){flash('Could not save in this browser');}}
+function postComment(){
+  const text=$('cpText').value.trim(); if(!text) return;
+  const c={id:uid('c'),text:text.slice(0,4000),author:me||null,at:Date.now(),node:sel?.type==='node'?sel.id:''};
+  $('cpText').value='';
+  if(live){ const {id,...body}=c; comments.push(c); renderComments(); write('comments/'+id,()=>db.doc('comments/'+id).set(body)); flash('Comment posted'); }
+  else { comments.push(c); saveLocalComments(); renderComments(); flash('Comment saved in this browser'); }
+}
+function deleteComment(id){
+  comments=comments.filter(c=>c.id!==id);
+  if(live) write('comments/'+id,()=>db.doc('comments/'+id).delete()); else saveLocalComments();
+  renderComments();
+}
+$('cpForm').addEventListener('submit',e=>{e.preventDefault();postComment();});
+$('cpText').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();postComment();}});
+$('cpOnClear').onclick=()=>select(null);
+function setPanel(open){document.body.classList.toggle('cp-closed',!open);$('cpOpen').hidden=open;try{localStorage.setItem(KEY+'.cpClosed',open?'':'1');}catch(e){}}
+$('cpToggle').onclick=()=>setPanel(false);
+$('cpOpen').onclick=()=>setPanel(true);
+try{ if(localStorage.getItem(KEY+'.cpClosed')) setPanel(false); }catch(e){}
+async function connectComments(c){
+  try{ userApi=await c.use('user'); }catch(e){ userApi=null; }
+  if(userApi){ try{ me=await userApi.id(); }catch(e){} try{ isOwner=await userApi.isOwner(); }catch(e){} }
+  comments=[]; renderComments();
+  db.collection('comments').orderBy('at').onSnapshot(sn=>{
+    comments=sn.docs.filter(d=>d.exists).map(d=>({id:d.id,...d.data()})); renderComments();
+  },()=>{});
+}
+
 function loadOriginal(){state=makeTemplate();sel=null;closeEditor();render();save();$('seedBar').hidden=true;}
 $('seedBtn').onclick=loadOriginal;
-render();
+$('editBtn').onclick=()=>{setEditing(!editing);flash(editing?'Editing on — click Done when finished':'Locked');};
+document.body.classList.add('locked');
+renderComments();
 connect();
 </script>
 </body>
