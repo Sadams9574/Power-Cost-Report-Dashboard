@@ -33,6 +33,7 @@
     display:flex;align-items:center;padding:4px 8px;white-space:pre-line;line-height:1.2;user-select:none;}
   .step-head{justify-content:center;text-align:center;border-right:1px solid #2d6e44;cursor:text;}
   .lane-label{border-bottom:1px solid #2d6e44;cursor:text;}
+  .lane-label.sel,.step-head.sel{background:var(--orange);}
   .col-line{position:absolute;top:0;border-left:1px dashed #EEEEEE;}
   #links{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;}
   #links .hit{stroke:transparent;stroke-width:14;fill:none;pointer-events:stroke;cursor:grab;}
@@ -132,6 +133,10 @@
       <option value="signoff">Sign-off gate (solid)</option>
     </select>
     <label>Notes (shown on hover)</label><input id="fNotes" placeholder="Responsible, comments…">
+  </div>
+  <div id="headFields">
+    <label id="headLbl">Name</label><textarea id="fHead" style="min-height:50px"></textarea>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">Deleting it also removes every box inside it.</div>
   </div>
   <div id="linkFields">
     <label>Arrow label</label><input id="fLabel" placeholder="optional">
@@ -250,12 +255,12 @@ function render(){
   const add=(cls,css,html='',data={})=>{const d=document.createElement('div');d.className=cls;Object.assign(d.style,css);d.innerHTML=html;Object.assign(d.dataset,data);board.insertBefore(d,svg);return d;};
   add('corner',{left:0,top:0,width:LABEL_W+'px',height:HEAD_H+'px'});
   state.steps.forEach((s,i)=>{
-    add('step-head',{left:LABEL_W+i*COL_W+'px',top:0,width:COL_W+'px',height:HEAD_H+'px'},esc(s),{step:i});
+    add('step-head'+(sel?.type==='steps'&&sel.i===i?' sel':''),{left:LABEL_W+i*COL_W+'px',top:0,width:COL_W+'px',height:HEAD_H+'px'},esc(s),{step:i});
     add('col-line',{left:LABEL_W+i*COL_W+'px',height:H+'px'});
   });
   state.lanes.forEach((s,i)=>{
     add('lane-row',{top:HEAD_H+i*LANE_H+'px',width:W+'px',height:LANE_H+'px'});
-    add('lane-label',{left:0,top:HEAD_H+i*LANE_H+'px',width:LABEL_W+'px',height:LANE_H+'px'},esc(s),{lane:i});
+    add('lane-label'+(sel?.type==='lanes'&&sel.i===i?' sel':''),{left:0,top:HEAD_H+i*LANE_H+'px',width:LABEL_W+'px',height:LANE_H+'px'},esc(s),{lane:i});
   });
   for(const n of state.nodes){
     const el=document.createElement('div');
@@ -285,28 +290,39 @@ function renderLinks(){
 function select(s){sel=s;render();if(!s)closeEditor();else if($('editor').style.display==='block')openEditor();}
 function openEditor(){
   if(!sel) return;
-  const isNode=sel.type==='node';
-  $('nodeFields').style.display=isNode?'':'none';
-  $('linkFields').style.display=isNode?'none':'';
-  $('edTitle').textContent=isNode?'Edit Box':'Edit Arrow';
-  if(isNode){const n=nodeById(sel.id);$('fText').value=n.text;$('fType').value=n.type;$('fNotes').value=n.notes||'';}
-  else $('fLabel').value=state.links.find(l=>l.id===sel.id).label||'';
+  const t=sel.type, isHead=t==='lanes'||t==='steps';
+  $('nodeFields').style.display=t==='node'?'':'none';
+  $('linkFields').style.display=t==='link'?'':'none';
+  $('headFields').style.display=isHead?'':'none';
+  $('edTitle').textContent={node:'Edit Box',link:'Edit Arrow',lanes:'Edit Lane',steps:'Edit Step'}[t];
+  resetDelBtn();
+  if(t==='node'){const n=nodeById(sel.id);$('fText').value=n.text;$('fType').value=n.type;$('fNotes').value=n.notes||'';}
+  else if(t==='link') $('fLabel').value=state.links.find(l=>l.id===sel.id).label||'';
+  else {$('headLbl').textContent=t==='lanes'?'Lane name':'Step name';$('fHead').value=state[t][sel.i];}
   $('editor').style.display='block';
-  (isNode?$('fText'):$('fLabel')).focus();
+  ({node:$('fText'),link:$('fLabel')}[t]||$('fHead')).focus();
 }
 function closeEditor(){$('editor').style.display='none';}
 function onField(){
   if(!sel) return;
+  if(sel.type==='lanes'||sel.type==='steps'){state[sel.type][sel.i]=$('fHead').value;renderKeepEditor();save();return;}
   if(sel.type==='node') Object.assign(nodeById(sel.id),{text:$('fText').value,type:$('fType').value,notes:$('fNotes').value});
   else state.links.find(l=>l.id===sel.id).label=$('fLabel').value;
   render();save();
 }
-['fText','fNotes','fLabel'].forEach(id=>$(id).addEventListener('input',onField));
+['fText','fNotes','fLabel','fHead'].forEach(id=>$(id).addEventListener('input',onField));
 $('fType').addEventListener('change',onField);
 $('closeEd').onclick=closeEditor;
-$('delBtn').onclick=deleteSelected;
+function renderKeepEditor(){const a=document.activeElement,st=a.selectionStart,en=a.selectionEnd;render();a.focus();try{a.setSelectionRange(st,en);}catch(e){}}
+function resetDelBtn(){const b=$('delBtn');b.dataset.armed='';b.textContent='Delete';}
+$('delBtn').onclick=()=>{
+  const b=$('delBtn');
+  if(sel&&(sel.type==='lanes'||sel.type==='steps')&&!b.dataset.armed){b.dataset.armed='1';b.textContent='Click again to delete';return;}
+  deleteSelected();
+};
 function deleteSelected(){
   if(!sel) return;
+  if(sel.type==='lanes'||sel.type==='steps') return removeHeader(sel.type,sel.i);
   if(sel.type==='node'){state.nodes=state.nodes.filter(n=>n.id!==sel.id);state.links=state.links.filter(l=>l.from!==sel.id&&l.to!==sel.id);}
   else state.links=state.links.filter(l=>l.id!==sel.id);
   sel=null;closeEditor();render();save();
@@ -336,7 +352,7 @@ board.addEventListener('pointerdown',e=>{
     if(e.target.classList.contains('port')){drag={mode:'link',from:id};ghost.style.display='';}
     else if(e.target.classList.contains('rs')) drag={mode:'resize',n,el};
     else {drag={mode:'move',n,el,ox:p.x-n.x,oy:p.y-n.y,moved:false};el.classList.add('dragging');}
-  } else { select(null); return; }
+  } else { if(!e.target.closest('.lane-label,.step-head')&&sel) select(null); return; }
   board.setPointerCapture(e.pointerId);
   e.preventDefault();
 });
@@ -374,35 +390,29 @@ board.addEventListener('dblclick',e=>{
   if(nodeEl){select({type:'node',id:nodeEl.dataset.id});openEditor();return;}
   if(hit){select({type:'link',id:hit.dataset.id});openEditor();return;}
   const lane=e.target.closest('.lane-label'), step=e.target.closest('.step-head');
-  if(lane) return renameHeader('lanes',+lane.dataset.lane);
-  if(step) return renameHeader('steps',+step.dataset.step);
+  if(lane){select({type:'lanes',i:+lane.dataset.lane});return openEditor();}
+  if(step){select({type:'steps',i:+step.dataset.step});return openEditor();}
   const p=bp(e); if(p.y>HEAD_H&&p.x>LABEL_W) addNode(p.x-BW/2,p.y-BH/2);
 });
 document.addEventListener('keydown',e=>{
   if(e.target.matches('input,textarea,select')) return;
-  if((e.key==='Delete'||e.key==='Backspace')&&sel){e.preventDefault();deleteSelected();}
+  if((e.key==='Delete'||e.key==='Backspace')&&sel&&(sel.type==='node'||sel.type==='link')){e.preventDefault();deleteSelected();}
   if(e.key==='Escape'){setConnect(false);select(null);}
 });
 
 /* ---------- lanes & steps ---------- */
-function renameHeader(kind,i){
-  const label=kind==='lanes'?'lane':'step';
-  const v=prompt(`Rename ${label} (use \\n for a line break). Leave blank to remove this ${label} and its boxes.`,state[kind][i].replace(/\n/g,'\\n'));
-  if(v===null) return;
-  if(v.trim()===''){
-    if(!confirm(`Remove this ${label} and every box in it?`)) return;
-    const horiz=kind==='steps', start=horiz?LABEL_W+i*COL_W:HEAD_H+i*LANE_H, size=horiz?COL_W:LANE_H;
-    const inside=n=>{const c=horiz?n.x+n.w/2:n.y+n.h/2;return c>=start&&c<start+size;};
-    const gone=new Set(state.nodes.filter(inside).map(n=>n.id));
-    state.nodes=state.nodes.filter(n=>!gone.has(n.id));
-    state.links=state.links.filter(l=>!gone.has(l.from)&&!gone.has(l.to));
-    state.nodes.forEach(n=>{ if(horiz){if(n.x>=start+size)n.x-=size;} else if(n.y>=start+size) n.y-=size; });
-    state[kind].splice(i,1);
-  } else state[kind][i]=v.replace(/\\n/g,'\n');
-  sel=null;render();save();
+function removeHeader(kind,i){
+  const horiz=kind==='steps', start=horiz?LABEL_W+i*COL_W:HEAD_H+i*LANE_H, size=horiz?COL_W:LANE_H;
+  const inside=n=>{const c=horiz?n.x+n.w/2:n.y+n.h/2;return c>=start&&c<start+size;};
+  const gone=new Set(state.nodes.filter(inside).map(n=>n.id));
+  state.nodes=state.nodes.filter(n=>!gone.has(n.id));
+  state.links=state.links.filter(l=>!gone.has(l.from)&&!gone.has(l.to));
+  state.nodes.forEach(n=>{ if(horiz){if(n.x>=start+size)n.x-=size;} else if(n.y>=start+size) n.y-=size; });
+  state[kind].splice(i,1);
+  sel=null;closeEditor();render();save();
 }
-$('laneBtn').onclick=()=>{const v=prompt('New lane name:','NEW LANE');if(v){state.lanes.push(v.toUpperCase());render();save();}};
-$('stepBtn').onclick=()=>{const v=prompt('New step name:',`${state.steps.length+1} NEW STEP`);if(v){state.steps.push(v.toUpperCase());render();save();}};
+$('laneBtn').onclick=()=>{state.lanes.push('NEW LANE');select({type:'lanes',i:state.lanes.length-1});openEditor();save();};
+$('stepBtn').onclick=()=>{state.steps.push(`${state.steps.length+1} NEW STEP`);select({type:'steps',i:state.steps.length-1});openEditor();save();};
 
 /* ---------- toolbar ---------- */
 function addNode(x,y){
@@ -415,7 +425,13 @@ function setConnect(on){connectMode=on;connectFrom=null;$('connectBtn').classLis
 $('addBtn').onclick=()=>addNode();
 $('connectBtn').onclick=()=>setConnect(!connectMode);
 $('printBtn').onclick=()=>{select(null);setTimeout(()=>window.print(),50);};
-$('resetBtn').onclick=()=>{if(confirm('Reset to the original Project Setup Workflow layout? Your changes will be lost.')){state=makeTemplate();sel=null;closeEditor();render();save();}};
+$('resetBtn').onclick=()=>{
+  const b=$('resetBtn');
+  if(!b.dataset.armed){b.dataset.armed='1';b.textContent='Click again to reset';b.classList.add('active');
+    setTimeout(()=>{b.dataset.armed='';b.textContent='Reset';b.classList.remove('active');},4000);return;}
+  b.dataset.armed='';b.textContent='Reset';b.classList.remove('active');
+  state=makeTemplate();sel=null;closeEditor();render();save();flash('Reset to original layout');
+};
 $('exportBtn').onclick=()=>{
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));
