@@ -73,6 +73,25 @@
   #editor input,#editor textarea,#editor select{width:100%;border:1px solid var(--box-line);color:#222;padding:6px 8px;font:13px Arial,sans-serif;}
   #editor textarea{min-height:80px;resize:vertical;}
   #editor .row{display:flex;justify-content:space-between;margin-top:14px;}
+  .tables{margin-top:28px;max-width:1200px;display:flex;flex-direction:column;gap:6px;}
+  .tables .note{margin:0 0 4px;font-size:12px;color:var(--muted);}
+  .tables h2{font-size:15px;color:var(--green);margin:18px 0 4px;}
+  .tbl{overflow-x:auto;}
+  table.xl{border-collapse:collapse;width:100%;font-size:12px;color:#222;}
+  table.xl th{background:var(--green);color:#fff;font-weight:700;padding:6px 8px;border:1px solid #A6A6A6;text-align:center;white-space:nowrap;}
+  table.xl td{padding:6px 8px;border:1px solid #A6A6A6;vertical-align:middle;}
+  table.xl td.c{text-align:center;font-variant-numeric:tabular-nums;width:48px;}
+  table.xl td.b{font-weight:700;}
+  table.xl td.type{text-align:center;font-weight:700;white-space:nowrap;width:100px;}
+  td.type.action{background:var(--green);color:#fff;}
+  td.type.trigger{background:var(--orange);color:#fff;}
+  td.type.milestone{background:var(--teal);color:#fff;}
+  td.type.review{background:#fff;color:var(--green);outline:2px dashed var(--orange);outline-offset:-3px;}
+  td.type.signoff{background:#fff;color:var(--green);outline:2px solid var(--orange);outline-offset:-3px;}
+  table.defs td.type{width:120px;}
+  table.sign input{width:100%;min-width:110px;border:1px solid var(--box-line);padding:4px 6px;font:12px Arial,sans-serif;color:#222;background:#fff;}
+  table.sign input:focus{outline:2px solid var(--orange);outline-offset:0;}
+  table.sign input:disabled{background:#f6f6f6;}
   button.danger{border-color:#c0392b;color:#c0392b;}
   @media print{
     header .toolbar,.help,#editor,.port,.rs{display:none!important;}
@@ -130,6 +149,17 @@
     <div class="node milestone" style="position:static">Milestone</div>
     <div class="node signoff" style="position:static">Sign-off gate (solid)</div>
   </div>
+<section class="tables">
+<h2>SIGN-OFF LOG</h2>
+<div class="tbl"><table class="xl sign"><thead><tr><th>Step</th><th>Gate</th><th>What Is Confirmed</th><th>Approver(s)</th><th>Date</th><th>Initials</th></tr></thead><tbody id="signBody"></tbody></table></div>
+<h2>ORDER OF OPERATIONS – RECAP</h2><p class="note">Built from the boxes on the chart — edit a box (double-click) and its row updates here.</p><div class="tbl"><table class="xl recap"><thead><tr><th>Step</th><th>Activity</th><th>Type</th><th>Responsible</th><th>Description</th><th>Comments</th></tr></thead><tbody id="recapBody"></tbody></table></div>
+<h2>DEFINITIONS</h2><div class="tbl"><table class="xl defs"><thead><tr><th>Type</th><th>Definition</th></tr></thead><tbody>
+<tr><td class="type trigger">Trigger</td><td>Event that starts the workflow (award notification).</td></tr>
+<tr><td class="type action">Action</td><td>Work performed by the responsible department.</td></tr>
+<tr><td class="type milestone">Milestone</td><td>Key contractual or schedule event (contract signature, baseline published).</td></tr>
+<tr><td class="type review">Review</td><td>Check / confirm before moving forward. No formal approval recorded.</td></tr>
+<tr><td class="type signoff">Sign-Off</td><td>Formal approval by the named person(s). Next step does not start until signed; record date &amp; initials in the Sign-Off Log.</td></tr>
+</tbody></table></div></section>
 </div>
 
 <div id="editor">
@@ -144,7 +174,9 @@
       <option value="review">Review gate (dashed)</option>
       <option value="signoff">Sign-off gate (solid)</option>
     </select>
-    <label>Notes (shown on hover)</label><input id="fNotes" placeholder="Responsible, comments…">
+    <label>Responsible <span style="font-size:11px">(blank = the lane it sits in)</span></label><input id="fResp" placeholder="e.g. PM + PC + AR">
+    <label>Description</label><textarea id="fDesc" style="min-height:50px"></textarea>
+    <label>Comments</label><input id="fComments">
   </div>
   <div id="headFields">
     <label id="headLbl">Name</label><textarea id="fHead" style="min-height:50px"></textarea>
@@ -168,8 +200,10 @@ const KEY='projectSetupWorkflow.v2';
 function cell(step,lane,span=1){ // step 1-based, lane 0-based
   return {x:LABEL_W+(step-1)*COL_W+(COL_W-BW)/2, y:HEAD_H+lane*LANE_H+(LANE_H-BH)/2, w:BW, h:BH+(span-1)*LANE_H};
 }
+const NODE_INFO={"a1": ["Notify the project team of the award; file estimate documents.", "Starts the workflow.", ""], "a2": ["Contract executed; milestone dates locked.", "Locked dates drive the baseline schedule.", ""], "a3": ["Complete the Job Setup Form and send to Accounting.", "Required before a job number can be created.", ""], "a4": ["Accounting creates the job number and job folder.", "All job documents filed here going forward.", ""], "a5": ["Each department begins its readiness activities.", "Runs in parallel across departments.", ""], "a6": ["Each department begins its readiness activities.", "Runs in parallel across departments.", ""], "a7": ["Each department begins its readiness activities.", "Runs in parallel across departments.", ""], "a8": ["Each department begins its readiness activities.", "Runs in parallel across departments.", ""], "a9": ["File the estimate and risk sheet in the job folder.", "Must match the contract value.", ""], "a10": ["Estimate & risk sheet tie to contract value.", "Record in Sign-Off Log.", "Estimator + PC"], "a11": ["Confirm the estimate and build the project risk register.", "", ""], "a12": ["Convert the estimate schedule to P6, or verify/update it to baseline-ready.", "Runs in parallel with Step 8.", ""], "a13": ["Review scope of work; build sub list, equipment list and long-lead materials list.", "Lists feed the Step 8 reviews.", ""], "a14": ["Confirm vendors and lead times for materials.", "Lead times feed the baseline schedule.", ""], "a15": ["Confirm subs, collect W-9's and set up the sub log.", "Sub input feeds the joint review.", ""], "a16": ["Decide own vs. rent for each equipment item.", "Affects cost and availability.", ""], "a17": ["Agree on scope, schedule logic and cost.", "Feeds the Step 10 baseline sign-off.", "PC + Scheduling + Operations"], "a18": ["Break the budget into cost codes / phases.", "Cost codes used for all commitments.", ""], "a19": ["Final schedule review and baseline publish.", "", ""], "a20": ["Baseline ready to publish / submit to owner.", "Record in Sign-Off Log.", "PM"], "a21": ["Set up cost report, billing report and change order log.", "", ""], "a22": ["PM reviews cost report; budget ties to estimate; SOV & billing format checked.", "Review only – no sign-off.", "PM + PC + AR"], "a23": ["Build the progress tracker and commodity curves.", "", ""], "a24": ["Superintendent / Site Manager agrees to progress tracker & commodity curves.", "Record in Sign-Off Log.", "Superintendent / Site Manager"], "a25": ["Review POs against budget, cost codes and lead times.", "Review only – no sign-off.", ""], "a26": ["Review subcontracts for scope, terms and cost codes.", "Review only – no sign-off.", ""], "a27": ["Issue purchase orders for long-lead materials.", "Code to Step 10 cost codes.", ""], "a28": ["Issue executed subcontracts.", "Code to Step 10 cost codes.", ""], "a29": ["Cover site logistics, safety plan, subs and deliveries.", "Confirms readiness before mobilizing.", ""], "a30": ["Mobilize crews and equipment to site.", "End of setup workflow.", ""]};
+const INFO=id=>{const [desc,comments,resp]=NODE_INFO[id]||['','',''];return {desc,comments,resp};};
 function makeTemplate(){
-  const N=(id,step,lane,type,text,notes='',span=1)=>({id,type,text,notes,...cell(step,lane,span)});
+  const N=(id,step,lane,type,text,_notes,span=1)=>({id,type,text,...INFO(id),...cell(step,lane,span)});
   const nodes=[
     N('a1',1,0,'trigger','Award Notification\n(notify team; file estimate docs)','Estimating · Starts the workflow.'),
     N('a2',2,3,'milestone','Contract Signature\n(milestone dates locked)','Operations · Locked dates drive the baseline schedule.'),
@@ -238,7 +272,7 @@ function load(){
 let db=null, live=false, readOnly=false, saveT, needsRender=false, layoutSeen=false;
 const synced={nodes:{},links:{},layout:{}};   // last body known to be in the database, as JSON
 const bodyOf={
-  nodes:n=>({x:n.x,y:n.y,w:n.w,h:n.h,type:n.type,text:n.text,notes:n.notes||''}),
+  nodes:n=>({x:n.x,y:n.y,w:n.w,h:n.h,type:n.type,text:n.text,resp:n.resp||'',desc:n.desc||'',comments:n.comments||''}),
   links:l=>({from:l.from,to:l.to,t:l.t??.5,label:l.label||''}),
 };
 function localDocs(){
@@ -294,7 +328,7 @@ function applyRemote(k,docs){
   if(k==='layout') layoutSeen=true;
   if(drag) needsRender=true; else render();
 }
-function setReadOnly(on){readOnly=on;document.body.classList.toggle('readonly',on);if(on){closeEditor();setConnect(false);}}
+function setReadOnly(on){readOnly=on;document.body.classList.toggle('readonly',on);if(typeof renderSignoffs==='function')renderSignoffs();if(on){closeEditor();setConnect(false);}}
 async function connect(){
   const c=window.claude; if(!c||typeof c.use!=='function'){ $('mode').textContent='Saved in this browser only'; return; }
   let d; try{ d=await c.use('db'); }catch(e){ d=null; }
@@ -307,6 +341,8 @@ async function connect(){
   const seen={nodes:false,links:false,layout:false};
   const onErr=()=>{$('mode').textContent='Connection lost — reload the page';$('mode').classList.remove('live');};
   const checkEmpty=()=>{ if(seen.nodes&&seen.layout) $('seedBar').hidden=!(state.nodes.length===0&&state.lanes.length===0&&!readOnly); };
+  signoffs={}; renderSignoffs();
+  db.collection('signoffs').onSnapshot(sn=>{signoffs={};for(const d of sn.docs) if(d.exists) signoffs[d.id]=d.data();renderSignoffs();},onErr);
   for(const k of ['nodes','links','layout']){
     db.collection(k).onSnapshot(s=>{
       applyRemote(k,s.docs.filter(x=>x.exists));
@@ -359,11 +395,12 @@ function render(){
     const el=document.createElement('div');
     el.className=`node ${n.type}`+(sel?.type==='node'&&sel.id===n.id?' sel':'');
     Object.assign(el.style,{left:n.x+'px',top:n.y+'px',width:n.w+'px',height:n.h+'px'});
-    el.dataset.id=n.id; if(n.notes) el.title=n.notes;
+    el.dataset.id=n.id; if(n.desc) el.title=n.desc;
     el.innerHTML=esc(n.text)+'<div class="port" title="Drag onto another box"></div><div class="rs" title="Resize"></div>';
     board.appendChild(el);
   }
   renderLinks();
+  if(typeof renderTables==='function'&&document.getElementById('recapBody')) renderTables();
 }
 function renderLinks(){
   linkLayer.innerHTML='';
@@ -389,7 +426,7 @@ function openEditor(){
   $('headFields').style.display=isHead?'':'none';
   $('edTitle').textContent={node:'Edit Box',link:'Edit Arrow',lanes:'Edit Lane',steps:'Edit Step'}[t];
   resetDelBtn();
-  if(t==='node'){const n=nodeById(sel.id);$('fText').value=n.text;$('fType').value=n.type;$('fNotes').value=n.notes||'';}
+  if(t==='node'){const n=nodeById(sel.id);$('fText').value=n.text;$('fType').value=n.type;$('fResp').value=n.resp||'';$('fDesc').value=n.desc||'';$('fComments').value=n.comments||'';}
   else if(t==='link') $('fLabel').value=state.links.find(l=>l.id===sel.id).label||'';
   else {$('headLbl').textContent=t==='lanes'?'Lane name':'Step name';$('fHead').value=state[t][sel.i];}
   $('editor').style.display='block';
@@ -399,11 +436,11 @@ function closeEditor(){$('editor').style.display='none';}
 function onField(){
   if(!sel) return;
   if(sel.type==='lanes'||sel.type==='steps'){state[sel.type][sel.i]=$('fHead').value;renderKeepEditor();save();return;}
-  if(sel.type==='node') Object.assign(nodeById(sel.id),{text:$('fText').value,type:$('fType').value,notes:$('fNotes').value});
+  if(sel.type==='node') Object.assign(nodeById(sel.id),{text:$('fText').value,type:$('fType').value,resp:$('fResp').value,desc:$('fDesc').value,comments:$('fComments').value});
   else state.links.find(l=>l.id===sel.id).label=$('fLabel').value;
   render();save();
 }
-['fText','fNotes','fLabel','fHead'].forEach(id=>$(id).addEventListener('input',onField));
+['fText','fResp','fDesc','fComments','fLabel','fHead'].forEach(id=>$(id).addEventListener('input',onField));
 $('fType').addEventListener('change',onField);
 $('closeEd').onclick=closeEditor;
 function renderKeepEditor(){const a=document.activeElement,st=a.selectionStart,en=a.selectionEnd;render();a.focus();try{a.setSelectionRange(st,en);}catch(e){}}
@@ -471,6 +508,7 @@ board.addEventListener('pointermove',e=>{
 board.addEventListener('pointerup',e=>{
   if(!drag) return;
   if(drag.mode==='move') drag.el.classList.remove('dragging');
+  if(drag.mode==='move'||drag.mode==='resize') renderTables();
   if(drag.mode==='link'){
     ghost.style.display='none';
     const t=document.elementsFromPoint(e.clientX,e.clientY).find(el=>el.classList?.contains('node')&&el.dataset.id);
@@ -482,10 +520,12 @@ board.addEventListener('pointerup',e=>{
 });
 board.addEventListener('dblclick',e=>{
   if(readOnly) return;
-  const nodeEl=e.target.closest('.node'), hit=e.target.closest('.hit');
+  // the first click may have re-drawn the chart, so look at what is under the pointer now
+  const under=document.elementFromPoint(e.clientX,e.clientY)||e.target;
+  const nodeEl=under.closest('.node'), hit=under.closest('.hit');
   if(nodeEl){select({type:'node',id:nodeEl.dataset.id});openEditor();return;}
   if(hit){select({type:'link',id:hit.dataset.id});openEditor();return;}
-  const lane=e.target.closest('.lane-label'), step=e.target.closest('.step-head');
+  const lane=under.closest('.lane-label'), step=under.closest('.step-head');
   if(lane){select({type:'lanes',i:+lane.dataset.lane});return openEditor();}
   if(step){select({type:'steps',i:+step.dataset.step});return openEditor();}
   const p=bp(e); if(p.y>HEAD_H&&p.x>LABEL_W) addNode(p.x-BW/2,p.y-BH/2);
@@ -513,7 +553,7 @@ $('stepBtn').onclick=()=>{state.steps.push(`${state.steps.length+1} NEW STEP`);s
 /* ---------- toolbar ---------- */
 function addNode(x,y){
   const w=$('wrap');
-  const n={id:uid('n'),type:'action',text:'New Step',notes:'',w:BW,h:BH,
+  const n={id:uid('n'),type:'action',text:'New Step',resp:'',desc:'',comments:'',w:BW,h:BH,
     x:snap(x??Math.max(LABEL_W+10,w.scrollLeft+LABEL_W+20)),y:snap(y??HEAD_H+10)};
   state.nodes.push(n);select({type:'node',id:n.id});openEditor();save();
 }
@@ -578,6 +618,58 @@ $('pngBtn').onclick=()=>{
   }
   const a=document.createElement('a'); a.href=c.toDataURL('image/png'); a.download='project-setup-workflow.png'; a.click();
 };
+
+/* ---------- recap & sign-off log, generated from the boxes on the chart ---------- */
+const TYPE_LABEL={trigger:'Trigger',action:'Action',milestone:'Milestone',review:'Review',signoff:'Sign-Off'};
+const titleCase=t=>t.toLowerCase().replace(/\b([a-z])/g,m=>m.toUpperCase()).replace(/\bPo'S\b/g,"PO's");
+function rowsFromChart(){
+  const rows=[];
+  for(const n of state.nodes){
+    const cx=n.x+n.w/2, step=Math.floor((cx-LABEL_W)/COL_W);
+    if(step<0||step>=state.steps.length) continue;
+    const l0=Math.max(0,Math.floor((n.y+4-HEAD_H)/LANE_H)), l1=Math.min(state.lanes.length-1,Math.floor((n.y+n.h-4-HEAD_H)/LANE_H));
+    const lanes=state.lanes.slice(l0,l1+1).map(l=>titleCase(l.replace(/\s+/g,' ')));
+    const activity=n.text.replace(/^\s*(REVIEW|SIGN-OFF)\s*:\s*/i,'').split('\n')
+      .filter(l=>!/^\s*[(→]/.test(l)).join(' ').replace(/\s*\([^)]*\)/g,'').replace(/\s+/g,' ').trim();
+    rows.push({id:n.id,step:step+1,activity,type:n.type,resp:n.resp||lanes.join(' + '),desc:n.desc||'',comments:n.comments||'',
+      rank:(n.type==='review'||n.type==='signoff')?1:0,y:n.y});
+  }
+  rows.sort((a,b)=>a.step-b.step||a.rank-b.rank||a.y-b.y);
+  // one row for the same activity done by several lanes (e.g. Begin Fit to Start)
+  const merged=[];
+  for(const r of rows){
+    const m=merged.find(x=>x.step===r.step&&x.activity===r.activity&&x.type===r.type&&x.desc===r.desc&&x.comments===r.comments&&!r.rank);
+    if(m) m.resp+=', '+r.resp; else merged.push({...r});
+  }
+  return merged;
+}
+let lastRecap='', lastSign='';
+function renderTables(){
+  const rows=rowsFromChart();
+  const recap=rows.map(r=>`<tr><td class="c">${r.step}</td><td${r.type==='action'||r.type==='review'?'':' class="b"'}>${esc(r.activity)}</td>`+
+    `<td class="type ${r.type}">${TYPE_LABEL[r.type]}</td><td>${esc(r.resp)}</td><td>${esc(r.desc)}</td><td>${esc(r.comments)}</td></tr>`).join('');
+  if(recap!==lastRecap){ $('recapBody').innerHTML=recap||'<tr><td colspan="6">No boxes on the chart yet.</td></tr>'; lastRecap=recap; }
+  const sign=rows.filter(r=>r.type==='signoff').map(r=>`<tr><td class="c">${r.step}</td><td>${esc(r.activity)}</td><td>${esc(r.desc)}</td><td>${esc(r.resp)}</td>`+
+    `<td><input type="date" id="so-${r.id}-date" data-k="${r.id}" data-f="date" aria-label="${esc(r.activity)} date"></td>`+
+    `<td><input type="text" id="so-${r.id}-initials" data-k="${r.id}" data-f="initials" maxlength="8" aria-label="${esc(r.activity)} initials"></td></tr>`).join('');
+  if(sign!==lastSign){ $('signBody').innerHTML=sign||'<tr><td colspan="6">Add a Sign-off gate box to the chart to list it here.</td></tr>'; lastSign=sign; renderSignoffs(); }
+}
+
+/* sign-off dates & initials, keyed by the sign-off box's id */
+let signoffs={};
+try{signoffs=JSON.parse(localStorage.getItem(KEY+'.signoffs'))||{};}catch(e){}
+function renderSignoffs(){
+  for(const inp of document.querySelectorAll('#signBody input')){
+    if(document.activeElement!==inp) inp.value=signoffs[inp.dataset.k]?.[inp.dataset.f]||'';
+    inp.disabled=readOnly;
+  }
+}
+$('signBody').addEventListener('change',e=>{
+  const inp=e.target; if(!inp.dataset||!inp.dataset.k) return;
+  const k=inp.dataset.k; signoffs[k]={date:'',initials:'',...signoffs[k],[inp.dataset.f]:inp.value.trim()};
+  if(live){ const body={...signoffs[k]}; write('signoffs/'+k,()=>db.doc('signoffs/'+k).set(body)); flash('Sign-off saved for everyone'); }
+  else { try{localStorage.setItem(KEY+'.signoffs',JSON.stringify(signoffs));flash('Saved');}catch(e){flash('Could not save in this browser');} }
+});
 
 function loadOriginal(){state=makeTemplate();sel=null;closeEditor();render();save();$('seedBar').hidden=true;}
 $('seedBtn').onclick=loadOriginal;
