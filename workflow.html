@@ -25,6 +25,16 @@
   button.active{background:var(--orange);border-color:var(--orange);color:#fff;}
   .help{padding:0 20px 8px;color:var(--muted);font-size:12px;}
   .help b{color:var(--green);}
+  .modebar{padding:0 20px 8px;font-size:12px;display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);}
+  #mode::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--box-line);margin-right:6px;}
+  #mode.live{color:var(--green);font-weight:700;}
+  #mode.live::before{background:var(--teal);}
+  .ro-note{display:none;color:var(--orange);font-weight:700;}
+  .readonly .ro-note{display:inline;}
+  .readonly .toolbar,.readonly .help,.readonly .port,.readonly .rs{display:none!important;}
+  .readonly .node,.readonly #links .hit{cursor:default;}
+  #seedBar{margin:0 20px 10px;padding:10px 12px;border:2px dashed var(--orange);font-size:13px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+  [hidden]{display:none!important;}
   #status{color:var(--orange);font-weight:700;margin-left:8px;}
   #wrap{flex:1;overflow:auto;padding:0 20px 12px;}
   #board{position:relative;}
@@ -97,6 +107,8 @@
   <b>Delete</b> removes the selection · double-click empty space to add a box
   <span id="status"></span>
 </div>
+<div class="modebar"><span id="mode">Connecting…</span><span class="ro-note">View only — ask the owner for edit access to make changes.</span></div>
+<div id="seedBar" hidden>This shared chart is empty. <button class="primary" id="seedBtn">Load the original 15-step layout</button></div>
 
 <div id="wrap">
   <div id="board">
@@ -218,10 +230,89 @@ function load(){
   try{const s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.nodes&&s.lanes) return s;}catch(e){}
   return makeTemplate();
 }
-let saveT;
+/* ---------- saving ----------
+   Opened from a shared claude.ai link, the chart lives in the artifact's shared
+   database: one document per box (nodes/<id>), per arrow (links/<id>) and one for
+   the lane/step names (layout/main). Everyone with the link sees edits live.
+   Opened as a plain file, it falls back to this browser's localStorage. */
+let db=null, live=false, readOnly=false, saveT, needsRender=false, layoutSeen=false;
+const synced={nodes:{},links:{},layout:{}};   // last body known to be in the database, as JSON
+const bodyOf={
+  nodes:n=>({x:n.x,y:n.y,w:n.w,h:n.h,type:n.type,text:n.text,notes:n.notes||''}),
+  links:l=>({from:l.from,to:l.to,t:l.t??.5,label:l.label||''}),
+};
+function localDocs(){
+  const m={nodes:{},links:{},layout:{main:JSON.stringify({lanes:state.lanes,steps:state.steps})}};
+  for(const k of ['nodes','links']) for(const it of state[k]) m[k][it.id]=JSON.stringify(bodyOf[k](it));
+  return m;
+}
 function save(){
   clearTimeout(saveT);
-  saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(state));flash('Saved');}catch(e){flash('Could not save in this browser');}},250);
+  saveT=setTimeout(live?pushChanges:()=>{try{localStorage.setItem(KEY,JSON.stringify(state));flash('Saved');}catch(e){flash('Could not save in this browser');}},live?300:250);
+}
+const chains={};
+function write(path,op){
+  chains[path]=(chains[path]||Promise.resolve()).then(op).catch(e=>{
+    if(e?.code==='invalid_argument'){setReadOnly(true);flash('You have view-only access');}
+    else if(e?.code==='quota_exceeded') flash('The chart is full; delete some boxes first');
+    else flash('Could not save — check your connection');
+  });
+}
+function pushChanges(){
+  if(!live||readOnly) return;
+  const mine=localDocs(); let n=0;
+  for(const k of ['nodes','links','layout']){
+    if(k==='layout'&&!layoutSeen) continue;
+    for(const [id,json] of Object.entries(mine[k])) if(synced[k][id]!==json){
+      synced[k][id]=json; n++; write(`${k}/${id}`,()=>db.doc(`${k}/${id}`).set(JSON.parse(json)));
+    }
+    for(const id of Object.keys(synced[k])) if(!(id in mine[k])){
+      delete synced[k][id]; n++; write(`${k}/${id}`,()=>db.doc(`${k}/${id}`).delete());
+    }
+  }
+  if(n) flash('Saved for everyone');
+}
+// Merge a remote collection into state, keeping anything this viewer has changed but not yet saved.
+function applyRemote(k,docs){
+  const mine=localDocs()[k], remote={};
+  // normalise field order so the comparison with this page's own bodies is exact
+  const norm=k==='layout'?(b=>({lanes:b.lanes,steps:b.steps})):bodyOf[k];
+  for(const d of docs) remote[d.id]=JSON.stringify(norm(d.data()));
+  const ids=new Set([...Object.keys(remote),...Object.keys(synced[k])]);
+  for(const id of ids){
+    const dirty=(k==='layout'&&!layoutSeen)?false:(mine[id]!==synced[k][id] || (drag&&drag.n&&drag.n.id===id));
+    if(!dirty){
+      if(k==='layout'){ if(remote[id]){const L=JSON.parse(remote[id]);state.lanes=L.lanes;state.steps=L.steps;} }
+      else{
+        const i=state[k].findIndex(x=>x.id===id);
+        if(remote[id]===undefined){ if(i>=0) state[k].splice(i,1); }
+        else{ const it={id,...JSON.parse(remote[id])}; if(i>=0) state[k][i]=it; else state[k].push(it); }
+      }
+    }
+    if(remote[id]===undefined) delete synced[k][id]; else synced[k][id]=remote[id];
+  }
+  if(k==='layout') layoutSeen=true;
+  if(drag) needsRender=true; else render();
+}
+function setReadOnly(on){readOnly=on;document.body.classList.toggle('readonly',on);if(on){closeEditor();setConnect(false);}}
+async function connect(){
+  const c=window.claude; if(!c||typeof c.use!=='function'){ $('mode').textContent='Saved in this browser only'; return; }
+  let d; try{ d=await c.use('db'); }catch(e){ d=null; }
+  if(!d){ $('mode').textContent='Saved in this browser only'; return; }
+  db=d; live=true; clearTimeout(saveT);
+  state={lanes:[],steps:[],nodes:[],links:[]}; sel=null; closeEditor(); render();
+  $('mode').textContent='Live — everyone with the link sees changes';
+  $('mode').classList.add('live');
+  try{ const u=await c.use('user'); if(u && (await u.can('data.write'))===false) setReadOnly(true); }catch(e){}
+  const seen={nodes:false,links:false,layout:false};
+  const onErr=()=>{$('mode').textContent='Connection lost — reload the page';$('mode').classList.remove('live');};
+  const checkEmpty=()=>{ if(seen.nodes&&seen.layout) $('seedBar').hidden=!(state.nodes.length===0&&state.lanes.length===0&&!readOnly); };
+  for(const k of ['nodes','links','layout']){
+    db.collection(k).onSnapshot(s=>{
+      applyRemote(k,s.docs.filter(x=>x.exists));
+      if(!s.metadata.fromCache){seen[k]=true;checkEmpty();}
+    },onErr);
+  }
 }
 function flash(m){$('status').textContent=m;clearTimeout(flash.t);flash.t=setTimeout(()=>$('status').textContent='',1500);}
 const boardW=()=>LABEL_W+state.steps.length*COL_W, boardH=()=>HEAD_H+state.lanes.length*LANE_H;
@@ -248,6 +339,8 @@ const ptsToD=p=>'M'+p.map(q=>q.join(',')).join(' L');
 
 /* ---------- rendering ---------- */
 function render(){
+  if(sel&&((sel.type==='node'&&!nodeById(sel.id))||(sel.type==='link'&&!state.links.some(l=>l.id===sel.id))||
+     ((sel.type==='lanes'||sel.type==='steps')&&sel.i>=state[sel.type].length))){sel=null;closeEditor();}
   const W=boardW(), H=boardH();
   board.style.width=W+'px'; board.style.height=H+'px';
   svg.setAttribute('width',W); svg.setAttribute('height',H);
@@ -335,6 +428,7 @@ function addLink(from,to){
 /* ---------- pointer interaction ---------- */
 function bp(e){const r=board.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
 board.addEventListener('pointerdown',e=>{
+  if(readOnly) return;
   const p=bp(e), nodeEl=e.target.closest('.node'), hit=e.target.closest('.hit');
   if(hit){
     const l=state.links.find(k=>k.id===hit.dataset.id), r=route(l);
@@ -384,8 +478,10 @@ board.addEventListener('pointerup',e=>{
     render();
   } else if(drag.moved) save();
   drag=null;
+  if(needsRender){needsRender=false;render();}
 });
 board.addEventListener('dblclick',e=>{
+  if(readOnly) return;
   const nodeEl=e.target.closest('.node'), hit=e.target.closest('.hit');
   if(nodeEl){select({type:'node',id:nodeEl.dataset.id});openEditor();return;}
   if(hit){select({type:'link',id:hit.dataset.id});openEditor();return;}
@@ -395,7 +491,7 @@ board.addEventListener('dblclick',e=>{
   const p=bp(e); if(p.y>HEAD_H&&p.x>LABEL_W) addNode(p.x-BW/2,p.y-BH/2);
 });
 document.addEventListener('keydown',e=>{
-  if(e.target.matches('input,textarea,select')) return;
+  if(readOnly||e.target.matches('input,textarea,select')) return;
   if((e.key==='Delete'||e.key==='Backspace')&&sel&&(sel.type==='node'||sel.type==='link')){e.preventDefault();deleteSelected();}
   if(e.key==='Escape'){setConnect(false);select(null);}
 });
@@ -427,7 +523,7 @@ $('connectBtn').onclick=()=>setConnect(!connectMode);
 $('printBtn').onclick=()=>{select(null);setTimeout(()=>window.print(),50);};
 $('resetBtn').onclick=()=>{
   const b=$('resetBtn');
-  if(!b.dataset.armed){b.dataset.armed='1';b.textContent='Click again to reset';b.classList.add('active');
+  if(!b.dataset.armed){b.dataset.armed='1';b.textContent=live?'Click again to reset for everyone':'Click again to reset';b.classList.add('active');
     setTimeout(()=>{b.dataset.armed='';b.textContent='Reset';b.classList.remove('active');},4000);return;}
   b.dataset.armed='';b.textContent='Reset';b.classList.remove('active');
   state=makeTemplate();sel=null;closeEditor();render();save();flash('Reset to original layout');
@@ -483,7 +579,10 @@ $('pngBtn').onclick=()=>{
   const a=document.createElement('a'); a.href=c.toDataURL('image/png'); a.download='project-setup-workflow.png'; a.click();
 };
 
+function loadOriginal(){state=makeTemplate();sel=null;closeEditor();render();save();$('seedBar').hidden=true;}
+$('seedBtn').onclick=loadOriginal;
 render();
+connect();
 </script>
 </body>
 </html>
