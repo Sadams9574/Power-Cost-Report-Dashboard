@@ -149,8 +149,9 @@
     <button class="ed" id="stepBtn">+ Step</button>
     <button id="exportBtn">Export</button>
     <label class="btn ed">Import<input type="file" id="importFile" accept="application/json" hidden></label>
+    <button id="pdfBtn" title="Download the chart and tables as a PDF">⤓ PDF</button>
     <button id="pngBtn">Save Image</button>
-    <button id="printBtn">Print / PDF</button>
+    <button id="printBtn">Print</button>
     <button class="ed" id="resetBtn">Reset</button>
   </div>
 </header>
@@ -648,42 +649,9 @@ $('importFile').onchange=e=>{
   e.target.value='';
 };
 
-/* ---------- PNG export (redraws the chart on a canvas) ---------- */
+/* ---------- PNG export ---------- */
 $('pngBtn').onclick=()=>{
-  const W=boardW(), H=boardH(), TOP=60, k=2;
-  const c=document.createElement('canvas'); c.width=(W+20)*k; c.height=(H+TOP+20)*k;
-  const g=c.getContext('2d'); g.scale(k,k);
-  g.fillStyle='#fff'; g.fillRect(0,0,W+20,H+TOP+20);
-  g.fillStyle=COLORS.green; g.font='bold 22px Arial'; g.fillText('PROJECT SETUP WORKFLOW',10,30);
-  g.fillStyle='#666'; g.font='12px Arial'; g.fillText('Swim lane view — who does what, in sequence',10,48);
-  g.translate(10,TOP);
-  const wrap=(text,x,y,maxW,lh,align)=>{
-    const lines=[]; for(const para of String(text).split('\n')){let cur='';for(const w of para.split(' ')){const t=cur?cur+' '+w:w;if(g.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;}else cur=t;}lines.push(cur);}
-    g.textAlign=align; const y0=y-(lines.length-1)*lh/2; lines.forEach((l,i)=>g.fillText(l,x,y0+i*lh));
-  };
-  g.textBaseline='middle';
-  state.lanes.forEach((s,i)=>{const y=HEAD_H+i*LANE_H;g.strokeStyle=COLORS.grid;g.beginPath();g.moveTo(0,y+LANE_H);g.lineTo(W,y+LANE_H);g.stroke();
-    g.fillStyle=COLORS.green;g.fillRect(0,y,LABEL_W,LANE_H);g.fillStyle='#fff';g.font='bold 11px Arial';wrap(s,8,y+LANE_H/2,LABEL_W-16,13,'left');});
-  g.fillStyle=COLORS.green; g.fillRect(0,0,W,HEAD_H);
-  state.steps.forEach((s,i)=>{g.fillStyle='#fff';g.font='bold 11px Arial';wrap(s,LABEL_W+i*COL_W+COL_W/2,HEAD_H/2,COL_W-10,13,'center');});
-  for(const l of state.links){
-    const r=route(l); if(!r) continue; const p=r.pts, [ex,ey]=p[3];
-    let q=p.length-2; while(q>0&&p[q][0]===ex&&p[q][1]===ey) q--;
-    const ang=Math.atan2(ey-p[q][1],ex-p[q][0]);
-    g.strokeStyle=g.fillStyle=COLORS.arrow; g.lineWidth=1.5; g.setLineDash([]);
-    g.beginPath(); p.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y)); g.stroke();
-    g.beginPath(); g.moveTo(ex,ey); g.lineTo(ex-8*Math.cos(ang-.45),ey-8*Math.sin(ang-.45)); g.lineTo(ex-8*Math.cos(ang+.45),ey-8*Math.sin(ang+.45)); g.fill();
-    if(l.label){g.font='bold 11px Arial';g.fillStyle='#666';g.textAlign='left';g.fillText(l.label,(p[1][0]+p[2][0])/2+4,(p[1][1]+p[2][1])/2-8);}
-  }
-  for(const n of state.nodes){
-    const fill={action:COLORS.green,trigger:COLORS.orange,milestone:COLORS.teal}[n.type]||'#fff';
-    g.fillStyle=fill; g.fillRect(n.x,n.y,n.w,n.h);
-    const gate=n.type==='review'||n.type==='signoff';
-    g.strokeStyle=gate?COLORS.orange:COLORS.line; g.lineWidth=gate?2:1; g.setLineDash(n.type==='review'?[6,4]:[]);
-    g.strokeRect(n.x,n.y,n.w,n.h); g.setLineDash([]);
-    g.fillStyle=gate?COLORS.green:'#fff'; g.font='bold 11px Arial';
-    wrap(n.text,n.x+n.w/2,n.y+n.h/2,n.w-14,13.5,'center');
-  }
+  const c=chartCanvas(); if(!c) return;
   const a=document.createElement('a'); a.href=c.toDataURL('image/png'); a.download='project-setup-workflow.png'; a.click();
 };
 
@@ -805,6 +773,133 @@ async function connectComments(c){
     comments=sn.docs.filter(d=>d.exists).map(d=>({id:d.id,...d.data()})); renderComments();
   },()=>{});
 }
+
+/* ---------- chart image (used by Save Image and PDF) ---------- */
+function chartCanvas(){
+  const W=boardW(), H=boardH(), TOP=60, k=2;
+  const c=document.createElement('canvas'); c.width=(W+20)*k; c.height=(H+TOP+20)*k;
+  const g=c.getContext('2d'); g.scale(k,k);
+  g.fillStyle='#fff'; g.fillRect(0,0,W+20,H+TOP+20);
+  g.fillStyle=COLORS.green; g.font='bold 22px Arial'; g.fillText('PROJECT SETUP WORKFLOW',10,30);
+  g.fillStyle='#666'; g.font='12px Arial'; g.fillText('Swim lane view — who does what, in sequence',10,48);
+  g.translate(10,TOP);
+  const wrap=(text,x,y,maxW,lh,align)=>{
+    const lines=[]; for(const para of String(text).split('\n')){let cur='';for(const w of para.split(' ')){const t=cur?cur+' '+w:w;if(g.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;}else cur=t;}lines.push(cur);}
+    g.textAlign=align; const y0=y-(lines.length-1)*lh/2; lines.forEach((l,i)=>g.fillText(l,x,y0+i*lh));
+  };
+  g.textBaseline='middle';
+  state.lanes.forEach((s,i)=>{const y=HEAD_H+i*LANE_H;g.strokeStyle=COLORS.grid;g.beginPath();g.moveTo(0,y+LANE_H);g.lineTo(W,y+LANE_H);g.stroke();
+    g.fillStyle=COLORS.green;g.fillRect(0,y,LABEL_W,LANE_H);g.fillStyle='#fff';g.font='bold 11px Arial';wrap(s,8,y+LANE_H/2,LABEL_W-16,13,'left');});
+  g.fillStyle=COLORS.green; g.fillRect(0,0,W,HEAD_H);
+  state.steps.forEach((s,i)=>{g.fillStyle='#fff';g.font='bold 11px Arial';wrap(s,LABEL_W+i*COL_W+COL_W/2,HEAD_H/2,COL_W-10,13,'center');});
+  for(const l of state.links){
+    const r=route(l); if(!r) continue; const p=r.pts, [ex,ey]=p[3];
+    let q=p.length-2; while(q>0&&p[q][0]===ex&&p[q][1]===ey) q--;
+    const ang=Math.atan2(ey-p[q][1],ex-p[q][0]);
+    g.strokeStyle=g.fillStyle=COLORS.arrow; g.lineWidth=1.5; g.setLineDash([]);
+    g.beginPath(); p.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y)); g.stroke();
+    g.beginPath(); g.moveTo(ex,ey); g.lineTo(ex-8*Math.cos(ang-.45),ey-8*Math.sin(ang-.45)); g.lineTo(ex-8*Math.cos(ang+.45),ey-8*Math.sin(ang+.45)); g.fill();
+    if(l.label){g.font='bold 11px Arial';g.fillStyle='#666';g.textAlign='left';g.fillText(l.label,(p[1][0]+p[2][0])/2+4,(p[1][1]+p[2][1])/2-8);}
+  }
+  for(const n of state.nodes){
+    const fill={action:COLORS.green,trigger:COLORS.orange,milestone:COLORS.teal}[n.type]||'#fff';
+    g.fillStyle=fill; g.fillRect(n.x,n.y,n.w,n.h);
+    const gate=n.type==='review'||n.type==='signoff';
+    g.strokeStyle=gate?COLORS.orange:COLORS.line; g.lineWidth=gate?2:1; g.setLineDash(n.type==='review'?[6,4]:[]);
+    g.strokeRect(n.x,n.y,n.w,n.h); g.setLineDash([]);
+    g.fillStyle=gate?COLORS.green:'#fff'; g.font='bold 11px Arial';
+    wrap(n.text,n.x+n.w/2,n.y+n.h/2,n.w-14,13.5,'center');
+  }
+  return c;
+}
+
+
+/* ---------- PDF: chart + sign-off log + recap + definitions + comments ---------- */
+const PDF_LIBS=['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'];
+function loadScript(src){return new Promise((ok,bad)=>{if(document.querySelector(`script[src="${src}"]`)) return ok();
+  const el=document.createElement('script');el.src=src;el.onload=ok;el.onerror=()=>bad(new Error('load'));document.head.append(el);});}
+async function buildPdf(){
+  for(const u of PDF_LIBS) await loadScript(u);
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'landscape',unit:'pt',format:'tabloid'});   // 11 x 17 in
+  const PW=doc.internal.pageSize.getWidth(), PH=doc.internal.pageSize.getHeight(), M=28;
+  const GREEN=[30,86,49], ORANGE=[245,166,35], TEAL=[26,188,156], GREY=[102,102,102];
+  const today=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  const heading=(t,y)=>{doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(...GREEN);doc.text(t,M,y);};
+  // page 1: chart
+  const c=chartCanvas();
+  const iw=PW-2*M, ih=iw*c.height/c.width, fit=Math.min(1,(PH-2*M-40)/ih);
+  doc.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',M,M,iw*fit,ih*fit);
+  let ly=M+ih*fit+18, lx=M;
+  const key=[['Action — work performed',GREEN,'fill'],['Review gate (dashed)',ORANGE,'dash'],['Trigger — award notification',ORANGE,'fill'],['Milestone',TEAL,'fill'],['Sign-off gate (solid)',ORANGE,'line']];
+  doc.setFontSize(9);
+  for(const [t,col,kind] of key){
+    const w=150,h=16;
+    if(kind==='fill'){doc.setFillColor(...col);doc.rect(lx,ly,w,h,'F');doc.setTextColor(255,255,255);}
+    else{doc.setDrawColor(...col);doc.setLineWidth(1.5);if(kind==='dash')doc.setLineDashPattern([4,3],0);doc.rect(lx,ly,w,h);doc.setLineDashPattern([],0);doc.setTextColor(...GREEN);}
+    doc.text(t,lx+w/2,ly+11,{align:'center'}); lx+=w+10;
+  }
+  doc.setFont('helvetica','normal');doc.setTextColor(...GREY);doc.text('Snapshot '+today,PW-M,ly+11,{align:'right'});
+  // page 2+: tables
+  doc.addPage(); let y=M+10;
+  const rows=rowsFromChart();
+  const typeCell=(data)=>{ if(data.section!=='body'||data.column.dataKey!=='type') return;
+    const t=data.cell.raw, col={Action:GREEN,Trigger:ORANGE,Milestone:TEAL}[t];
+    data.cell.styles.fontStyle='bold'; data.cell.styles.halign='center';
+    if(col){data.cell.styles.fillColor=col;data.cell.styles.textColor=[255,255,255];}
+    else{data.cell.styles.textColor=GREEN;} };
+  const typeBorder=(data)=>{ if(data.section!=='body'||data.column.dataKey!=='type') return;
+    const t=data.cell.raw; if(t!=='Review'&&t!=='Sign-Off') return;
+    const {x,y,width,height}=data.cell; doc.setDrawColor(...ORANGE); doc.setLineWidth(1.5);
+    if(t==='Review') doc.setLineDashPattern([3,2],0); doc.rect(x+2,y+2,width-4,height-4); doc.setLineDashPattern([],0); };
+  const base={theme:'grid',margin:{left:M,right:M},styles:{fontSize:9,cellPadding:4,lineColor:[166,166,166],lineWidth:.5,textColor:[34,34,34]},
+    headStyles:{fillColor:GREEN,textColor:[255,255,255],halign:'center',fontStyle:'bold'}};
+  heading('SIGN-OFF LOG',y);
+  const sign=rows.filter(r=>r.type==='signoff');
+  doc.autoTable({...base,startY:y+8,
+    columns:[{header:'Step',dataKey:'step'},{header:'Gate',dataKey:'gate'},{header:'What Is Confirmed',dataKey:'what'},{header:'Approver(s)',dataKey:'who'},{header:'Date',dataKey:'date'},{header:'Initials',dataKey:'ini'}],
+    body:sign.map(r=>({step:r.step,gate:r.activity,what:r.desc,who:r.resp,date:signoffs[r.id]?.date||'',ini:signoffs[r.id]?.initials||''})),
+    columnStyles:{step:{halign:'center',cellWidth:40},date:{cellWidth:90},ini:{cellWidth:80}}});
+  y=doc.lastAutoTable.finalY+30;
+  heading('ORDER OF OPERATIONS – RECAP',y);
+  doc.autoTable({...base,startY:y+8,
+    columns:[{header:'Step',dataKey:'step'},{header:'Activity',dataKey:'activity'},{header:'Type',dataKey:'type'},{header:'Responsible',dataKey:'resp'},{header:'Description',dataKey:'desc'},{header:'Comments',dataKey:'comments'}],
+    body:rows.map(r=>({step:r.step,activity:r.activity,type:TYPE_LABEL[r.type],resp:r.resp,desc:r.desc,comments:r.comments})),
+    columnStyles:{step:{halign:'center',cellWidth:40},activity:{cellWidth:220},type:{cellWidth:80},resp:{cellWidth:160},comments:{cellWidth:200}},
+    didParseCell:d=>{typeCell(d); if(d.section==='body'&&d.column.dataKey==='activity'&&['Trigger','Milestone','Sign-Off'].includes(d.row.raw.type)) d.cell.styles.fontStyle='bold';},
+    didDrawCell:typeBorder});
+  y=doc.lastAutoTable.finalY+30; if(y>PH-120){doc.addPage();y=M+10;}
+  heading('DEFINITIONS',y);
+  doc.autoTable({...base,startY:y+8,columns:[{header:'Type',dataKey:'type'},{header:'Definition',dataKey:'def'}],
+    body:[...document.querySelectorAll('table.defs tbody tr')].map(tr=>({type:tr.cells[0].textContent,def:tr.cells[1].textContent})),
+    columnStyles:{type:{cellWidth:100}},didParseCell:typeCell,didDrawCell:typeBorder});
+  if(comments.length){
+    y=doc.lastAutoTable.finalY+30; if(y>PH-120){doc.addPage();y=M+10;}
+    heading('COMMENTS',y);
+    doc.autoTable({...base,startY:y+8,columns:[{header:'Who',dataKey:'who'},{header:'When',dataKey:'when'},{header:'On',dataKey:'on'},{header:'Comment',dataKey:'txt'}],
+      body:comments.map(c=>({who:(!live||(me&&c.author===me))?'You':((names[c.author]&&names[c.author].name)||'Someone'),when:fmtWhen(c.at),on:c.node?boxLabel(c.node):'Whole chart',txt:c.text})),
+      columnStyles:{who:{cellWidth:110},when:{cellWidth:100},on:{cellWidth:200}}});
+  }
+  // page numbers
+  const n=doc.getNumberOfPages();
+  for(let i=1;i<=n;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...GREY);
+    doc.text(`Project Setup Workflow · ${today} · Page ${i} of ${n}`,PW/2,PH-12,{align:'center'});}
+  return doc;
+}
+$('pdfBtn').onclick=async()=>{
+  const b=$('pdfBtn'); if(b.disabled) return; b.disabled=true; const label=b.textContent; b.textContent='Building PDF…';
+  try{
+    const doc=await buildPdf();
+    const name='Project-Setup-Workflow-'+new Date().toISOString().slice(0,10)+'.pdf';
+    const dl=window.claude&&typeof window.claude.use==='function'?await window.claude.use('downloads').catch(()=>null):null;
+    if(dl){
+      try{ await dl.save({filename:name,data:doc.output('blob')}); flash('PDF saved'); }
+      catch(e){ flash(e?.code==='declined'?'PDF not saved':e?.code==='rate_limited'?'A save is already open — try again in a moment':'Could not save the PDF here'); }
+    } else { doc.save(name); flash('PDF downloaded'); }
+  }catch(e){ flash('Could not build the PDF — check your internet connection'); }
+  finally{ b.disabled=false; b.textContent=label; }
+};
 
 function loadOriginal(){state=makeTemplate();sel=null;closeEditor();render();save();$('seedBar').hidden=true;}
 $('seedBtn').onclick=loadOriginal;
