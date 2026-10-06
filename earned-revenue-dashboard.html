@@ -647,7 +647,6 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
   <div class="panel">
     <h2>Monthly % of Each Department's Hours on Project vs Earned Revenue</h2>
     <p style="font-size:12px;color:var(--muted);margin-top:-6px">Each department's own hours charged to Project, by month. Rows with a Jan→Aug shift of at least <span id="mgmtSec2Threshold"></span> are flagged in the table.</p>
-    <canvas id="mgmtSec2Chart" height="100"></canvas>
     <div style="overflow-x:auto;margin-top:14px;">
       <table class="simple overview-month-table" id="mgmtSec2Table" style="white-space:nowrap;">
         <thead><tr id="mgmtSec2TableHead"></tr></thead>
@@ -2787,23 +2786,6 @@ function renderMgmtSection1(){
 function renderMgmtSection2(){
   const s = MGMT.section2;
   document.getElementById('mgmtSec2Threshold').textContent = Math.round(s.threshold*100) + ' points';
-
-  const ctx = document.getElementById('mgmtSec2Chart');
-  if(mgmtCharts.sec2) mgmtCharts.sec2.destroy();
-  mgmtCharts.sec2 = new Chart(ctx, {
-    type:'line',
-    data:{ labels: s.months, datasets: s.rows.map(row=>({
-      label: row.label, data: row.monthly, borderColor: IND_DEPT_COLORS[row.label] || '#999',
-      backgroundColor:'transparent', tension:.25, pointRadius:2,
-    })) },
-    options:{
-      plugins:{
-        legend:{position:'top', labels:{boxWidth:12, font:{size:10}}},
-        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${(c.raw*100).toFixed(1)}%`}},
-      },
-      scales:{ y:{ ticks:{callback:v=>(v*100).toFixed(0)+'%'}, title:{display:true,text:'% of Dept Hours on Project'} } },
-    },
-  });
 
   document.getElementById('mgmtSec2TableHead').innerHTML =
     `<th>Department</th>${s.months.map(m=>`<th>${m}</th>`).join('')}<th>Project Share Δ</th><th>Hours Growth</th><th>What Changed</th>`;
