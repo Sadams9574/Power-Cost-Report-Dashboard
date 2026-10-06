@@ -2755,6 +2755,10 @@ function renderMgmtSection1(){
     label: s.hoursPctRevenue.label, data: s.hoursPctRevenue.monthly,
     borderColor:'#111827', backgroundColor:'transparent', tension:.25, pointRadius:2, borderDash:[4,3],
   });
+  datasets.push({
+    label: 'Earned Revenue ($M)', data: s.revenue.map(v=>v/1e6), yAxisID:'y1',
+    borderColor:'#16a34a', backgroundColor:'transparent', tension:.25, pointRadius:2, borderDash:[2,2],
+  });
   // Plain line chart, not a 100%-stacked one — "Total Hours as % of Revenue" is a different,
   // much smaller metric than the four classification shares, and clicking a legend entry to hide
   // the others lets the y-axis rescale so that line becomes readable on its own.
@@ -2764,9 +2768,12 @@ function renderMgmtSection1(){
     options:{
       plugins:{
         legend:{display:false},
-        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${(c.raw*100).toFixed(3)}%`}},
+        tooltip:{callbacks:{label:c=> c.dataset.yAxisID==='y1' ? `${c.dataset.label}: $${c.raw.toFixed(2)}M` : `${c.dataset.label}: ${(c.raw*100).toFixed(3)}%`}},
       },
-      scales:{ y:{ ticks:{callback:v=>(v*100).toFixed(1)+'%'} } },
+      scales:{
+        y:{ ticks:{callback:v=>(v*100).toFixed(1)+'%'} },
+        y1:{ position:'right', grid:{drawOnChartArea:false}, title:{display:true,text:'Revenue ($M)'}, ticks:{callback:v=>'$'+v.toFixed(0)+'M'} },
+      },
     },
   });
 
@@ -2803,7 +2810,9 @@ function renderMgmtSection1(){
   const hprRow = `<tr><td style="font-weight:600">${hpr.label}</td>${hprCells}` +
     `<td>${(hpr.shareDeltaJanAug*100).toFixed(3)} pts</td><td>${(hpr.avgMonthlyShareDelta*100).toFixed(3)} pts</td><td></td>` +
     `<td style="white-space:normal;max-width:260px;font-size:12px;">${hpr.whatItMeans||''}</td></tr>`;
-  document.querySelector('#mgmtSec1Table tbody').innerHTML = rowsHtml + totalRow + hprRow;
+  const revCells = s.revenue.map(v=>`<td>$${(v/1e6).toFixed(1)}M</td>`).join('');
+  const revRow = `<tr><td style="font-weight:600;color:#16a34a">Earned Revenue ($M)</td>${revCells}<td></td><td></td><td></td><td></td></tr>`;
+  document.querySelector('#mgmtSec1Table tbody').innerHTML = rowsHtml + totalRow + hprRow + revRow;
   document.getElementById('mgmtSec1Footnote').textContent = s.footnote || '';
 }
 
@@ -2899,6 +2908,13 @@ function renderMgmtMixDeptChart(){
       });
     });
   });
+  const revIdx = datasets.length;
+  datasets.push({
+    isRevenue: true, yAxisID:'y1',
+    label: 'Earned Revenue ($M)',
+    data: MGMT.monthlyMix.map(b=>b.revenue/1e6),
+    borderColor:'#16a34a', backgroundColor:'transparent', tension:.25, pointRadius:2, borderDash:[2,2],
+  });
   const ctx = document.getElementById('mgmtMixDeptChart');
   if(mgmtCharts.mixDept) mgmtCharts.mixDept.destroy();
   mgmtCharts.mixDept = new Chart(ctx, {
@@ -2907,9 +2923,12 @@ function renderMgmtMixDeptChart(){
     options:{
       plugins:{
         legend:{display:false},
-        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${(c.raw*100).toFixed(1)}%`}},
+        tooltip:{callbacks:{label:c=> c.dataset.isRevenue ? `${c.dataset.label}: $${c.raw.toFixed(2)}M` : `${c.dataset.label}: ${(c.raw*100).toFixed(1)}%`}},
       },
-      scales:{ y:{ ticks:{callback:v=>(v*100).toFixed(0)+'%'}, title:{display:true,text: multi ? '% of Hours' : `% of ${depts[0]}'s Hours`} } },
+      scales:{
+        y:{ ticks:{callback:v=>(v*100).toFixed(0)+'%'}, title:{display:true,text: multi ? '% of Hours' : `% of ${depts[0]}'s Hours`} },
+        y1:{ position:'right', grid:{drawOnChartArea:false}, title:{display:true,text:'Revenue ($M)'}, ticks:{callback:v=>'$'+v.toFixed(0)+'M'} },
+      },
     },
   });
 
@@ -2917,7 +2936,7 @@ function renderMgmtMixDeptChart(){
   legendEl.innerHTML = datasets.map((d,i)=>`
     <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
       <input type="checkbox" checked data-idx="${i}" style="accent-color:${d.borderColor};width:14px;height:14px;cursor:pointer;">
-      <span style="display:inline-block;width:16px;height:0;border-top:3px ${MGMT_DEPT_BORDER_CSS[depts.indexOf(d.dept) % MGMT_DEPT_BORDER_CSS.length]} ${d.borderColor};"></span>
+      <span style="display:inline-block;width:16px;height:0;border-top:3px ${d.isRevenue ? 'dashed' : MGMT_DEPT_BORDER_CSS[depts.indexOf(d.dept) % MGMT_DEPT_BORDER_CSS.length]} ${d.borderColor};"></span>
       <span>${d.label}</span>
     </label>`).join('');
   legendEl.querySelectorAll('input[type=checkbox]').forEach(cb=>{
@@ -2933,7 +2952,7 @@ function renderMgmtMixDeptChart(){
   document.getElementById('mgmtMixDeptTableHead').innerHTML =
     `<th>${multi?'Department / Category':'Category'}</th>${months.map(m=>`<th>${m}</th>`).join('')}`;
   const rowsHtml = datasets.map((d,i)=>{
-    const cells = d.data.map(v=>`<td>${(v*100).toFixed(1)}%</td>`).join('');
+    const cells = d.isRevenue ? d.data.map(v=>`<td>$${v.toFixed(1)}M</td>`).join('') : d.data.map(v=>`<td>${(v*100).toFixed(1)}%</td>`).join('');
     return `<tr data-idx="${i}"><td style="font-weight:600;color:${d.borderColor}">${d.label}</td>${cells}</tr>`;
   }).join('');
   const totalRows = depts.map(dept=>{
