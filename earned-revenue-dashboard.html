@@ -697,6 +697,13 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
       <select id="mgmtMixDeptSelect" style="font-size:13px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);"></select>
     </div>
     <canvas id="mgmtMixDeptChart" height="100"></canvas>
+    <div id="mgmtMixDeptLegend" style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:10px;font-size:13px;color:var(--text);"></div>
+    <div style="overflow-x:auto;margin-top:14px;">
+      <table class="simple overview-month-table" id="mgmtMixDeptTable" style="white-space:nowrap;">
+        <thead><tr id="mgmtMixDeptTableHead"></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="panel">
@@ -2865,12 +2872,13 @@ function renderMgmtMixTable(){
 function renderMgmtMixDeptChart(){
   const dept = document.getElementById('mgmtMixDeptSelect').value || MGMT_DEPTS[0];
   const months = MGMT.monthlyMix.map(b=>b.month);
-  const datasets = IND_CATEGORIES.map(cat=>({
+  const monthlyByCat = IND_CATEGORIES.map(cat=> MGMT.monthlyMix.map(b=>{
+    const row = b.depts.find(x=>x.label===dept);
+    return row ? row[cat] : 0;
+  }));
+  const datasets = IND_CATEGORIES.map((cat,i)=>({
     label: cat,
-    data: MGMT.monthlyMix.map(b=>{
-      const row = b.depts.find(x=>x.label===dept);
-      return row ? row[cat] : 0;
-    }),
+    data: monthlyByCat[i],
     borderColor: IND_CATEGORY_COLORS[cat],
     backgroundColor: 'transparent',
     tension: .25,
@@ -2883,12 +2891,42 @@ function renderMgmtMixDeptChart(){
     data:{ labels: months, datasets },
     options:{
       plugins:{
-        legend:{position:'top'},
+        legend:{display:false},
         tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${(c.raw*100).toFixed(1)}%`}},
       },
       scales:{ y:{ ticks:{callback:v=>(v*100).toFixed(0)+'%'}, title:{display:true,text:`% of ${dept}'s Hours`} } },
     },
   });
+
+  const legendEl = document.getElementById('mgmtMixDeptLegend');
+  legendEl.innerHTML = datasets.map((d,i)=>`
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+      <input type="checkbox" checked data-idx="${i}" style="accent-color:${d.borderColor};width:14px;height:14px;cursor:pointer;">
+      <span style="display:inline-block;width:14px;height:3px;background:${d.borderColor};"></span>
+      <span>${d.label}</span>
+    </label>`).join('');
+  legendEl.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      mgmtCharts.mixDept.setDatasetVisibility(+cb.dataset.idx, cb.checked);
+      mgmtCharts.mixDept.update();
+      document.querySelectorAll(`#mgmtMixDeptTable tbody tr[data-idx="${cb.dataset.idx}"]`).forEach(tr=>{
+        tr.style.opacity = cb.checked ? '1' : '0.35';
+      });
+    });
+  });
+
+  document.getElementById('mgmtMixDeptTableHead').innerHTML =
+    `<th>Category</th>${months.map(m=>`<th>${m}</th>`).join('')}`;
+  const rowsHtml = IND_CATEGORIES.map((cat,i)=>{
+    const cells = monthlyByCat[i].map(v=>`<td>${(v*100).toFixed(1)}%</td>`).join('');
+    return `<tr data-idx="${i}"><td style="font-weight:600;color:${IND_CATEGORY_COLORS[cat]}">${cat}</td>${cells}</tr>`;
+  }).join('');
+  const totalRow = months.map((_,mi)=>{
+    const sum = IND_CATEGORIES.reduce((acc,_,ci)=>acc+monthlyByCat[ci][mi],0);
+    return `<td>${(sum*100).toFixed(1)}%</td>`;
+  }).join('');
+  document.querySelector('#mgmtMixDeptTable tbody').innerHTML =
+    rowsHtml + `<tr style="font-weight:700;border-top:2px solid var(--border)"><td>Total</td>${totalRow}</tr>`;
 }
 
 function renderMgmtMix(){
