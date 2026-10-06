@@ -691,10 +691,14 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
 
   <div class="panel">
     <h2>Category Mix Over Time, by Department</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Pick a department to see how its G&A / Indirect-Hold / Project / Estimation split actually moves month over month, Jan–Sep 2026. Click a legend entry to isolate one category.</p>
-    <div style="margin-bottom:12px;">
-      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Department</label>
-      <select id="mgmtMixDeptSelect" style="font-size:13px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);"></select>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Click departments to add them together on one chart, or click again to remove them. Solid/dashed/dotted lines distinguish departments; line color is category. Click a legend checkbox to isolate one line.</p>
+    <div style="margin-bottom:12px;position:relative;max-width:360px;">
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Departments</label>
+      <button type="button" id="mgmtMixDeptDropdownBtn" style="width:100%;text-align:left;font-size:13px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <span id="mgmtMixDeptDropdownLabel" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+        <span style="font-size:10px;flex-shrink:0;">▾</span>
+      </button>
+      <div id="mgmtMixDeptDropdownPanel" style="display:none;position:absolute;z-index:10;top:100%;left:0;right:0;background:var(--bg);border:1px solid var(--border);border-radius:6px;margin-top:4px;max-height:240px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.2);"></div>
     </div>
     <canvas id="mgmtMixDeptChart" height="100"></canvas>
     <div id="mgmtMixDeptLegend" style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:10px;font-size:13px;color:var(--text);"></div>
@@ -2869,21 +2873,32 @@ function renderMgmtMixTable(){
   document.getElementById('mgmtMixFootnote').textContent = MGMT.monthlyMixFootnote || '';
 }
 
+let mgmtMixSelectedDepts = [MGMT_DEPTS[0]];
+const MGMT_DEPT_DASHES = [[], [6,3], [2,2], [8,4,2,4], [1,2], [10,4], [4,2,1,2]];
+const MGMT_DEPT_BORDER_CSS = ['solid','dashed','dotted','double','solid','dashed','dotted'];
+
 function renderMgmtMixDeptChart(){
-  const dept = document.getElementById('mgmtMixDeptSelect').value || MGMT_DEPTS[0];
   const months = MGMT.monthlyMix.map(b=>b.month);
-  const monthlyByCat = IND_CATEGORIES.map(cat=> MGMT.monthlyMix.map(b=>{
-    const row = b.depts.find(x=>x.label===dept);
-    return row ? row[cat] : 0;
-  }));
-  const datasets = IND_CATEGORIES.map((cat,i)=>({
-    label: cat,
-    data: monthlyByCat[i],
-    borderColor: IND_CATEGORY_COLORS[cat],
-    backgroundColor: 'transparent',
-    tension: .25,
-    pointRadius: 2,
-  }));
+  const depts = mgmtMixSelectedDepts.length ? mgmtMixSelectedDepts : [MGMT_DEPTS[0]];
+  const multi = depts.length > 1;
+  const datasets = [];
+  depts.forEach((dept,di)=>{
+    IND_CATEGORIES.forEach(cat=>{
+      datasets.push({
+        dept, cat,
+        label: multi ? `${dept} – ${cat}` : cat,
+        data: MGMT.monthlyMix.map(b=>{
+          const row = b.depts.find(x=>x.label===dept);
+          return row ? row[cat] : 0;
+        }),
+        borderColor: IND_CATEGORY_COLORS[cat],
+        borderDash: MGMT_DEPT_DASHES[di % MGMT_DEPT_DASHES.length],
+        backgroundColor: 'transparent',
+        tension: .25,
+        pointRadius: 2,
+      });
+    });
+  });
   const ctx = document.getElementById('mgmtMixDeptChart');
   if(mgmtCharts.mixDept) mgmtCharts.mixDept.destroy();
   mgmtCharts.mixDept = new Chart(ctx, {
@@ -2894,7 +2909,7 @@ function renderMgmtMixDeptChart(){
         legend:{display:false},
         tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${(c.raw*100).toFixed(1)}%`}},
       },
-      scales:{ y:{ ticks:{callback:v=>(v*100).toFixed(0)+'%'}, title:{display:true,text:`% of ${dept}'s Hours`} } },
+      scales:{ y:{ ticks:{callback:v=>(v*100).toFixed(0)+'%'}, title:{display:true,text: multi ? '% of Hours' : `% of ${depts[0]}'s Hours`} } },
     },
   });
 
@@ -2902,7 +2917,7 @@ function renderMgmtMixDeptChart(){
   legendEl.innerHTML = datasets.map((d,i)=>`
     <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
       <input type="checkbox" checked data-idx="${i}" style="accent-color:${d.borderColor};width:14px;height:14px;cursor:pointer;">
-      <span style="display:inline-block;width:14px;height:3px;background:${d.borderColor};"></span>
+      <span style="display:inline-block;width:16px;height:0;border-top:3px ${MGMT_DEPT_BORDER_CSS[depts.indexOf(d.dept) % MGMT_DEPT_BORDER_CSS.length]} ${d.borderColor};"></span>
       <span>${d.label}</span>
     </label>`).join('');
   legendEl.querySelectorAll('input[type=checkbox]').forEach(cb=>{
@@ -2916,17 +2931,61 @@ function renderMgmtMixDeptChart(){
   });
 
   document.getElementById('mgmtMixDeptTableHead').innerHTML =
-    `<th>Category</th>${months.map(m=>`<th>${m}</th>`).join('')}`;
-  const rowsHtml = IND_CATEGORIES.map((cat,i)=>{
-    const cells = monthlyByCat[i].map(v=>`<td>${(v*100).toFixed(1)}%</td>`).join('');
-    return `<tr data-idx="${i}"><td style="font-weight:600;color:${IND_CATEGORY_COLORS[cat]}">${cat}</td>${cells}</tr>`;
+    `<th>${multi?'Department / Category':'Category'}</th>${months.map(m=>`<th>${m}</th>`).join('')}`;
+  const rowsHtml = datasets.map((d,i)=>{
+    const cells = d.data.map(v=>`<td>${(v*100).toFixed(1)}%</td>`).join('');
+    return `<tr data-idx="${i}"><td style="font-weight:600;color:${d.borderColor}">${d.label}</td>${cells}</tr>`;
   }).join('');
-  const totalRow = months.map((_,mi)=>{
-    const sum = IND_CATEGORIES.reduce((acc,_,ci)=>acc+monthlyByCat[ci][mi],0);
-    return `<td>${(sum*100).toFixed(1)}%</td>`;
+  const totalRows = depts.map(dept=>{
+    const cells = months.map((_,mi)=>{
+      const sum = IND_CATEGORIES.reduce((acc,cat)=>{
+        const ds = datasets.find(d=>d.dept===dept && d.cat===cat);
+        return acc + ds.data[mi];
+      },0);
+      return `<td>${(sum*100).toFixed(1)}%</td>`;
+    }).join('');
+    return `<tr style="font-weight:700;border-top:2px solid var(--border)"><td>${multi?`${dept} – Total`:'Total'}</td>${cells}</tr>`;
   }).join('');
-  document.querySelector('#mgmtMixDeptTable tbody').innerHTML =
-    rowsHtml + `<tr style="font-weight:700;border-top:2px solid var(--border)"><td>Total</td>${totalRow}</tr>`;
+  document.querySelector('#mgmtMixDeptTable tbody').innerHTML = rowsHtml + totalRows;
+}
+
+function renderMgmtMixDeptDropdown(){
+  const panel = document.getElementById('mgmtMixDeptDropdownPanel');
+  const btn = document.getElementById('mgmtMixDeptDropdownBtn');
+  if(panel.dataset.initialized) { updateMgmtMixDeptLabel(); return; }
+  panel.dataset.initialized = '1';
+  panel.innerHTML = MGMT_DEPTS.map(d=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;font-size:13px;">
+      <input type="checkbox" value="${d}" ${mgmtMixSelectedDepts.includes(d)?'checked':''}>
+      <span>${d}</span>
+    </label>`).join('');
+  panel.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      if(cb.checked){
+        if(!mgmtMixSelectedDepts.includes(cb.value)) mgmtMixSelectedDepts.push(cb.value);
+      } else if(mgmtMixSelectedDepts.length>1){
+        mgmtMixSelectedDepts = mgmtMixSelectedDepts.filter(d=>d!==cb.value);
+      } else {
+        cb.checked = true; // keep at least one department selected
+      }
+      updateMgmtMixDeptLabel();
+      renderMgmtMixDeptChart();
+    });
+  });
+  btn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    panel.style.display = panel.style.display==='none' ? 'block' : 'none';
+  });
+  document.addEventListener('click', (e)=>{
+    if(!e.target.closest('#mgmtMixDeptDropdownPanel') && !e.target.closest('#mgmtMixDeptDropdownBtn')){
+      panel.style.display = 'none';
+    }
+  });
+  updateMgmtMixDeptLabel();
+}
+
+function updateMgmtMixDeptLabel(){
+  document.getElementById('mgmtMixDeptDropdownLabel').textContent = mgmtMixSelectedDepts.join(', ');
 }
 
 function renderMgmtMix(){
@@ -2937,11 +2996,7 @@ function renderMgmtMix(){
   }
   renderMgmtMixTable();
 
-  const deptSelect = document.getElementById('mgmtMixDeptSelect');
-  if(!deptSelect.options.length){
-    deptSelect.innerHTML = MGMT_DEPTS.map(d=>`<option value="${d}">${d}</option>`).join('');
-    deptSelect.addEventListener('change', renderMgmtMixDeptChart);
-  }
+  renderMgmtMixDeptDropdown();
   renderMgmtMixDeptChart();
 }
 
