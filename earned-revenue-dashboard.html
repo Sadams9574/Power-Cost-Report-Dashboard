@@ -635,6 +635,7 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
     <h2>% of Total Monthly Hours by Classification</h2>
     <p style="font-size:12px;color:var(--muted);margin-top:-6px">As revenue grows, where do the hours go? Click a legend entry to hide/show that line — handy for isolating Total Hours as % of Revenue, which is on a much smaller scale than the four classification shares.</p>
     <canvas id="mgmtSec1Chart" height="100"></canvas>
+    <div id="mgmtSec1Legend" style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:10px;font-size:13px;color:var(--text);"></div>
     <div style="overflow-x:auto;margin-top:14px;">
       <table class="simple overview-month-table" id="mgmtSec1Table" style="white-space:nowrap;">
         <thead><tr id="mgmtSec1TableHead"></tr></thead>
@@ -2751,11 +2752,25 @@ function renderMgmtSection1(){
     data:{ labels: s.months, datasets },
     options:{
       plugins:{
-        legend:{position:'top'},
+        legend:{display:false},
         tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${(c.raw*100).toFixed(3)}%`}},
       },
       scales:{ y:{ ticks:{callback:v=>(v*100).toFixed(1)+'%'} } },
     },
+  });
+
+  const sec1LegendEl = document.getElementById('mgmtSec1Legend');
+  sec1LegendEl.innerHTML = datasets.map((d,i)=>`
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+      <input type="checkbox" checked data-idx="${i}" style="accent-color:${d.borderColor};width:14px;height:14px;cursor:pointer;">
+      <span style="display:inline-block;width:14px;height:3px;background:${d.borderColor};"></span>
+      <span>${d.label}</span>
+    </label>`).join('');
+  sec1LegendEl.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      mgmtCharts.sec1.setDatasetVisibility(+cb.dataset.idx, cb.checked);
+      mgmtCharts.sec1.update();
+    });
   });
 
   document.getElementById('mgmtSec1TableHead').innerHTML =
