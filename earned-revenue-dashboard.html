@@ -633,7 +633,7 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
 
   <div class="panel">
     <h2>% of Total Monthly Hours by Classification</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px">As revenue grows, where do the hours go? Jan–Aug 2026, each month's hours split across the four work classifications.</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">As revenue grows, where do the hours go? Click a legend entry to hide/show that line — handy for isolating Total Hours as % of Revenue, which is on a much smaller scale than the four classification shares.</p>
     <canvas id="mgmtSec1Chart" height="100"></canvas>
     <div style="overflow-x:auto;margin-top:14px;">
       <table class="simple overview-month-table" id="mgmtSec1Table" style="white-space:nowrap;">
@@ -2738,17 +2738,26 @@ function renderMgmtSection1(){
   const s = MGMT.section1;
   const ctx = document.getElementById('mgmtSec1Chart');
   if(mgmtCharts.sec1) mgmtCharts.sec1.destroy();
+  const datasets = s.rows.map(row=>({
+    label: row.label, data: row.monthly, borderColor: IND_CATEGORY_COLORS[row.label] || '#999',
+    backgroundColor:'transparent', tension:.25, pointRadius:2,
+  }));
+  datasets.push({
+    label: s.hoursPctRevenue.label, data: s.hoursPctRevenue.monthly,
+    borderColor:'#111827', backgroundColor:'transparent', tension:.25, pointRadius:2, borderDash:[4,3],
+  });
+  // Plain line chart, not a 100%-stacked one — "Total Hours as % of Revenue" is a different,
+  // much smaller metric than the four classification shares, and clicking a legend entry to hide
+  // the others lets the y-axis rescale so that line becomes readable on its own.
   mgmtCharts.sec1 = new Chart(ctx, {
-    type:'bar',
-    data:{ labels: s.months, datasets: s.rows.map(row=>({
-      label: row.label, data: row.monthly, backgroundColor: IND_CATEGORY_COLORS[row.label] || '#999', stack:'total',
-    })) },
+    type:'line',
+    data:{ labels: s.months, datasets },
     options:{
       plugins:{
         legend:{position:'top'},
-        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${(c.raw*100).toFixed(1)}%`}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${(c.raw*100).toFixed(3)}%`}},
       },
-      scales:{ x:{stacked:true}, y:{stacked:true, max:1, ticks:{callback:v=>(v*100).toFixed(0)+'%'}} },
+      scales:{ y:{ ticks:{callback:v=>(v*100).toFixed(1)+'%'} } },
     },
   });
 
