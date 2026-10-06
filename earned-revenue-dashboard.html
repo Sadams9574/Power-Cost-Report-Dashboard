@@ -645,18 +645,6 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
   </div>
 
   <div class="panel">
-    <h2>Monthly % of Each Department's Hours on Project vs Earned Revenue</h2>
-    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Each department's own hours charged to Project, by month. Rows with a Jan→Aug shift of at least <span id="mgmtSec2Threshold"></span> are flagged in the table.</p>
-    <div style="overflow-x:auto;margin-top:14px;">
-      <table class="simple overview-month-table" id="mgmtSec2Table" style="white-space:nowrap;">
-        <thead><tr id="mgmtSec2TableHead"></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <p style="font-size:11px;color:var(--muted);margin-top:10px;" id="mgmtSec2Footnote"></p>
-  </div>
-
-  <div class="panel">
     <h2>Job-to-Date Category Breakdown (Jan–Aug 2026)</h2>
     <p style="font-size:12px;color:var(--muted);margin-top:-6px">Every department's hours to date, split by charge category.</p>
     <div style="display:flex;gap:24px;flex-wrap:wrap;">
@@ -2793,31 +2781,6 @@ function renderMgmtSection1(){
   document.getElementById('mgmtSec1Footnote').textContent = s.footnote || '';
 }
 
-function renderMgmtSection2(){
-  const s = MGMT.section2;
-  document.getElementById('mgmtSec2Threshold').textContent = Math.round(s.threshold*100) + ' points';
-
-  document.getElementById('mgmtSec2TableHead').innerHTML =
-    `<th>Department</th>${s.months.map(m=>`<th>${m}</th>`).join('')}<th>Project Share Δ</th><th>Hours Growth</th><th>What Changed</th>`;
-  const thresholdPts = s.threshold * 100;
-  const rowsHtml = s.rows.map(row=>{
-    const cells = row.monthly.map(v=>`<td>${(v*100).toFixed(1)}%</td>`).join('');
-    const flagged = Math.abs(row.projectShareDeltaJanAug) >= thresholdPts;
-    const dColor = row.projectShareDeltaJanAug>0?'#16a34a':row.projectShareDeltaJanAug<0?'#d93025':'inherit';
-    return `<tr${flagged?' style="background:rgba(217,48,37,0.07)"':''}><td style="font-weight:600">${row.label}</td>${cells}` +
-      `<td style="color:${dColor};font-weight:600">${mgmtFmtPoints(row.projectShareDeltaJanAug)}</td>` +
-      `<td>${mgmtFmtGrowthPct(row.hoursGrowthJanAug)}</td>` +
-      `<td style="white-space:normal;max-width:280px;font-size:12px;">${row.whatChanged||''}</td></tr>`;
-  }).join('');
-  const t = s.total;
-  const totalCells = t.monthly.map(v=>`<td>${(v*100).toFixed(1)}%</td>`).join('');
-  const totalRow = `<tr style="font-weight:700;border-top:2px solid var(--border)"><td>${t.label}</td>${totalCells}` +
-    `<td>${mgmtFmtPoints(t.projectShareDeltaJanAug)}</td><td>${mgmtFmtGrowthPct(t.hoursGrowthJanAug)}</td>` +
-    `<td style="white-space:normal;max-width:280px;font-size:12px;">${t.whatChanged||''}</td></tr>`;
-  document.querySelector('#mgmtSec2Table tbody').innerHTML = rowsHtml + totalRow;
-  document.getElementById('mgmtSec2Footnote').textContent = s.footnote || '';
-}
-
 function mgmtRenderJtdChart(canvasId, chartSlot, mode){
   const grandTotal = MGMT.jtd[mode==='pct'?'pct':'hours']['Total'].Total;
   const dataKey = mode==='pct' ? 'pct' : 'hours';
@@ -2970,7 +2933,6 @@ function renderMgmtSummary(){
 function renderMgmtAll(){
   renderMgmtHeadline();
   renderMgmtSection1();
-  renderMgmtSection2();
   renderMgmtJtd();
   renderMgmtMix();
   renderMgmtSummary();
