@@ -701,6 +701,16 @@ table.simple tr.group-label td{padding:6px 9px;font-size:14px;font-weight:700;le
   </div>
 
   <div class="panel">
+    <h2>Category Mix Over Time, by Department</h2>
+    <p style="font-size:12px;color:var(--muted);margin-top:-6px">Pick a department to see how its G&A / Indirect-Hold / Project / Estimation split actually moves month over month, Jan–Sep 2026. Click a legend entry to isolate one category.</p>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Department</label>
+      <select id="mgmtMixDeptSelect" style="font-size:13px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);"></select>
+    </div>
+    <canvas id="mgmtMixDeptChart" height="100"></canvas>
+  </div>
+
+  <div class="panel">
     <h2>Monthly Summary</h2>
     <p style="font-size:12px;color:var(--muted);margin-top:-6px">Hours, revenue and revenue-per-hour by month — Sep 2026 is a forecast.</p>
     <canvas id="mgmtSummaryChart" height="100"></canvas>
@@ -2874,6 +2884,35 @@ function renderMgmtMixTable(){
   document.getElementById('mgmtMixFootnote').textContent = MGMT.monthlyMixFootnote || '';
 }
 
+function renderMgmtMixDeptChart(){
+  const dept = document.getElementById('mgmtMixDeptSelect').value || MGMT_DEPTS[0];
+  const months = MGMT.monthlyMix.map(b=>b.month);
+  const datasets = IND_CATEGORIES.map(cat=>({
+    label: cat,
+    data: MGMT.monthlyMix.map(b=>{
+      const row = b.depts.find(x=>x.label===dept);
+      return row ? row[cat] : 0;
+    }),
+    borderColor: IND_CATEGORY_COLORS[cat],
+    backgroundColor: 'transparent',
+    tension: .25,
+    pointRadius: 2,
+  }));
+  const ctx = document.getElementById('mgmtMixDeptChart');
+  if(mgmtCharts.mixDept) mgmtCharts.mixDept.destroy();
+  mgmtCharts.mixDept = new Chart(ctx, {
+    type:'line',
+    data:{ labels: months, datasets },
+    options:{
+      plugins:{
+        legend:{position:'top'},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${(c.raw*100).toFixed(1)}%`}},
+      },
+      scales:{ y:{ ticks:{callback:v=>(v*100).toFixed(0)+'%'}, title:{display:true,text:`% of ${dept}'s Hours`} } },
+    },
+  });
+}
+
 function renderMgmtMix(){
   const select = document.getElementById('mgmtMixMonthSelect');
   if(!select.options.length){
@@ -2881,6 +2920,13 @@ function renderMgmtMix(){
     select.addEventListener('change', renderMgmtMixTable);
   }
   renderMgmtMixTable();
+
+  const deptSelect = document.getElementById('mgmtMixDeptSelect');
+  if(!deptSelect.options.length){
+    deptSelect.innerHTML = MGMT_DEPTS.map(d=>`<option value="${d}">${d}</option>`).join('');
+    deptSelect.addEventListener('change', renderMgmtMixDeptChart);
+  }
+  renderMgmtMixDeptChart();
 }
 
 function renderMgmtSummary(){
@@ -2957,7 +3003,7 @@ document.getElementById('darkToggle').addEventListener('click', ()=>{
   if(activeTab==='earned'){ renderMainChart(); renderCumChart(); }
   else if(activeTab==='indirects'){ renderIndTrendChart(); renderIndComp1(); renderIndComp2(); renderIndComp3(); renderIndComp4(); renderIndSelectedTable(); renderIndCategoryCharts(); }
   else if(activeTab==='overview'){ renderOverviewManpowerChart(); renderOverviewGanttChart(); }
-  else { renderMgmtSection1(); renderMgmtSection2(); renderMgmtJtd(); renderMgmtSummary(); }
+  else { renderMgmtSection1(); renderMgmtJtd(); renderMgmtMixDeptChart(); renderMgmtSummary(); }
 });
 
 // Collapsible panels on the Indirects tab — click a panel's title to tuck away everything
