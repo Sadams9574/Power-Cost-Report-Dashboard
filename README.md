@@ -17,3 +17,9 @@ python3 scripts/extract_baseline.py Henderson_BL_Creation.xlsx data/baseline.jso
 The script checks its weekly spread against the workbook's calculated values and reports any mismatch.
 
 Serve the folder (for example with `python3 -m http.server`) and open `curves.html`.
+
+**Single-file version:** `Henderson_Commodity_Curves.html` has the data built in, so you can open it straight from disk or email it. Rebuild it after refreshing the data:
+
+```
+python3 scripts/build_standalone.py
+```
