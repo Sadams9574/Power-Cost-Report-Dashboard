@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Commodity Curves</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    color-scheme:light;
+    --bg:#f4f4f2;--surface:#fcfcfb;--surface-2:#f0efec;--border:#e2e1dc;
+    --text:#0b0b0b;--text-2:#52514e;--muted:#7a7974;
+    --accent:#2a78d6;--accent-soft:#cde2fb;
+    --s-pv:#2a78d6;--s-civil:#eb6834;--s-ss:#1baf7a;--s-general:#eda100;--s-other:#8a8984;
+    --ref:#9b9a95;--good:#0ca30c;--grid:#e9e8e4;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --bg:#121211;--surface:#1a1a19;--surface-2:#242422;--border:#33332f;
+      --text:#ffffff;--text-2:#c3c2b7;--muted:#8f8e86;
+      --accent:#3987e5;--accent-soft:#1c3a5e;
+      --s-pv:#3987e5;--s-civil:#d95926;--s-ss:#199e70;--s-general:#c98500;--s-other:#77766f;
+      --ref:#6f6e68;--grid:#2a2a27;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#121211;--surface:#1a1a19;--surface-2:#242422;--border:#33332f;
+    --text:#ffffff;--text-2:#c3c2b7;--muted:#8f8e86;
+    --accent:#3987e5;--accent-soft:#1c3a5e;
+    --s-pv:#3987e5;--s-civil:#d95926;--s-ss:#199e70;--s-general:#c98500;--s-other:#77766f;
+    --ref:#6f6e68;--grid:#2a2a27;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+  header{padding:16px 24px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+  header h1{margin:0;font-size:20px;}
+  header .sub{color:var(--text-2);font-size:13px;margin-top:2px;}
+  a{color:var(--accent);}
+  .tabs{display:flex;gap:4px;}
+  .tab{border:1px solid var(--border);background:var(--surface);color:var(--text-2);padding:7px 14px;border-radius:6px;cursor:pointer;font:inherit;}
+  .tab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;padding:16px 24px 0;}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+  .kpi .label{color:var(--text-2);font-size:12px;}
+  .kpi .value{font-size:22px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums;}
+  .kpi .note{color:var(--muted);font-size:12px;margin-top:2px;}
+  main{padding:16px 24px 40px;}
+  .layout{display:grid;grid-template-columns:330px minmax(0,1fr);gap:16px;align-items:start;}
+  @media(max-width:900px){.layout{grid-template-columns:1fr;}}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;}
+  .panel h2{margin:0 0 4px;font-size:15px;}
+  .panel .hint{color:var(--text-2);font-size:12px;margin:0 0 10px;}
+  .side{position:sticky;top:12px;}
+  @media(max-width:900px){.side{position:static;}}
+  .filters{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;}
+  input[type=search],select{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font:inherit;}
+  input[type=search]{flex:1 1 100%;min-width:0;}
+  .filters select{flex:1 1 0;min-width:0;}
+  .list{max-height:62vh;overflow:auto;border-top:1px solid var(--border);margin:0 -16px -14px;}
+  .item{display:grid;grid-template-columns:10px 1fr auto;gap:8px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);cursor:pointer;}
+  .item:hover{background:var(--surface-2);}
+  .item[aria-current="true"]{background:var(--accent-soft);}
+  .item .sw{width:10px;height:10px;border-radius:3px;}
+  .item .t{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .item .m{font-size:12px;color:var(--text-2);}
+  .item .r{text-align:right;font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .chip{display:inline-block;font-size:11px;padding:1px 6px;border-radius:10px;border:1px solid var(--border);color:var(--text-2);margin-top:2px;}
+  .chip.stamped{border-color:var(--good);color:var(--text);}
+  .chip.stamped::before{content:"✓ ";color:var(--good);font-weight:700;}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
+  .head h2{font-size:18px;}
+  .facts{display:flex;gap:18px;flex-wrap:wrap;color:var(--text-2);font-size:13px;margin-top:6px;}
+  .facts b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums;}
+  .curves{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 4px;}
+  .cbtn{border:1px solid var(--border);background:var(--surface);color:var(--text);padding:6px 10px;border-radius:6px;cursor:pointer;font:inherit;font-size:13px;display:flex;align-items:center;gap:6px;}
+  .cbtn svg{display:block;}
+  .cbtn[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--accent-soft);}
+  .custom{display:none;gap:18px;flex-wrap:wrap;align-items:center;margin:8px 0;font-size:13px;color:var(--text-2);}
+  .custom.on{display:flex;}
+  .custom input{vertical-align:middle;}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .btn{border:1px solid var(--border);background:var(--surface);color:var(--text);padding:7px 12px;border-radius:6px;cursor:pointer;font:inherit;font-size:13px;}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+  .btn:disabled{opacity:.5;cursor:default;}
+  .toggle{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+  .toggle button{border:0;background:var(--surface);color:var(--text-2);padding:5px 10px;font:inherit;font-size:12px;cursor:pointer;}
+  .toggle button[aria-pressed="true"]{background:var(--surface-2);color:var(--text);font-weight:600;}
+  .chart-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;}
+  .chart-head h3{margin:0;font-size:13px;font-weight:600;}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-2);}
+  .legend span{display:inline-flex;align-items:center;gap:5px;}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;}
+  .legend i.line{height:2px;width:14px;border-radius:1px;}
+  .legend i.dash{height:0;width:14px;border-top:2px dashed var(--ref);background:none;}
+  .chart-box{position:relative;height:250px;}
+  .chart-box.short{height:210px;}
+  .table-wrap{max-height:340px;overflow:auto;}
+  table{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums;}
+  th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;}
+  th:first-child,td:first-child{text-align:left;}
+  th{color:var(--text-2);font-weight:600;position:sticky;top:0;background:var(--surface);}
+  tr.hol td{color:var(--muted);}
+  details summary{cursor:pointer;color:var(--text-2);font-size:13px;margin-top:4px;}
+  .subtot{display:grid;grid-template-columns:1fr auto auto;gap:2px 12px;font-size:12px;color:var(--text-2);padding:8px 0 10px;font-variant-numeric:tabular-nums;}
+  .subtot b{color:var(--text);font-weight:600;text-align:right;}
+  .subtot .tot{border-top:1px solid var(--border);padding-top:3px;}
+  .subtot span:nth-child(3n+2){text-align:right;}
+  .badge{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;background:var(--surface-2);color:var(--text-2);margin-left:6px;}
+  .badge.pd{background:var(--accent-soft);color:var(--text);}
+  table.matrix td:first-child{font-weight:600;}
+  table.matrix tr.total td{font-weight:700;border-top:2px solid var(--border);}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--surface);padding:9px 16px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;}
+  .toast.on{opacity:1;}
+  .hidden{display:none !important;}
+  @media(max-width:600px){header,main,.kpis{padding-left:16px;padding-right:16px;}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Commodity Curves — Henderson Baseline</h1>
+    <div class="sub" id="meta">Loading…</div>
+  </div>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-view="code">Cost codes</button>
+    <button class="tab" role="tab" aria-selected="false" data-view="rollup">Project roll-up</button>
+    <a class="tab" href="index.html" style="text-decoration:none">Cost dashboard</a>
+  </div>
+</header>
+
+<div class="kpis" id="kpis"></div>
+
+<main>
+  <!-- Cost code view -->
+  <section id="view-code" class="layout">
+    <div class="panel side">
+      <h2>Cost codes</h2>
+      <p class="hint">Dates and hours come from Sheet1 (columns G, H, and I).</p>
+      <div class="filters">
+        <input type="search" id="q" placeholder="Search code or activity…">
+        <select id="typ">
+          <option value="">PD + NP</option>
+          <option value="PD">Productive</option>
+          <option value="NP">Non-prod.</option>
+        </select>
+        <select id="sec"></select>
+        <select id="sort">
+          <option value="start">By start</option>
+          <option value="hours">By hours</option>
+          <option value="code">By code</option>
+        </select>
+      </div>
+      <div class="subtot" id="subtot"></div>
+      <div class="list" id="list"></div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="head">
+          <div>
+            <h2 id="cTitle"></h2>
+            <div class="facts" id="cFacts"></div>
+          </div>
+          <div class="actions">
+            <button class="btn" id="resetBtn">Reset to workbook</button>
+            <button class="btn primary" id="stampBtn">Stamp curve</button>
+          </div>
+        </div>
+        <div class="curves" id="curveBtns"></div>
+        <div class="custom" id="customCtl">
+          <label>Peak at <input type="range" id="peak" min="5" max="95" step="5"> <b id="peakV"></b> of duration</label>
+          <label>Shape <input type="range" id="shape" min="2.5" max="14" step="0.5"> <b id="shapeV"></b></label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="chart-head">
+          <h3 id="wTitle">Weekly hours</h3>
+          <div class="toggle" id="unitToggle">
+            <button aria-pressed="true" data-unit="hrs">Hours</button>
+            <button aria-pressed="false" data-unit="fte">Manpower (FTE)</button>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="cWeekly"></canvas></div>
+      </div>
+
+      <div class="panel">
+        <div class="chart-head">
+          <h3>Cumulative % complete</h3>
+          <div class="legend" id="cLegend"></div>
+        </div>
+        <div class="chart-box short"><canvas id="cCum"></canvas></div>
+        <details>
+          <summary>Weekly table</summary>
+          <div class="table-wrap"><table id="cTable"></table></div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- Roll-up view -->
+  <section id="view-rollup" class="hidden">
+    <div class="panel">
+      <div class="chart-head">
+        <div>
+          <h3 id="rTitle">Weekly hours by section</h3>
+          <div class="legend" id="rLegend" style="margin-top:6px"></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div class="toggle" id="typeToggle">
+          <button aria-pressed="true" data-type="">All</button>
+          <button aria-pressed="false" data-type="PD">Productive</button>
+          <button aria-pressed="false" data-type="NP">Non-productive</button>
+        </div>
+        <div class="toggle" id="unitToggle2">
+          <button aria-pressed="true" data-unit="hrs">Hours</button>
+          <button aria-pressed="false" data-unit="fte">Manpower (FTE)</button>
+        </div>
+        </div>
+      </div>
+      <div class="chart-box" style="height:300px"><canvas id="rWeekly"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="chart-head">
+        <div>
+          <h3>Project baseline % complete (productive hours only)</h3>
+          <p class="hint" style="margin:2px 0 0">Earned from the PD-WHC and PD-SUB codes. Non-productive (NP) hours are left out of the % complete.</p>
+        </div>
+        <div class="legend">
+          <span><i class="line" style="background:var(--accent)"></i>Current curves</span>
+          <span><i class="dash"></i>Workbook baseline</span>
+        </div>
+      </div>
+      <div class="chart-box short"><canvas id="rCum"></canvas></div>
+      <details>
+        <summary>Weekly table</summary>
+        <div class="table-wrap"><table id="rTable"></table></div>
+      </details>
+    </div>
+    <div class="panel">
+      <h2>Hours subtotals: productive vs non-productive</h2>
+      <p class="hint">Hours by section and category. The productive column drives the project % complete.</p>
+      <div class="table-wrap" style="max-height:none"><table class="matrix" id="mTable"></table></div>
+    </div>
+    <div class="panel">
+      <h2>Export</h2>
+      <p class="hint">Stamped curves are saved in this browser. To keep them or share them, export the stamps file and import it on another computer.</p>
+      <div class="actions">
+        <button class="btn primary" data-export="hours">Weekly hours by code (CSV)</button>
+        <button class="btn" data-export="pct">Cumulative % by code (CSV)</button>
+        <button class="btn" data-export="project">Project % complete (CSV)</button>
+        <button class="btn" data-export="stamps">Stamps file (JSON)</button>
+        <label class="btn">Import stamps<input type="file" id="importStamps" accept=".json" hidden></label>
+      </div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const STORE_KEY = 'henderson-commodity-curves-v1';
+const SECTIONS = ['PV','Civil','SS','General'];
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const secVar = s => ({PV:'--s-pv',Civil:'--s-civil',SS:'--s-ss',General:'--s-general'}[s] || '--s-other');
+const fmt0 = n => Math.round(n).toLocaleString('en-US');
+const fmt1 = n => n.toLocaleString('en-US',{maximumFractionDigits:1, minimumFractionDigits:1});
+const pct = n => (n*100).toFixed(1) + '%';
+const dShort = iso => { const [y,m,d] = iso.split('-'); return `${+m}/${+d}/${y.slice(2)}`; };
+
+// Curve library. Standard and Bell are the workbook's own Weights formulas;
+// the others are beta-shaped profiles: mode = where the peak sits, c = tightness.
+const CURVES = {
+  standard: {label:'Standard',   desc:'Workbook default: 3-week ramp up and down, flat middle'},
+  bell:     {label:'Bell',       desc:'Workbook Bell: normal curve centered on the duration'},
+  linear:   {label:'Linear',     desc:'Even hours every working week', mode:.5, c:2},
+  front:    {label:'Front',      desc:'Peak at 25% of duration', mode:.25, c:6},
+  mid:      {label:'Mid',        desc:'Peak at 50% of duration (S-curve)', mode:.5, c:6},
+  midback:  {label:'Mid-back',   desc:'Peak at 65% of duration', mode:.65, c:6},
+  back:     {label:'Back',       desc:'Peak at 80% of duration', mode:.8, c:6},
+  custom:   {label:'Custom',     desc:'Set the peak and shape yourself'},
+};
+
+function betaWeight(x, mode, c){
+  const a = 1 + mode*(c-2), b = 1 + (1-mode)*(c-2);
+  return Math.pow(x, a-1) * Math.pow(1-x, b-1);
+}
+
+let D, weeks, factor, stamps = {}, current = null, unit = 'hrs', rollType = '';
+const isPD = c => /^PD/i.test(c.category || '');
+const typeOf = c => isPD(c) ? 'PD' : 'NP';
+const TYPE_LABEL = {PD:'Productive', NP:'Non-productive'};
+const charts = {};
+
+function loadStamps(){ try { stamps = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch(e){ stamps = {}; } }
+function saveStamps(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(stamps)); } catch(e){} }
+
+// The curve a code currently uses: its stamp, else its workbook curve.
+function workbookSetting(c){ return {curve: c.curve === 'Bell' ? 'bell' : 'standard'}; }
+function settingFor(c){ return stamps[c.code] || workbookSetting(c); }
+
+// Active weeks match the workbook: week date >= start, <= finish+6, holiday factor > 0.
+function activeWeeks(c){
+  const s = new Date(c.start+'T00:00'), f = new Date(c.finish+'T00:00'); f.setDate(f.getDate()+6);
+  const idx = [];
+  weeks.forEach((w,i)=>{ const d = new Date(w+'T00:00'); if (d>=s && d<=f && factor[i]>0) idx.push(i); });
+  return idx;
+}
+
+function spread(c, setting){
+  const idx = c._idx || (c._idx = activeWeeks(c));
+  const n = idx.length, out = new Float64Array(weeks.length);
+  if (!n) return out;
+  let tot = 0;
+  idx.forEach((i,j)=>{
+    const k = j+1; let w;
+    const s = setting.curve;
+    if (s === 'standard') w = n<=6 ? 1 : Math.min(1, k/3, (n-k+1)/3);
+    else if (s === 'bell') w = Math.exp(-0.5*Math.pow((k-(n+1)/2)/Math.max(n/6,0.5),2));
+    else {
+      const p = s === 'custom' ? {mode:(setting.peak??50)/100, c:setting.shape??6} : CURVES[s];
+      w = betaWeight((k-0.5)/n, p.mode, p.c);
+    }
+    w *= factor[i]; out[i] = w; tot += w;
+  });
+  for (const i of idx) out[i] = c.hours * out[i] / tot;
+  return out;
+}
+
+function cumulative(arr, total){
+  const out = new Array(arr.length); let s = 0;
+  for (let i=0;i<arr.length;i++){ s += arr[i]; out[i] = total ? s/total : 0; }
+  return out;
+}
+
+// Small inline icon of each curve shape for the buttons.
+function curveIcon(key){
+  const fake = {hours:1, _idx:[...Array(20).keys()]};
+  const saveF = factor; factor = new Array(20).fill(1);
+  const ws = weeks; weeks = new Array(20).fill('');
+  const v = spread(fake, key==='custom' ? {curve:'custom', peak:35, shape:4} : {curve:key});
+  factor = saveF; weeks = ws;
+  const max = Math.max(...v);
+  const pts = Array.from(v).map((y,i)=>`${(i/19*30).toFixed(1)},${(14-(y/max)*12).toFixed(1)}`).join(' ');
+  return `<svg width="30" height="16" viewBox="0 0 30 16" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+}
+
+function toast(msg){ const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('on'), 1800); }
+
+/* ---------- KPIs ---------- */
+function projectSpread(useWorkbook, keep = () => true){
+  const tot = new Float64Array(weeks.length), bySec = {};
+  for (const c of D.codes){
+    if (!keep(c)) continue;
+    const v = spread(c, useWorkbook ? workbookSetting(c) : settingFor(c));
+    const s = SECTIONS.includes(c.section) ? c.section : 'Other';
+    bySec[s] = bySec[s] || new Float64Array(weeks.length);
+    for (let i=0;i<v.length;i++){ tot[i]+=v[i]; bySec[s][i]+=v[i]; }
+  }
+  return {tot, bySec};
+}
+
+function renderKPIs(){
+  const {tot} = projectSpread(false);
+  let peak = 0, pi = 0; tot.forEach((v,i)=>{ if (v>peak){peak=v;pi=i;} });
+  const total = D.codes.reduce((s,c)=>s+c.hours,0);
+  const nz = [...tot.keys()].filter(i=>tot[i]>0.01);
+  const nStamped = D.codes.filter(c=>stamps[c.code]).length;
+  const pdH = D.codes.filter(isPD).reduce((s,c)=>s+c.hours,0);
+  const k = [
+    ['Total hours', fmt0(total), `${D.codes.length} cost codes`],
+    ['Productive hours', fmt0(pdH), `${(pdH/total*100).toFixed(1)}% of total · drives the baseline %`],
+    ['Non-productive hours', fmt0(total-pdH), `${((total-pdH)/total*100).toFixed(1)}% of total`],
+    ['Peak manpower', fmt0(peak/D.hoursPerFTE) + ' FTE', `Week ending ${dShort(weeks[pi])} · ${fmt0(peak)} hrs`],
+    ['Duration', `${nz.length} weeks`, `${dShort(weeks[nz[0]])} to ${dShort(weeks[nz[nz.length-1]])}`],
+    ['Curves stamped', `${nStamped} / ${D.codes.length}`, nStamped ? 'Unstamped codes use the workbook curve' : 'All codes use the workbook curve'],
+  ];
+  document.getElementById('kpis').innerHTML = k.map(([l,v,n])=>`<div class="kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="note">${n}</div></div>`).join('');
+}
+
+/* ---------- Cost code list ---------- */
+function renderList(){
+  const q = document.getElementById('q').value.toLowerCase();
+  const sec = document.getElementById('sec').value;
+  const sort = document.getElementById('sort').value;
+  const typ = document.getElementById('typ').value;
+  let rows = D.codes.filter(c => (!sec || c.section===sec) && (!typ || typeOf(c)===typ) && (c.code+' '+c.activity).toLowerCase().includes(q));
+  const sub = t => rows.filter(c=>typeOf(c)===t);
+  const sum = a => a.reduce((s,c)=>s+c.hours,0);
+  document.getElementById('subtot').innerHTML = ['PD','NP'].map(t=>
+      `<span>${TYPE_LABEL[t]}</span><span>${sub(t).length} codes</span><b>${fmt0(sum(sub(t)))} hrs</b>`).join('') +
+    `<span class="tot">Subtotal shown</span><span class="tot">${rows.length} codes</span><b class="tot">${fmt0(sum(rows))} hrs</b>`;
+  rows.sort(sort==='hours' ? (a,b)=>b.hours-a.hours : sort==='code' ? (a,b)=>a.code.localeCompare(b.code) : (a,b)=>a.start.localeCompare(b.start)||b.hours-a.hours);
+  document.getElementById('list').innerHTML = rows.map(c=>{
+    const st = stamps[c.code];
+    const cur = CURVES[settingFor(c).curve].label;
+    return `<div class="item" data-code="${c.code}" aria-current="${current===c}">
+      <span class="sw" style="background:var(${secVar(c.section)})" title="${c.section}"></span>
+      <div style="min-width:0"><div class="t">${c.activity}</div>
+        <div class="m">${dShort(c.start)} – ${dShort(c.finish)}<span class="badge ${isPD(c)?'pd':''}">${isPD(c)?'PD':'NP'}</span></div>
+        <span class="chip ${st?'stamped':''}">${st ? 'Stamped · '+cur : cur}</span></div>
+      <div class="r">${fmt0(c.hours)} hrs<br>${c.section}</div>
+    </div>`;
+  }).join('') || '<p class="hint" style="padding:12px 16px">No cost codes match.</p>';
+}
+
+/* ---------- Cost code detail ---------- */
+let draft = null; // unsaved curve choice for the current code
+
+function selectCode(code){
+  current = D.codes.find(c=>c.code===code);
+  draft = {...settingFor(current)};
+  renderList(); renderDetail();
+}
+
+function renderDetail(){
+  const c = current, idx = c._idx || (c._idx = activeWeeks(c));
+  document.getElementById('cTitle').textContent = c.activity;
+  const hol = idx.filter(i=>factor[i]<1).length;
+  document.getElementById('cFacts').innerHTML =
+    `<span>Code <b>${c.code}</b></span><span>Section <b>${c.section}</b></span><span>Category <b>${c.category}</b> (${TYPE_LABEL[typeOf(c)]})</span>
+     <span>Start <b>${dShort(c.start)}</b></span><span>Finish <b>${dShort(c.finish)}</b></span>
+     <span>Hours <b>${fmt0(c.hours)}</b></span><span>Working weeks <b>${idx.length}</b>${hol?` (${hol} holiday-reduced)`:''}</span>
+     <span>Workbook curve <b>${c.curve}</b></span>`;
+
+  document.getElementById('curveBtns').innerHTML = Object.entries(CURVES).map(([k,v])=>
+    `<button class="cbtn" data-curve="${k}" aria-pressed="${draft.curve===k}" title="${v.desc}">${curveIcon(k)}${v.label}</button>`).join('');
+  const cc = document.getElementById('customCtl');
+  cc.classList.toggle('on', draft.curve==='custom');
+  if (draft.curve==='custom'){
+    draft.peak ??= 50; draft.shape ??= 6;
+    document.getElementById('peak').value = draft.peak; document.getElementById('peakV').textContent = draft.peak+'%';
+    document.getElementById('shape').value = draft.shape; document.getElementById('shapeV').textContent = draft.shape<=3 ? 'Flat' : draft.shape>=10 ? 'Sharp' : 'Medium';
+  }
+
+  const saved = stamps[c.code];
+  const dirty = JSON.stringify(draft) !== JSON.stringify(settingFor(c));
+  const stampBtn = document.getElementById('stampBtn');
+  stampBtn.textContent = saved && !dirty ? '✓ Stamped' : 'Stamp curve';
+  stampBtn.disabled = !!saved && !dirty;
+  document.getElementById('resetBtn').disabled = !saved && !dirty;
+
+  drawCodeCharts();
+}
+
+function chartBase(){
+  const grid = css('--grid'), txt = css('--text-2');
+  return {
+    responsive:true, maintainAspectRatio:false, animation:false,
+    interaction:{mode:'index', intersect:false},
+    plugins:{legend:{display:false}, tooltip:{backgroundColor:css('--surface'), titleColor:css('--text'), bodyColor:css('--text'), borderColor:css('--border'), borderWidth:1, padding:10, boxPadding:4}},
+    scales:{
+      x:{grid:{display:false}, ticks:{color:txt, maxRotation:0, autoSkipPadding:14, font:{size:11}}, border:{color:css('--border')}},
+      y:{grid:{color:grid}, ticks:{color:txt, font:{size:11}}, border:{display:false}, beginAtZero:true},
+    },
+  };
+}
+
+function setChart(id, cfg){
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), cfg);
+}
+
+function drawCodeCharts(){
+  const c = current, idx = c._idx;
+  const lo = Math.max(0, idx[0]-2), hi = Math.min(weeks.length-1, idx[idx.length-1]+2);
+  const range = [...Array(hi-lo+1).keys()].map(i=>i+lo);
+  const labels = range.map(i=>dShort(weeks[i]));
+  const div = unit==='fte' ? D.hoursPerFTE : 1;
+  const v = spread(c, draft), wb = spread(c, workbookSetting(c));
+  const cum = cumulative(v, c.hours), cumWb = cumulative(wb, c.hours);
+  const color = css(secVar(c.section));
+  const uLabel = unit==='fte' ? 'FTE' : 'hrs';
+  document.getElementById('wTitle').textContent = unit==='fte' ? `Weekly manpower (FTE at ${D.hoursPerFTE} hrs/week)` : 'Weekly hours';
+
+  const base = chartBase();
+  setChart('cWeekly', {type:'bar', data:{labels, datasets:[{
+      label: CURVES[draft.curve].label, data: range.map(i=>v[i]/div),
+      backgroundColor: color, borderRadius:{topLeft:4,topRight:4}, borderSkipped:'bottom', barPercentage:.82, categoryPercentage:.9}]},
+    options:{...base, plugins:{...base.plugins, tooltip:{...base.plugins.tooltip, callbacks:{
+      title: items => `Week ending ${weeks[range[items[0].dataIndex]]}`,
+      label: it => ` ${fmt1(it.raw)} ${uLabel}`,
+      afterLabel: it => { const f = factor[range[it.dataIndex]]; return f<1 ? ` Holiday week (factor ${f})` : ''; },
+    }}}}});
+
+  const ds = [{label:CURVES[draft.curve].label, data:range.map(i=>cum[i]*100), borderColor:color, backgroundColor:color, borderWidth:2, pointRadius:0, pointHoverRadius:5, cubicInterpolationMode:'monotone'}];
+  const showWb = draft.curve !== workbookSetting(c).curve;
+  if (showWb) ds.push({label:'Workbook ('+c.curve+')', data:range.map(i=>cumWb[i]*100), borderColor:css('--ref'), borderDash:[5,4], borderWidth:2, pointRadius:0, pointHoverRadius:4, cubicInterpolationMode:'monotone'});
+  document.getElementById('cLegend').innerHTML =
+    `<span><i class="line" style="background:${color}"></i>${CURVES[draft.curve].label}</span>` +
+    (showWb ? `<span><i class="dash"></i>Workbook (${c.curve})</span>` : '');
+  setChart('cCum', {type:'line', data:{labels, datasets:ds},
+    options:{...base, scales:{...base.scales, y:{...base.scales.y, max:100, ticks:{...base.scales.y.ticks, callback:x=>x+'%', stepSize:25}}},
+      plugins:{...base.plugins, tooltip:{...base.plugins.tooltip, callbacks:{
+        title: items => `Week ending ${weeks[range[items[0].dataIndex]]}`,
+        label: it => ` ${it.dataset.label}: ${it.raw.toFixed(1)}%`}}}}});
+
+  let rows = '<thead><tr><th>Week ending</th><th>Holiday factor</th><th>Hours</th><th>FTE</th><th>Cum hours</th><th>% complete</th></tr></thead><tbody>';
+  let s = 0;
+  for (const i of range){ s += v[i];
+    rows += `<tr class="${factor[i]<1?'hol':''}"><td>${weeks[i]}</td><td>${factor[i]}</td><td>${fmt1(v[i])}</td><td>${fmt1(v[i]/D.hoursPerFTE)}</td><td>${fmt0(s)}</td><td>${pct(cum[i])}</td></tr>`; }
+  document.getElementById('cTable').innerHTML = rows + '</tbody>';
+}
+
+/* ---------- Roll-up ---------- */
+function drawRollup(){
+  const keep = c => !rollType || typeOf(c)===rollType;
+  const {bySec} = projectSpread(false, keep);
+  const all = projectSpread(false).tot;
+  // Baseline % complete is earned on productive hours only.
+  const tot = projectSpread(false, isPD).tot, wbTot = projectSpread(true, isPD).tot;
+  const total = D.codes.filter(isPD).reduce((s,c)=>s+c.hours,0);
+  const nz = [...all.keys()].filter(i=>all[i]>0.01);
+  const lo = Math.max(0,nz[0]-1), hi = Math.min(weeks.length-1, nz[nz.length-1]+1);
+  const range = [...Array(hi-lo+1).keys()].map(i=>i+lo);
+  const labels = range.map(i=>dShort(weeks[i]));
+  const div = unit==='fte' ? D.hoursPerFTE : 1, uLabel = unit==='fte' ? 'FTE' : 'hrs';
+  const tl = rollType ? ` (${TYPE_LABEL[rollType].toLowerCase()})` : '';
+  document.getElementById('rTitle').textContent = (unit==='fte' ? `Weekly manpower by section${tl} (FTE at ${D.hoursPerFTE} hrs/week)` : `Weekly hours by section${tl}`);
+  const secs = [...SECTIONS, 'Other'].filter(s=>bySec[s]);
+  document.getElementById('rLegend').innerHTML = secs.map(s=>`<span><i style="background:var(${secVar(s)})"></i>${s}</span>`).join('');
+  const sur = css('--surface');
+  const base = chartBase();
+  setChart('rWeekly', {type:'bar', data:{labels, datasets: secs.map(s=>({
+      label:s, data:range.map(i=>bySec[s][i]/div), backgroundColor:css(secVar(s)),
+      borderColor:sur, borderWidth:{top:1}, borderSkipped:'bottom', barPercentage:.9, categoryPercentage:.92}))},
+    options:{...base, scales:{x:{...base.scales.x, stacked:true}, y:{...base.scales.y, stacked:true}},
+      plugins:{...base.plugins, tooltip:{...base.plugins.tooltip, callbacks:{
+        title: items => `Week ending ${weeks[range[items[0].dataIndex]]}`,
+        label: it => it.raw>0.05 ? ` ${it.dataset.label}: ${fmt1(it.raw)} ${uLabel}` : null,
+        footer: items => `Total: ${fmt1(items.reduce((s,i)=>s+i.raw,0))} ${uLabel}`}}}}});
+
+  const cum = cumulative(tot, total), cumWb = cumulative(wbTot, total);
+  setChart('rCum', {type:'line', data:{labels, datasets:[
+      {label:'Current curves', data:range.map(i=>cum[i]*100), borderColor:css('--accent'), borderWidth:2, pointRadius:0, pointHoverRadius:5, cubicInterpolationMode:'monotone'},
+      {label:'Workbook baseline', data:range.map(i=>cumWb[i]*100), borderColor:css('--ref'), borderDash:[5,4], borderWidth:2, pointRadius:0, pointHoverRadius:4, cubicInterpolationMode:'monotone'}]},
+    options:{...base, scales:{...base.scales, y:{...base.scales.y, max:100, ticks:{...base.scales.y.ticks, callback:x=>x+'%', stepSize:25}}},
+      plugins:{...base.plugins, tooltip:{...base.plugins.tooltip, callbacks:{
+        title: items => `Week ending ${weeks[range[items[0].dataIndex]]}`,
+        label: it => ` ${it.dataset.label}: ${it.raw.toFixed(1)}%`}}}}});
+
+  let rows = '<thead><tr><th>Week ending</th><th>Productive hrs</th><th>NP hrs</th><th>Total hrs</th><th>Total FTE</th><th>Cum productive hrs</th><th>BL % complete</th><th>Workbook %</th></tr></thead><tbody>';
+  let s = 0;
+  for (const i of range){ s += tot[i];
+    rows += `<tr class="${factor[i]<1?'hol':''}"><td>${weeks[i]}</td><td>${fmt1(tot[i])}</td><td>${fmt1(all[i]-tot[i])}</td><td>${fmt1(all[i])}</td><td>${fmt1(all[i]/D.hoursPerFTE)}</td><td>${fmt0(s)}</td><td>${pct(cum[i])}</td><td>${pct(cumWb[i])}</td></tr>`; }
+  document.getElementById('rTable').innerHTML = rows + '</tbody>';
+
+  const secAll = [...new Set(D.codes.map(c=>c.section))];
+  const pick = (sec, t) => D.codes.filter(c=>(!sec||c.section===sec)&&(!t||typeOf(c)===t));
+  const h = (sec, t) => pick(sec,t).reduce((s,c)=>s+c.hours,0);
+  const n = (sec, t) => pick(sec,t).length;
+  const grand = h();
+  let m = '<thead><tr><th>Section</th><th>Productive hrs</th><th>Codes</th><th>Non-productive hrs</th><th>Codes</th><th>Total hrs</th><th>% of total</th></tr></thead><tbody>';
+  for (const sec of secAll) m += `<tr><td>${sec}</td><td>${fmt0(h(sec,'PD'))}</td><td>${n(sec,'PD')}</td><td>${fmt0(h(sec,'NP'))}</td><td>${n(sec,'NP')}</td><td>${fmt0(h(sec))}</td><td>${(h(sec)/grand*100).toFixed(1)}%</td></tr>`;
+  m += `<tr class="total"><td>Total</td><td>${fmt0(h(null,'PD'))}</td><td>${n(null,'PD')}</td><td>${fmt0(h(null,'NP'))}</td><td>${n(null,'NP')}</td><td>${fmt0(grand)}</td><td>100%</td></tr>`;
+  m += `<tr><td>% of total</td><td>${(h(null,'PD')/grand*100).toFixed(1)}%</td><td></td><td>${(h(null,'NP')/grand*100).toFixed(1)}%</td><td></td><td></td><td></td></tr>`;
+  document.getElementById('mTable').innerHTML = m + '</tbody>';
+}
+
+/* ---------- Exports ---------- */
+function download(name, text, type='text/csv'){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type}));
+  a.download = name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+}
+const q = s => /[",\n]/.test(String(s)) ? `"${String(s).replace(/"/g,'""')}"` : s;
+function curveName(c){ const s = settingFor(c); return s.curve==='custom' ? `Custom (peak ${s.peak}%, shape ${s.shape})` : CURVES[s.curve].label; }
+
+function exportCSV(kind){
+  const head = ['Activity Category','Productive/NP','Cost Code','Activity','Section','Start Date','Finish Date','Total Hrs','Curve','Stamped'];
+  if (kind==='hours' || kind==='pct'){
+    const lines = [[...head, ...weeks].map(q).join(',')];
+    for (const c of D.codes){
+      const v = spread(c, settingFor(c));
+      const vals = kind==='hours' ? Array.from(v, x=>+x.toFixed(2)) : cumulative(v, c.hours).map(x=>+(x*100).toFixed(2));
+      lines.push([c.category,TYPE_LABEL[typeOf(c)],c.code,c.activity,c.section,c.start,c.finish,c.hours,curveName(c),stamps[c.code]?'Yes':'No',...vals].map(q).join(','));
+    }
+    download(kind==='hours' ? 'henderson_weekly_hours.csv' : 'henderson_cumulative_pct.csv', lines.join('\n'));
+  } else if (kind==='project'){
+    const {tot: all, bySec} = projectSpread(false);
+    const pd = projectSpread(false, isPD).tot;
+    const total = D.codes.filter(isPD).reduce((s,c)=>s+c.hours,0);
+    const secs = [...SECTIONS,'Other'].filter(s=>bySec[s]);
+    const lines = [['Week Ending','Holiday Factor',...secs.map(s=>s+' Hrs'),'Productive Hrs','NP Hrs','Total Hrs','Total FTE','Cum Productive Hrs','BL Cum % Complete','BL Weekly %'].join(',')];
+    let s = 0;
+    weeks.forEach((w,i)=>{ const prev = s/total; s += pd[i];
+      lines.push([w,factor[i],...secs.map(x=>bySec[x][i].toFixed(2)),pd[i].toFixed(2),(all[i]-pd[i]).toFixed(2),all[i].toFixed(2),(all[i]/D.hoursPerFTE).toFixed(2),s.toFixed(2),(s/total*100).toFixed(2),((s/total-prev)*100).toFixed(2)].join(',')); });
+    download('henderson_project_pct_complete.csv', lines.join('\n'));
+  } else if (kind==='stamps'){
+    download('henderson_curve_stamps.json', JSON.stringify({project:D.project, exported:new Date().toISOString(), stamps}, null, 1), 'application/json');
+  }
+}
+
+/* ---------- Wiring ---------- */
+function setUnit(u){
+  unit = u;
+  document.querySelectorAll('.toggle button[data-unit]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.unit===u));
+  if (!document.getElementById('view-code').classList.contains('hidden')) drawCodeCharts(); else drawRollup();
+}
+
+function refreshAll(){ renderKPIs(); renderList(); renderDetail(); if (!document.getElementById('view-rollup').classList.contains('hidden')) drawRollup(); }
+
+fetch('data/baseline.json').then(r=>r.json()).then(data=>{
+  D = data; weeks = D.weeks; factor = D.holidayFactor;
+  loadStamps();
+  document.getElementById('meta').textContent = `${D.codes.length} cost codes · ${fmt0(D.codes.reduce((s,c)=>s+c.hours,0))} hrs · Source: ${D.source}, Sheet1`;
+  document.getElementById('sec').innerHTML = '<option value="">All sect.</option>' +
+    [...new Set(D.codes.map(c=>c.section))].map(s=>`<option>${s}</option>`).join('');
+
+  renderKPIs();
+  const first = [...D.codes].sort((a,b)=>b.hours-a.hours).find(c=>c.section==='PV' && !/FOE|Yard/.test(c.activity)) || D.codes[0];
+  selectCode(first.code);
+
+  ['q','typ','sec','sort'].forEach(id=>document.getElementById(id).addEventListener('input', renderList));
+  document.getElementById('list').addEventListener('click', e=>{ const it = e.target.closest('.item'); if (it) selectCode(it.dataset.code); });
+  document.getElementById('curveBtns').addEventListener('click', e=>{
+    const b = e.target.closest('.cbtn'); if (!b) return;
+    draft = b.dataset.curve==='custom' ? {curve:'custom', peak: draft.peak ?? 50, shape: draft.shape ?? 6} : {curve:b.dataset.curve};
+    renderDetail();
+  });
+  document.getElementById('peak').addEventListener('input', e=>{ draft.peak = +e.target.value; renderDetail(); });
+  document.getElementById('shape').addEventListener('input', e=>{ draft.shape = +e.target.value; renderDetail(); });
+  document.getElementById('stampBtn').addEventListener('click', ()=>{
+    const wb = workbookSetting(current);
+    if (JSON.stringify(draft)===JSON.stringify(wb)) stamps[current.code] = {...wb, stampedAt:new Date().toISOString()};
+    else stamps[current.code] = {...draft, stampedAt:new Date().toISOString()};
+    draft = {...stamps[current.code]};
+    saveStamps(); refreshAll(); toast(`Stamped ${current.code}: ${curveName(current)}`);
+  });
+  document.getElementById('resetBtn').addEventListener('click', ()=>{
+    delete stamps[current.code]; draft = workbookSetting(current);
+    saveStamps(); refreshAll(); toast(`${current.code} reset to the workbook curve`);
+  });
+  document.querySelectorAll('.toggle button[data-unit]').forEach(b=>b.addEventListener('click', ()=>setUnit(b.dataset.unit)));
+  document.querySelectorAll('#typeToggle button').forEach(b=>b.addEventListener('click', ()=>{
+    rollType = b.dataset.type;
+    document.querySelectorAll('#typeToggle button').forEach(x=>x.setAttribute('aria-pressed', x===b));
+    drawRollup();
+  }));
+  document.querySelectorAll('.tab[data-view]').forEach(t=>t.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab[data-view]').forEach(x=>x.setAttribute('aria-selected', x===t));
+    const v = t.dataset.view;
+    document.getElementById('view-code').classList.toggle('hidden', v!=='code');
+    document.getElementById('view-rollup').classList.toggle('hidden', v!=='rollup');
+    if (v==='rollup') drawRollup(); else drawCodeCharts();
+  }));
+  document.querySelectorAll('[data-export]').forEach(b=>b.addEventListener('click', ()=>exportCSV(b.dataset.export)));
+  document.getElementById('importStamps').addEventListener('change', e=>{
+    const f = e.target.files[0]; if (!f) return;
+    f.text().then(t=>{
+      const s = JSON.parse(t).stamps || {};
+      const known = new Set(D.codes.map(c=>c.code));
+      let n = 0; for (const [k,v] of Object.entries(s)) if (known.has(k) && CURVES[v.curve]) { stamps[k] = v; n++; }
+      saveStamps(); draft = {...settingFor(current)}; refreshAll(); toast(`Imported ${n} stamped curves`);
+    }).catch(()=>toast('Could not read that stamps file'));
+    e.target.value = '';
+  });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{ renderDetail(); if (!document.getElementById('view-rollup').classList.contains('hidden')) drawRollup(); });
+});
+</script>
+</body>
+</html>
