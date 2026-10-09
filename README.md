@@ -4,10 +4,9 @@
 Spreads each cost code's hours across its fixed Start/Finish dates from **Sheet1 of `Henderson_BL_Creation.xlsx`** and lets you pick and stamp a curve per code.
 
 - **Curves:** Standard and Bell are the workbook's own Weights formulas (holiday factors applied). Linear, Front, Mid, Mid-back, Back, and Custom (set the peak %) are added on top. Change any code's curve in the man-hour table's Curve column. Changes save automatically.
-- **Man-hour table by cost code:** weekly hours and manpower (FTE at 60 hrs/week) for every code, with Productive / Non-productive / Both and cost code picker filters, and subtotals and totals at the bottom.
-- **Graphs:** weekly hours bars and cumulative % lines, built from exactly the rows the table shows. With picked codes, the entire workbook is shown for comparison.
-- **% complete table by cost code:** built from the man-hour table, with the same filters. Show weekly % or cumulative % of the hours shown (each week's column adds up to the total), or each code's own % complete.
-- **Saving:** **Save HTML with my curves** downloads a copy of the page with every change built in. Both tables export to CSV.
+- **Man-hour table by cost code:** for every code, rows of weekly hours, then % (weekly or cumulative % of the hours shown, or each code's own %), then manpower (FTE at 60 hrs/week). Filter by Productive / Non-productive / Both or pick cost codes. At the bottom are subtotals, total hours, weekly and cumulative % complete (plus the entire workbook's cumulative % when filtered), and total manpower.
+- **Graphs:** weekly hours bars and cumulative % lines, built from exactly the rows the table shows.
+- **Saving:** **Save HTML with my curves** downloads a copy of the page with every change built in. The table exports to CSV.
 
 Refresh the data after editing the workbook:
 
