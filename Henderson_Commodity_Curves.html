@@ -120,7 +120,7 @@
   .grid-panel{grid-column:1 / -1;}
   .grid-ctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
   .grid-ctl .lbl{font-size:12px;color:var(--text-2);margin-left:6px;}
-  .grid-wrap{overflow:auto;max-height:78vh;border:1px solid var(--border);border-radius:8px;}
+  .grid-wrap{overflow:auto;max-height:62vh;border:1px solid var(--border);border-radius:8px;}
   table.grid{border-collapse:separate;border-spacing:0;font-size:12px;width:max-content;min-width:100%;}
   table.grid th,table.grid td{height:28px;padding:0 8px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap;background:var(--surface);}
   table.grid thead th{position:sticky;top:0;z-index:2;background:var(--surface-2);color:var(--text-2);font-weight:600;cursor:default;}
@@ -188,6 +188,53 @@
 <main>
   <!-- Cost code view -->
   <section id="view-code">
+    <div class="panel grid-panel" id="gridPanel">
+      <div class="head">
+        <div>
+          <h2>All cost codes — weekly hours, manpower and % complete</h2>
+          <p class="hint">Every curve change is saved and shown here. Filter by type or pick cost codes, and the graphs below the table follow. Change a curve in the Curve column. Click a row to edit that code's curve further down.</p>
+        </div>
+        <button class="btn" id="gridExport">Export this table (CSV)</button>
+      </div>
+      <div class="grid-ctl">
+        <div class="picker">
+          <button class="btn" id="pickBtn" aria-expanded="false">Cost codes: All ▾</button>
+          <div class="pick-panel hidden" id="pickPanel">
+            <div class="row">
+              <input type="search" id="pickQ" placeholder="Search code or activity…">
+              <button class="btn" id="pickShown">Select shown</button>
+              <button class="btn" id="pickClear">Clear</button>
+            </div>
+            <div class="pick-list" id="pickList"></div>
+          </div>
+        </div>
+        <span class="lbl">Type</span>
+        <div class="toggle" id="gridType">
+          <button aria-pressed="true" data-gtype="PD">Productive</button>
+          <button aria-pressed="false" data-gtype="NP">Non-productive</button>
+          <button aria-pressed="false" data-gtype="">Both</button>
+        </div>
+        <span class="lbl">Rows</span>
+        <div class="toggle" id="gridShow" title="Turn each block of rows on or off">
+          <button aria-pressed="true" data-gshow="hrs">Hours</button>
+          <button aria-pressed="true" data-gshow="fte">Manpower</button>
+          <button aria-pressed="true" data-gshow="pct">% complete</button>
+        </div>
+        <span class="saved-note" id="gridNote"></span>
+      </div>
+      <div class="chips" id="pickChips"></div>
+      <div class="grid-wrap" id="gridWrap"><table class="grid" id="grid"></table></div>
+      <div class="chart-head" style="margin-top:18px">
+        <h3 id="barTitle">Weekly hours</h3>
+        <div class="legend" id="barLegend"></div>
+      </div>
+      <div class="cmp-box"><canvas id="cmpBars"></canvas></div>
+      <div class="chart-head" style="margin-top:6px">
+        <h3 id="cmpTitle">Cumulative % complete — comparison</h3>
+        <div class="legend" id="cmpLegend"></div>
+      </div>
+      <div class="cmp-box"><canvas id="cmpChart"></canvas></div>
+    </div>
   <div class="layout">
     <div class="panel side">
       <h2>Cost codes</h2>
@@ -254,48 +301,6 @@
       </div>
     </div>
   </div>
-    <div class="panel grid-panel">
-      <div class="head">
-        <div>
-          <h2>All cost codes — weekly hours, manpower and % complete</h2>
-          <p class="hint">Every curve change is saved and shown here. Pick cost codes to look at just those, and compare them against the whole workbook. Change a curve in the Curve column. Click a row to open that code.</p>
-        </div>
-        <button class="btn" id="gridExport">Export this table (CSV)</button>
-      </div>
-      <div class="grid-ctl">
-        <div class="picker">
-          <button class="btn" id="pickBtn" aria-expanded="false">Cost codes: All ▾</button>
-          <div class="pick-panel hidden" id="pickPanel">
-            <div class="row">
-              <input type="search" id="pickQ" placeholder="Search code or activity…">
-              <button class="btn" id="pickShown">Select shown</button>
-              <button class="btn" id="pickClear">Clear</button>
-            </div>
-            <div class="pick-list" id="pickList"></div>
-          </div>
-        </div>
-        <span class="lbl">Type</span>
-        <div class="toggle" id="gridType">
-          <button aria-pressed="true" data-gtype="PD">Productive</button>
-          <button aria-pressed="false" data-gtype="NP">Non-productive</button>
-          <button aria-pressed="false" data-gtype="">Both</button>
-        </div>
-        <span class="lbl">Rows</span>
-        <div class="toggle" id="gridShow" title="Turn each block of rows on or off">
-          <button aria-pressed="true" data-gshow="hrs">Hours</button>
-          <button aria-pressed="true" data-gshow="fte">Manpower</button>
-          <button aria-pressed="true" data-gshow="pct">% complete</button>
-        </div>
-        <span class="saved-note" id="gridNote"></span>
-      </div>
-      <div class="chips" id="pickChips"></div>
-      <div class="chart-head">
-        <h3 id="cmpTitle">Cumulative % complete — comparison</h3>
-        <div class="legend" id="cmpLegend"></div>
-      </div>
-      <div class="cmp-box"><canvas id="cmpChart"></canvas></div>
-      <div class="grid-wrap" id="gridWrap"><table class="grid" id="grid"></table></div>
-    </div>
   </section>
 
   <!-- Roll-up view -->
@@ -820,10 +825,26 @@ function renderGrid(){
   if (!document.getElementById('pickPanel').classList.contains('hidden')) renderPickList();
 }
 
-// Line chart: each picked code (up to 8), the shown total, and the whole workbook.
+// Graphs under the table follow its filter: weekly hours (bars) and cumulative % (lines).
 function drawCompare(G){
-  const {rows, tot, total, all, allTotal, isAll} = G;
+  const {rows, tot, total, pd, np, all, allTotal, isAll} = G;
   const R = viewRange(), labels = R.map(i=>dShort(weeks[i]));
+  const F = D.hoursPerFTE, sur = css('--surface');
+  let series;
+  if (gridPick.size && gridPick.size <= 8) series = rows.map(({c,v})=>({label:`${c.code} ${c.activity.replace(c.code+'-','')}`, v, col:css('--k'+(gridPick.get(c.code)||1))}));
+  else if (pd) series = [{label:'Productive', v:pd.v, col:css('--k1')}, {label:'Non-productive', v:np.v, col:css('--k2')}];
+  else series = [{label:`Total (${shownLabel()})`, v:tot, col:css('--accent')}];
+  document.getElementById('barTitle').textContent = `Weekly hours — ${shownLabel()} (${fmt0(total)} hrs)`;
+  document.getElementById('barLegend').innerHTML = series.length > 1 ? series.map(x=>`<span><i style="background:${x.col}"></i>${x.label}</span>`).join('') : '';
+  const bbase = chartBase();
+  setChart('cmpBars', {type:'bar', data:{labels, datasets: series.map(x=>({label:x.label, data:R.map(i=>x.v[i]), backgroundColor:x.col,
+      borderColor:sur, borderWidth: series.length > 1 ? {top:1} : 0, borderSkipped:'bottom', borderRadius: series.length > 1 ? 0 : {topLeft:4, topRight:4}, barPercentage:.88, categoryPercentage:.92}))},
+    options:{...bbase, scales:{x:{...bbase.scales.x, stacked:true}, y:{...bbase.scales.y, stacked:true}},
+      plugins:{...bbase.plugins, tooltip:{...bbase.plugins.tooltip, callbacks:{
+        title: items => `Week ending ${weeks[R[items[0].dataIndex]]}${factor[R[items[0].dataIndex]]<1 ? ' (holiday week)' : ''}`,
+        label: it => it.raw>0.05 ? ` ${it.dataset.label}: ${fmt0(it.raw)} hrs` : null,
+        footer: items => { const t = items.reduce((s,i)=>s+i.raw,0); return `Total: ${fmt0(t)} hrs · ${(t/F).toFixed(1)} FTE`; }}}}}});
+
   const ds = [], leg = [];
   if (gridPick.size && gridPick.size <= 8){
     for (const {c,v} of rows){
