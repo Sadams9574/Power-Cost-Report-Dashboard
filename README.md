@@ -3,12 +3,11 @@
 
 Spreads each cost code's hours across its fixed Start/Finish dates from **Sheet1 of `Henderson_BL_Creation.xlsx`** and lets you pick and stamp a curve per code.
 
-- **Curves:** Standard and Bell are the workbook's own Weights formulas (holiday factors applied). Linear, Front, Mid, Mid-back, Back, and Custom (peak % and shape sliders) are added on top.
-- **Charts:** weekly hours or manpower (FTE at 60 hrs/week), plus cumulative % complete compared with the workbook curve.
-- **Productive vs non-productive:** filter and subtotal by Activity Category (`PD-*` = productive, `NP-*` = non-productive). The project baseline % complete is earned on productive hours only.
-- **Saving:** curve changes save automatically in the browser. **Save HTML with my curves** downloads a copy of the page with every change built in. "Stamp curve" marks a curve as approved.
-- **All cost codes table:** below the charts, every code's weekly hours, manpower, and cumulative % complete, with Productive / Non-productive / Both filters. A cost code picker narrows the table to selected codes, zooms to their weeks, and charts each code's % complete against the entire workbook. It shows totals at the bottom and weekly and cumulative % complete. You can change any code's curve right in the table.
-- **Exports:** CSV of the table, weekly hours, cumulative %, and project % complete. Export or import curves as JSON.
+- **Curves:** Standard and Bell are the workbook's own Weights formulas (holiday factors applied). Linear, Front, Mid, Mid-back, Back, and Custom (set the peak %) are added on top. Change any code's curve in the man-hour table's Curve column. Changes save automatically.
+- **Man-hour table by cost code:** weekly hours and manpower (FTE at 60 hrs/week) for every code, with Productive / Non-productive / Both and cost code picker filters, and subtotals and totals at the bottom.
+- **Graphs:** weekly hours bars and cumulative % lines, built from exactly the rows the table shows. With picked codes, the entire workbook is shown for comparison.
+- **% complete table by cost code:** built from the man-hour table, with the same filters. Show weekly % or cumulative % of the hours shown (each week's column adds up to the total), or each code's own % complete.
+- **Saving:** **Save HTML with my curves** downloads a copy of the page with every change built in. Both tables export to CSV.
 
 Refresh the data after editing the workbook:
 
