@@ -226,9 +226,9 @@
         <div class="fbar"></div>
         <span class="lbl">Rows</span>
         <div class="toggle" id="gridShow" title="Turn each block of rows on or off">
-          <button aria-pressed="true" data-gshow="hrs">Hours</button>
-          <button aria-pressed="true" data-gshow="pct">%</button>
           <button aria-pressed="true" data-gshow="fte">Manpower</button>
+          <button aria-pressed="true" data-gshow="hrs">Hours</button>
+          <button aria-pressed="true" data-gshow="pct">% complete</button>
         </div>
         <span class="lbl">Crew size</span>
         <div class="toggle" id="crewStep" title="Curves spread manpower in these steps; hours = FTE × 60 and still add up to BL">
@@ -731,7 +731,7 @@ function renderGrid(){
       Object.entries(CURVES).map(([k,v])=>`<option value="${k}" ${st.curve===k?'selected':''}>${v.label}${k===wb?' (workbook)':''}</option>`).join('') + '</select>' +
       (st.curve==='custom' ? `<input class="peak" type="number" min="5" max="95" step="5" value="${st.peak}" data-peak="${c.code}" title="Peak at % of duration" aria-label="Peak % for ${c.code}">` : '') + '</div>';
   };
-  const blocks = ['hrs','pct','fte'].filter(k=>gridShow[k]);
+  const blocks = ['fte','hrs','pct'].filter(k=>gridShow[k]);
   const pctTitle = pctMode==='wk' ? 'Weekly % of hours shown' : pctMode==='cum' ? 'Cumulative % of hours shown' : "Each code's own cumulative %";
   const multi = blocks.length > 1;
   const share = c => total ? (H(c)/total*100).toFixed(1)+'%' : '';
@@ -771,16 +771,16 @@ function renderGrid(){
   h += '</tbody><tfoot>';
 
   const foot = [];
+  const blTot = rows.reduce((s,r)=>s+r.c.hours,0), dTot = total - blTot;
+  foot.push(['Total manpower (FTE-weeks)', (total/F).toFixed(0), '', R.map(i=>tot[i]/F < 0.005 ? '' : (tot[i]/F).toFixed(1)), '', 'fte']);
   if (pd){
     foot.push(['Productive hours', fmt0(pd.h), total ? (pd.h/total*100).toFixed(1)+'%' : '', R.map(i=>cellH(pd.v[i]))]);
     foot.push(['Non-productive hours', fmt0(np.h), total ? (np.h/total*100).toFixed(1)+'%' : '', R.map(i=>cellH(np.v[i]))]);
   }
-  const blTot = rows.reduce((s,r)=>s+r.c.hours,0), dTot = total - blTot;
   foot.push([`Total hours (${shownLabel()})`, `<span title="BL ${fmt0(blTot)} hrs">${fmt0(total)}</span>`, total ? '100%' : '', R.map(i=>cellH(tot[i])), '', 'hrs']);
   foot.push(['Weekly % complete', '100%', '', R.map(i=>total ? (tot[i]/total*100).toFixed(1)+'%' : ''), 'pct']);
   foot.push(['Cumulative % complete', '', '', cumPct(tot, total).map(x=>total ? x.toFixed(1)+'%' : ''), 'pct']);
   if (!isAll) foot.push([`Entire workbook cumulative % (all ${D.codes.length} codes)`, fmt0(allTotal), '', cumPct(all, allTotal).map(x=>x.toFixed(1)+'%'), 'cmp']);
-  foot.push(['Total manpower (FTE-weeks)', (total/F).toFixed(0), '', R.map(i=>tot[i]/F < 0.005 ? '' : (tot[i]/F).toFixed(1)), '', 'fte']);
   foot.forEach((f, k)=>{
     const [lab, t, sh, cells, cls, du] = f;
     h += `<tr class="${k===0?'first':''} ${cls||''}"><td class="st cg" colspan="6">${lab}</td><td class="st c5">${t}</td>${deltaCell(dTot, blTot, du || 'none')}<td class="st c6">${sh}</td>` +
@@ -895,19 +895,19 @@ function exportGrid(){
   const lines = [['Block','Cost Code','Activity','Type','Curve','Start','Finish','BL Start','BL Finish','Dates Changed','Total','Delta vs BL (hrs, or FTE-weeks on manpower rows)','% of Hrs Shown',...R.map(i=>weeks[i])].map(q).join(',')];
   const head = c => { const d = datesFor(c); return [c.code,c.activity,isPD(c)?'PD':'NP',curveName(c),d.start,d.finish,c.start,c.finish,datesChanged(c)?'Yes':'No']; };
   const sh = c => total ? (H(c)/total*100).toFixed(2) : '';
+  if (gridShow.fte) for (const {c,v} of rows) lines.push(['Manpower (FTE)',...head(c),(H(c)/F).toFixed(2),((H(c)-c.hours)/F).toFixed(2),sh(c),...R.map(i=>(v[i]/F).toFixed(2))].map(q).join(','));
   if (gridShow.hrs) for (const {c,v} of rows) lines.push(['Hours',...head(c),H(c).toFixed(2),(H(c)-c.hours).toFixed(2),sh(c),...R.map(i=>v[i].toFixed(2))].map(q).join(','));
   if (gridShow.pct) for (const {c,v} of rows){
     const cells = pctMode==='own' ? cumPct(v, H(c)) : pctCells(v, total);
     lines.push([pctMode==='wk' ? 'Weekly %' : pctMode==='cum' ? 'Cumulative %' : "Code's own %",...head(c),'','',sh(c),...cells.map(x=>x.toFixed(2))].map(q).join(','));
   }
-  if (gridShow.fte) for (const {c,v} of rows) lines.push(['Manpower (FTE)',...head(c),(H(c)/F).toFixed(2),((H(c)-c.hours)/F).toFixed(2),sh(c),...R.map(i=>(v[i]/F).toFixed(2))].map(q).join(','));
+  lines.push(['Total','','Total manpower (FTE)','','','','','','','',(total/F).toFixed(2),((total-rows.reduce((s,r)=>s+r.c.hours,0))/F).toFixed(2),'',...R.map(i=>(tot[i]/F).toFixed(2))].join(','));
   if (pd){ lines.push(['Total','','Productive hours','','','','','','','',pd.h.toFixed(2),'','',...R.map(i=>pd.v[i].toFixed(2))].join(','));
            lines.push(['Total','','Non-productive hours','','','','','','','',np.h.toFixed(2),'','',...R.map(i=>np.v[i].toFixed(2))].join(',')); }
   lines.push(['Total','','Total hours','','','','','','','',total.toFixed(2),(total-rows.reduce((s,r)=>s+r.c.hours,0)).toFixed(2),'100',...R.map(i=>tot[i].toFixed(2))].join(','));
   lines.push(['Total','','Weekly % complete','','','','','','','','100','','',...R.map(i=>(total ? tot[i]/total*100 : 0).toFixed(2))].join(','));
   lines.push(['Total','','Cumulative % complete','','','','','','','','','','',...cumPct(tot,total).map(x=>x.toFixed(2))].join(','));
   if (!isAll) lines.push(['Total','','Entire workbook cumulative %','','','','','','','',allTotal.toFixed(2),'','',...cumPct(all,allTotal).map(x=>x.toFixed(2))].join(','));
-  lines.push(['Total','','Total manpower (FTE)','','','','','','','',(total/F).toFixed(2),((total-rows.reduce((s,r)=>s+r.c.hours,0))/F).toFixed(2),'',...R.map(i=>(tot[i]/F).toFixed(2))].join(','));
   const name = gridPick.size ? 'picked' : gridType==='PD' ? 'productive' : gridType==='NP' ? 'nonproductive' : 'all';
   download(`henderson_codes_${name}.csv`, lines.join('\n'));
 }
