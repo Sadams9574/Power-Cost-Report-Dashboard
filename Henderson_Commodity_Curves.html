@@ -168,6 +168,7 @@
   .chg-key{display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--chg-bg);border:1px solid var(--chg-line);vertical-align:-2px;margin-right:4px;}
   @media (max-width:1100px){ table.grid td.st:not(.c1), table.grid tfoot td.st{position:static;} }
   table.grid td.fcell{padding:0 2px;}
+  table.grid td.fcell.locked{background:var(--surface-2);}
   table.grid input.fte{width:56px;font:inherit;font-size:12px;text-align:right;padding:2px 4px;border:1px solid transparent;border-radius:3px;background:transparent;color:inherit;}
   table.grid input.fte:hover{border-color:var(--border);}
   table.grid input.fte:focus{outline:none;border-color:var(--accent);background:var(--surface);}
@@ -221,7 +222,7 @@
       <div class="head">
         <div>
           <h2>Man-hour table by cost code</h2>
-          <p class="hint" id="gridHint">Every change is saved and shown here. <b>Manpower drives the hours:</b> the curve spreads people per week (whole people by default), hours = FTE × 60, and each code's hours still equal its BL hours. Change a curve, change a Start or Finish date, or <b>type manpower by week</b> in the Manpower rows (the code switches to Manual FTE). Δ vs BL shows how far typed manpower is over (▲) or under (▼) the BL hours, and <b>Fit</b> puts the difference into the week you click. Enter moves down, arrow keys move around, and you can paste a block from Excel. <span class="chg-key"></span>Highlighted dates differ from the original baseline (hover over one to see the BL date). Filter by type or pick cost codes, and the graphs below follow.</p>
+          <p class="hint" id="gridHint">Every change is saved and shown here. <b>Manpower drives the hours:</b> the curve spreads people per week (whole people by default), hours = FTE × 60, and each code's hours still equal its BL hours. <b>Start and Finish are the locked BL dates</b>: curves spread manpower only between them. Change a curve, or <b>type manpower by week</b> in the Manpower rows (the code switches to Manual FTE). Δ vs BL shows how far typed manpower is over (▲) or under (▼) the BL hours, and <b>Fit</b> puts the difference into the week you click. Enter moves down, arrow keys move around, and you can paste a block from Excel. Grey cells are outside a code's BL dates and can't take manpower. Filter by type or pick cost codes, and the graphs below follow.</p>
         </div>
         <button class="btn" id="gridExport">Export this table (CSV)</button>
       </div>
@@ -377,6 +378,12 @@ function loadStamps(){
   const pick = [local, emb].filter(Boolean).sort((a,b)=>(b.savedAt||'').localeCompare(a.savedAt||''))[0];
   stamps = pick ? JSON.parse(JSON.stringify(pick.curves || {})) : {};
   for (const v of Object.values(stamps)) if (v.stamped === undefined) v.stamped = !!v.stampedAt;
+  for (const c of D.codes){
+    const e = stamps[c.code]; if (!e) continue;
+    delete e.start; delete e.finish;
+    if (e.fte){ const bl = blWeekSet(c); for (const w of Object.keys(e.fte)) if (!bl.has(weeks.indexOf(w))) delete e.fte[w]; }
+    normalize(c);
+  }
   lastSaved = pick?.savedAt || '';
 }
 function saveStamps(){
@@ -393,7 +400,9 @@ const isManual = c => !!stamps[c.code]?.fte;
 function H(c){ if (!isManual(c)) return c.hours; let t = 0; for (const v of Object.values(stamps[c.code].fte)) t += v; return t * D.hoursPerFTE; }
 const hoursChanged = c => Math.abs(H(c) - c.hours) > 0.5;
 const sameCurve = (a,b) => a.curve===b.curve && (a.curve!=='custom' || (a.peak===b.peak && a.shape===b.shape));
-function datesFor(c){ const e = stamps[c.code]; return {start: e?.start || c.start, finish: e?.finish || c.finish}; }
+// BL dates are locked: curves and typed manpower always sit between the Sheet1 start and finish.
+function datesFor(c){ return {start: c.start, finish: c.finish}; }
+function blWeekSet(c){ return c._bl || (c._bl = new Set(activeWeeks(c, {start: c.start, finish: c.finish}))); }
 const startChanged = c => datesFor(c).start !== c.start;
 const finishChanged = c => datesFor(c).finish !== c.finish;
 const datesChanged = c => startChanged(c) || finishChanged(c);
@@ -431,21 +440,13 @@ function toManual(c){
 }
 // Type FTE for one week (0 or blank clears it).
 function setFte(c, i, val){
+  if (!blWeekSet(c).has(i)) return false;
   if (!isManual(c)) toManual(c);
   const e = stamps[c.code];
   if (val > 0) e.fte[weeks[i]] = val; else delete e.fte[weeks[i]];
   e.savedAt = new Date().toISOString();
   normalize(c); gridRange = null;
-}
-
-// Change a code's start/finish; its hours respread over the new working weeks.
-function setDates(c, start, finish){
-  if (!start || !finish) return 'Enter both a start and a finish date.';
-  if (finish < start) return 'Finish must be on or after start.';
-  if (!activeWeeks(c, {start, finish}).length) return 'No working weeks between those dates (holiday weeks are skipped).';
-  stamps[c.code] = {...(stamps[c.code] || {}), start, finish, stamped:false, savedAt:new Date().toISOString()};
-  normalize(c); gridRange = null; saveStamps();
-  return '';
+  return true;
 }
 
 // Active weeks match the workbook: week date >= start, <= finish+6, holiday factor > 0.
@@ -559,7 +560,7 @@ function renderKPIs(){
   const total = D.codes.reduce((s,c)=>s+H(c),0);
   const nz = [...tot.keys()].filter(i=>tot[i]>0.01);
   const nStamped = D.codes.filter(c=>stamps[c.code]?.stamped).length;
-  const nChanged = D.codes.filter(curveChanged).length, nDates = D.codes.filter(datesChanged).length;
+  const nChanged = D.codes.filter(c=>curveChanged(c) && !isManual(c)).length, nMan = D.codes.filter(isManual).length;
   const pdH = D.codes.filter(isPD).reduce((s,c)=>s+H(c),0);
   const k = [
     ['Total hours', fmt0(total), Math.abs(total - D.codes.reduce((s,c)=>s+c.hours,0)) > 0.5 ? `BL ${fmt0(D.codes.reduce((s,c)=>s+c.hours,0))} · ${D.codes.length} cost codes` : `${D.codes.length} cost codes`],
@@ -567,7 +568,7 @@ function renderKPIs(){
     ['Non-productive hours', fmt0(total-pdH), `${((total-pdH)/total*100).toFixed(1)}% of total`],
     ['Peak manpower', fmt0(peak/D.hoursPerFTE) + ' FTE', `Week ending ${dShort(weeks[pi])} · ${fmt0(peak)} hrs`],
     ['Duration', `${nz.length} weeks`, `${dShort(weeks[nz[0]])} to ${dShort(weeks[nz[nz.length-1]])}`],
-    ['Changes from BL', `${nChanged + nDates ? D.codes.filter(c=>stamps[c.code]).length : 0} codes`, `${nChanged} curve change${nChanged===1?'':'s'} · ${nDates} date change${nDates===1?'':'s'}`],
+    ['Changes from workbook', `${nChanged + nMan} codes`, `${nChanged} curve change${nChanged===1?'':'s'} · ${nMan} typed manpower · BL dates locked`],
   ];
   document.getElementById('kpis').innerHTML = k.map(([l,v,n])=>`<div class="kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="note">${n}</div></div>`).join('');
 }
@@ -720,19 +721,7 @@ function renderGrid(){
   const hol = i => factor[i] < 1 ? 'hol' : '';
   let h = '<thead><tr><th class="st c1">Code</th><th class="st c2">Activity</th><th class="st c3">Type</th><th class="st c4">Curve</th><th class="st cs">Start</th><th class="st cf">Finish</th><th class="st c5">Total</th><th class="st cd" title="Over (▲) or under (▼) the baseline. Hours rows: hours. Manpower rows: FTE-weeks (hours ÷ ${F}).">Δ vs BL</th><th class="st c6" title="Share of the hours shown">% of hrs</th>' +
     R.map(i=>`<th class="${hol(i)}" title="Week ending ${weeks[i]}${factor[i]<1?' · holiday factor '+factor[i]:''}">${dShort(weeks[i])}</th>`).join('') + '</tr></thead><tbody>';
-  const minD = (()=>{ const d = new Date(weeks[0]+'T00:00'); d.setDate(d.getDate()-6); return d.toISOString().slice(0,10); })(), maxD = weeks[weeks.length-1];
-  const dateCell = (c, which, editable) => {
-    if (isManual(c)){
-      const ix = idxFor(c), wi = which==='start' ? ix[0] : ix[ix.length-1];
-      const txt = wi == null ? '' : (which==='start' ? 'wk ' : 'wk ') + dShort(weeks[wi]);
-      return `<td class="st ${which==='start'?'cs':'cf'}" title="Set by typed manpower (week ending). BL ${which}: ${dShort(c[which])}"><i>${txt}</i></td>`;
-    }
-    const cur = datesFor(c)[which], bl = c[which], chg = cur !== bl;
-    const tip = chg ? `BL ${which}: ${dShort(bl)} → now ${dShort(cur)}` : `BL ${which} (from Sheet1)`;
-    const revert = which==='finish' && datesChanged(c) && editable ? `<button class="revert" data-revert="${c.code}" title="Set ${c.code} back to BL dates ${dShort(c.start)} – ${dShort(c.finish)}">↺</button>` : '';
-    const body = editable ? `<input class="dt" type="date" data-date="${which}" data-code="${c.code}" value="${cur}" min="${minD}" max="${maxD}" aria-label="${which} date for ${c.code}">` : dShort(cur);
-    return `<td class="st ${which==='start'?'cs':'cf'} ${chg?'blchg':''}" title="${tip}">${body}${revert}</td>`;
-  };
+  const dateCell = (c, which) => `<td class="st ${which==='start'?'cs':'cf'}" title="BL ${which} from Sheet1 (locked)">🔒 ${dShort(c[which])}</td>`;
 
   const curveCell = (c, editable) => {
     const e = stamps[c.code], st = settingFor(c);
@@ -760,7 +749,7 @@ function renderGrid(){
   };
   const rowHead = (c, editable, totCell, cls='', unit='hrs') =>
     `<tr data-code="${c.code}" class="${current===c?'sel':''} ${isManual(c)?'manual':''} ${cls}"><td class="st c1">${c.code}</td><td class="st c2" title="${c.activity}">${c.activity}</td>` +
-    `<td class="st c3">${isPD(c)?'PD':'NP'}</td><td class="st c4">${curveCell(c, editable)}</td>${dateCell(c,'start',editable)}${dateCell(c,'finish',editable)}<td class="st c5 ${hoursChanged(c) && !cls.includes('pctrow') ? 'blchg' : ''}">${totCell}</td>${deltaCell(H(c) - c.hours, c.hours, unit, c)}<td class="st c6">${share(c)}</td>`;
+    `<td class="st c3">${isPD(c)?'PD':'NP'}</td><td class="st c4">${curveCell(c, editable)}</td>${dateCell(c,'start')}${dateCell(c,'finish')}<td class="st c5 ${hoursChanged(c) && !cls.includes('pctrow') ? 'blchg' : ''}">${totCell}</td>${deltaCell(H(c) - c.hours, c.hours, unit, c)}<td class="st c6">${share(c)}</td>`;
   const grp = t => { if (multi) h += `<tr class="grp"><td class="st cg" colspan="9">${t}</td><td colspan="${R.length}"></td></tr>`; };
   blocks.forEach((b, bi) => {
     const editable = bi === 0;
@@ -776,6 +765,7 @@ function renderGrid(){
     if (b==='fte'){ grp(`Manpower (FTE at ${F} hrs/week)`);
       for (const {c,v} of rows) h += rowHead(c, editable, (H(c)/F).toFixed(1), fitPick===c.code ? 'fitrow' : '', 'fte') + R.map(i=>{
         const x = v[i]/F, val = x < 0.005 ? '' : +x.toFixed(2);
+        if (!blWeekSet(c).has(i)) return `<td class="fcell locked ${hol(i)}" title="Outside ${c.code}'s BL dates (locked)"></td>`;
         return `<td class="fcell ${hol(i)}"><input class="fte" inputmode="decimal" data-fte="${c.code}" data-w="${i}" value="${val}" aria-label="FTE ${c.code} week ending ${weeks[i]}" title="Type FTE for week ending ${dShort(weeks[i])} (hours = FTE × ${F})"></td>`;
       }).join('') + '</tr>'; }
   });
@@ -806,8 +796,8 @@ function renderGrid(){
   document.getElementById('grid').innerHTML = h + '</tfoot>';
   pendingFocus = null;
   if (want){ const el = document.querySelector(`#grid input[data-fte="${want.code}"][data-w="${want.w}"]`); if (el){ el.focus({preventScroll:true}); el.select(); } }
-  const n = rows.length, nCh = rows.filter(r=>curveChanged(r.c) && !isManual(r.c)).length, nD = rows.filter(r=>datesChanged(r.c) && !isManual(r.c)).length, nM = rows.filter(r=>isManual(r.c)).length;
-  document.getElementById('gridNote').textContent = `${n} codes · ${fmt0(total)} hrs (${(total/allTotal*100).toFixed(1)}% of workbook) · ${nCh} curve change${nCh===1?'':'s'} · ${nD} BL date change${nD===1?'':'s'} · ${nM} with typed manpower${Math.abs(dTot) > 0.5 ? ` · ${dTot > 0 ? 'OVER' : 'UNDER'} BL by ${fmt0(Math.abs(dTot))} hrs (${(Math.abs(dTot)/F).toFixed(1)} FTE-weeks)` : ' · hours match BL'}${lastSaved ? ' · last saved ' + new Date(lastSaved).toLocaleString() : ''}`;
+  const n = rows.length, nCh = rows.filter(r=>curveChanged(r.c) && !isManual(r.c)).length, nM = rows.filter(r=>isManual(r.c)).length;
+  document.getElementById('gridNote').textContent = `${n} codes · ${fmt0(total)} hrs (${(total/allTotal*100).toFixed(1)}% of workbook) · ${nCh} curve change${nCh===1?'':'s'} · ${nM} with typed manpower${Math.abs(dTot) > 0.5 ? ` · ${dTot > 0 ? 'OVER' : 'UNDER'} BL by ${fmt0(Math.abs(dTot))} hrs (${(Math.abs(dTot)/F).toFixed(1)} FTE-weeks)` : ' · hours match BL'}${lastSaved ? ' · last saved ' + new Date(lastSaved).toLocaleString() : ''}`;
 
   // Filter bars (one filter drives both tables and the graphs).
   document.querySelectorAll('.pick-btn').forEach(b=>b.textContent = `Cost codes: ${gridPick.size ? gridPick.size + ' picked' : 'All'} ▾`);
@@ -1007,16 +997,6 @@ function scheduleRefresh(){ cancelAnimationFrame(_raf); _raf = requestAnimationF
       setCurve(c, sel.value==='custom' ? {curve:'custom', peak:cur.peak, shape:cur.shape} : {curve:sel.value});
       current = c; refreshAll(); toast(`${c.code}: ${curveName(c)} · saved`); return;
     }
-    const dt = e.target.closest('input[data-date]');
-    if (dt){
-      const c = D.codes.find(x=>x.code===dt.dataset.code), d = datesFor(c);
-      const err = setDates(c, dt.dataset.date==='start' ? dt.value : d.start, dt.dataset.date==='finish' ? dt.value : d.finish);
-      current = c;
-      if (err){ toast(err); renderGrid(); return; }
-      const nd = datesFor(c);
-      refreshAll(); toast(datesChanged(c) ? `${c.code}: ${dShort(nd.start)} – ${dShort(nd.finish)} (BL ${dShort(c.start)} – ${dShort(c.finish)}) · hours respread` : `${c.code}: back on BL dates`);
-      return;
-    }
     const pk = e.target.closest('input[data-peak]');
     if (pk){
       const c = D.codes.find(x=>x.code===pk.dataset.peak), peak = Math.min(95, Math.max(5, Math.round(+pk.value/5)*5 || 50));
@@ -1067,7 +1047,7 @@ function scheduleRefresh(){ cancelAnimationFrame(_raf); _raf = requestAnimationF
         const code = codes[r0+dr], w = ws[k0+dk]; if (code == null || w == null) return;
         const val = cell.trim() === '' ? 0 : parseFloat(cell.replace(/,/g,''));
         if (isNaN(val) || val < 0) return;
-        setFte(D.codes.find(x=>x.code===code), +w, val); n++;
+        if (setFte(D.codes.find(x=>x.code===code), +w, val)) n++;
       });
     });
     saveStamps(); pendingFocus = {code: fi.dataset.fte, w: fi.dataset.w}; refreshAll(); toast(`Pasted ${n} FTE values`);
@@ -1090,11 +1070,6 @@ function scheduleRefresh(){ cancelAnimationFrame(_raf); _raf = requestAnimationF
         return;
       }
       fitPick = null; renderGrid();
-    }
-    const rv = e.target.closest('[data-revert]');
-    if (rv){
-      const c = D.codes.find(x=>x.code===rv.dataset.revert);
-      setDates(c, c.start, c.finish); current = c; refreshAll(); toast(`${c.code}: back on BL dates ${dShort(c.start)} – ${dShort(c.finish)}`); return;
     }
     if (e.target.closest('select,input')) return;
     const tr = e.target.closest('tbody tr[data-code]'); if (tr) selectCode(tr.dataset.code);
