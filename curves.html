@@ -136,8 +136,8 @@
   table.grid .c4{left:304px;width:176px;min-width:176px;max-width:176px;}
   table.grid .cs{left:480px;width:122px;min-width:122px;max-width:122px;}
   table.grid .cf{left:602px;width:146px;min-width:146px;max-width:146px;}
-  table.grid .c5{left:748px;width:82px;min-width:82px;max-width:82px;text-align:right;}
-  table.grid .c6{left:830px;width:72px;min-width:72px;max-width:72px;text-align:right;border-right:2px solid var(--border);}
+  table.grid .c5{left:748px;width:112px;min-width:112px;max-width:112px;text-align:right;}
+  table.grid .c6{left:860px;width:72px;min-width:72px;max-width:72px;text-align:right;border-right:2px solid var(--border);}
   table.grid tr.pctrow td{color:var(--text-2);}
   table.grid tfoot tr.cmp td{color:var(--text-2);font-weight:600;font-style:italic;}
   table.grid .cg{left:0;}
@@ -158,11 +158,17 @@
   .picker{position:relative;}
   .fbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
   table.grid input.dt{font:inherit;font-size:12px;padding:1px 3px;width:112px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);}
-  table.grid td.blchg, table.grid tbody tr:hover td.blchg{background:var(--chg-bg);color:var(--chg-ink);font-weight:600;}
+  table.grid td.blchg, table.grid tbody tr td.blchg, table.grid tbody tr:hover td.blchg, table.grid tbody tr.sel td.blchg{background:var(--chg-bg);color:var(--chg-ink);font-weight:600;}
   table.grid td.blchg input.dt{background:var(--chg-bg);color:var(--chg-ink);border-color:var(--chg-line);font-weight:600;}
   table.grid button.revert{border:0;background:none;color:var(--chg-ink);cursor:pointer;font-size:14px;padding:0 0 0 4px;}
   .chg-key{display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--chg-bg);border:1px solid var(--chg-line);vertical-align:-2px;margin-right:4px;}
   @media (max-width:1100px){ table.grid td.st:not(.c1), table.grid tfoot td.st{position:static;} }
+  table.grid td.fcell{padding:0 2px;}
+  table.grid input.fte{width:56px;font:inherit;font-size:12px;text-align:right;padding:2px 4px;border:1px solid transparent;border-radius:3px;background:transparent;color:inherit;}
+  table.grid input.fte:hover{border-color:var(--border);}
+  table.grid input.fte:focus{outline:none;border-color:var(--accent);background:var(--surface);}
+  table.grid tr.manual td.fcell input.fte{color:var(--text);font-weight:600;}
+  table.grid .dlt{font-size:11px;margin-left:4px;}
   table.grid input.peak{width:46px;font:inherit;font-size:12px;padding:2px 3px;margin-left:4px;}
   .pick-panel{position:absolute;z-index:20;top:calc(100% + 6px);left:0;width:min(440px,90vw);background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:10px;}
   .pick-panel .row{display:flex;gap:6px;margin-bottom:8px;}
@@ -206,7 +212,7 @@
       <div class="head">
         <div>
           <h2>Man-hour table by cost code</h2>
-          <p class="hint" id="gridHint">Every change is saved and shown here. Change a curve in the Curve column, or change a Start or Finish date and that code's hours respread over the new dates. <span class="chg-key"></span>Highlighted dates differ from the original baseline (hover over one to see the BL date). Filter by type or pick cost codes, and the graphs below follow.</p>
+          <p class="hint" id="gridHint">Every change is saved and shown here. Change a curve in the Curve column, change a Start or Finish date to respread the hours, or <b>type manpower (FTE) by week</b> in the Manpower rows: hours = FTE × 60, and that code switches to Manual FTE. Enter moves down, arrow keys move around, and you can paste a block from Excel. <span class="chg-key"></span>Highlighted dates differ from the original baseline (hover over one to see the BL date). Filter by type or pick cost codes, and the graphs below follow.</p>
         </div>
         <button class="btn" id="gridExport">Export this table (CSV)</button>
       </div>
@@ -322,6 +328,7 @@ const CURVES = {
   midback:  {label:'Mid-back',   desc:'Peak at 65% of duration', mode:.65, c:6},
   back:     {label:'Back',       desc:'Peak at 80% of duration', mode:.8, c:6},
   custom:   {label:'Custom',     desc:'Set the peak and shape yourself'},
+  manual:   {label:'Manual FTE',  desc:'Manpower typed by week; hours = FTE × hrs/week'},
 };
 
 function betaWeight(x, mode, c){
@@ -363,13 +370,17 @@ function saveStamps(){
 // stamps[code] can hold a curve change {curve, peak?, shape?} and/or date changes {start?, finish?}.
 // c.start / c.finish always stay the original baseline (BL) dates from Sheet1.
 function workbookSetting(c){ return {curve: c.curve === 'Bell' ? 'bell' : 'standard'}; }
-function settingFor(c){ const e = stamps[c.code]; return e?.curve ? {curve:e.curve, peak:e.peak, shape:e.shape} : workbookSetting(c); }
+function settingFor(c){ const e = stamps[c.code]; return e?.fte ? {curve:'manual'} : e?.curve ? {curve:e.curve, peak:e.peak, shape:e.shape} : workbookSetting(c); }
+// Typed manpower: stamps[code].fte = {weekEndingISO: FTE}. Hours that week = FTE × hours per FTE.
+const isManual = c => !!stamps[c.code]?.fte;
+function H(c){ if (!isManual(c)) return c.hours; let t = 0; for (const v of Object.values(stamps[c.code].fte)) t += v; return t * D.hoursPerFTE; }
+const hoursChanged = c => Math.abs(H(c) - c.hours) > 0.5;
 const sameCurve = (a,b) => a.curve===b.curve && (a.curve!=='custom' || (a.peak===b.peak && a.shape===b.shape));
 function datesFor(c){ const e = stamps[c.code]; return {start: e?.start || c.start, finish: e?.finish || c.finish}; }
 const startChanged = c => datesFor(c).start !== c.start;
 const finishChanged = c => datesFor(c).finish !== c.finish;
 const datesChanged = c => startChanged(c) || finishChanged(c);
-const curveChanged = c => !!stamps[c.code]?.curve;
+const curveChanged = c => !!(stamps[c.code]?.curve || stamps[c.code]?.fte);
 
 // Drop anything that matches the baseline; remove the entry when nothing is left.
 function normalize(c){
@@ -378,14 +389,36 @@ function normalize(c){
   if (e.curve && e.curve !== 'custom') { delete e.peak; delete e.shape; }
   if (e.start === c.start) delete e.start;
   if (e.finish === c.finish) delete e.finish;
-  if (!e.curve && !e.start && !e.finish) delete stamps[c.code];
+  if (e.fte && !Object.values(e.fte).some(v => v > 0)) delete e.fte;
+  if (e.fte) { delete e.curve; delete e.peak; delete e.shape; }
+  if (!e.curve && !e.start && !e.finish && !e.fte) delete stamps[c.code];
 }
 
 // Apply a curve to a code and save it right away.
 function setCurve(c, sel){
+  if (sel.curve === 'manual'){ if (!isManual(c)) { toManual(c); saveStamps(); } return; }
   const next = sel.curve==='custom' ? {curve:'custom', peak: sel.peak ?? 50, shape: sel.shape ?? 6} : {curve: sel.curve};
-  stamps[c.code] = {...(stamps[c.code] || {}), ...next, stamped:false, savedAt:new Date().toISOString()};
-  normalize(c); saveStamps();
+  const e = {...(stamps[c.code] || {}), ...next, stamped:false, savedAt:new Date().toISOString()};
+  delete e.fte;
+  stamps[c.code] = e;
+  normalize(c); gridRange = null; saveStamps();
+}
+
+// Switch a code to typed manpower, starting from what its curve shows now (nothing moves yet).
+function toManual(c){
+  const v = spread(c, settingFor(c)), fte = {};
+  v.forEach((x,i)=>{ if (x > 0) fte[weeks[i]] = x / D.hoursPerFTE; });
+  const e = {...(stamps[c.code] || {}), fte, stamped:false, savedAt:new Date().toISOString()};
+  delete e.curve; delete e.peak; delete e.shape;
+  stamps[c.code] = e;
+}
+// Type FTE for one week (0 or blank clears it).
+function setFte(c, i, val){
+  if (!isManual(c)) toManual(c);
+  const e = stamps[c.code];
+  if (val > 0) e.fte[weeks[i]] = val; else delete e.fte[weeks[i]];
+  e.savedAt = new Date().toISOString();
+  normalize(c); gridRange = null;
 }
 
 // Change a code's start/finish; its hours respread over the new working weeks.
@@ -407,12 +440,18 @@ function activeWeeks(c, d = datesFor(c)){
 }
 // Cached per code, refreshed whenever its dates change.
 function idxFor(c){
+  if (isManual(c)){ const f = stamps[c.code].fte; return weeks.map((w,i)=>f[w] > 0 ? i : -1).filter(i=>i>=0); }
   const d = datesFor(c), key = d.start + '|' + d.finish;
   if (c._key !== key){ c._key = key; c._idx = activeWeeks(c, d); }
   return c._idx;
 }
 
 function spread(c, setting){
+  if (setting.curve === 'manual'){
+    const out = new Float64Array(weeks.length), f = stamps[c.code]?.fte || {};
+    weeks.forEach((w,i)=>{ if (f[w]) out[i] = f[w] * D.hoursPerFTE; });
+    return out;
+  }
   const idx = idxFor(c);
   const n = idx.length, out = new Float64Array(weeks.length);
   if (!n) return out;
@@ -456,13 +495,13 @@ function projectSpread(useWorkbook, keep = () => true){
 function renderKPIs(){
   const {tot} = projectSpread(false);
   let peak = 0, pi = 0; tot.forEach((v,i)=>{ if (v>peak){peak=v;pi=i;} });
-  const total = D.codes.reduce((s,c)=>s+c.hours,0);
+  const total = D.codes.reduce((s,c)=>s+H(c),0);
   const nz = [...tot.keys()].filter(i=>tot[i]>0.01);
   const nStamped = D.codes.filter(c=>stamps[c.code]?.stamped).length;
   const nChanged = D.codes.filter(curveChanged).length, nDates = D.codes.filter(datesChanged).length;
-  const pdH = D.codes.filter(isPD).reduce((s,c)=>s+c.hours,0);
+  const pdH = D.codes.filter(isPD).reduce((s,c)=>s+H(c),0);
   const k = [
-    ['Total hours', fmt0(total), `${D.codes.length} cost codes`],
+    ['Total hours', fmt0(total), Math.abs(total - D.codes.reduce((s,c)=>s+c.hours,0)) > 0.5 ? `BL ${fmt0(D.codes.reduce((s,c)=>s+c.hours,0))} · ${D.codes.length} cost codes` : `${D.codes.length} cost codes`],
     ['Productive hours', fmt0(pdH), `${(pdH/total*100).toFixed(1)}% of total · drives the baseline %`],
     ['Non-productive hours', fmt0(total-pdH), `${((total-pdH)/total*100).toFixed(1)}% of total`],
     ['Peak manpower', fmt0(peak/D.hoursPerFTE) + ' FTE', `Week ending ${dShort(weeks[pi])} · ${fmt0(peak)} hrs`],
@@ -499,7 +538,7 @@ function drawRollup(){
   const all = projectSpread(false).tot;
   // Baseline % complete is earned on productive hours only.
   const tot = projectSpread(false, isPD).tot, wbTot = projectSpread(true, isPD).tot;
-  const total = D.codes.filter(isPD).reduce((s,c)=>s+c.hours,0);
+  const total = D.codes.filter(isPD).reduce((s,c)=>s+H(c),0);
   const nz = [...all.keys()].filter(i=>all[i]>0.01);
   const lo = Math.max(0,nz[0]-1), hi = Math.min(weeks.length-1, nz[nz.length-1]+1);
   const range = [...Array(hi-lo+1).keys()].map(i=>i+lo);
@@ -537,7 +576,7 @@ function drawRollup(){
 
   const secAll = [...new Set(D.codes.map(c=>c.section))];
   const pick = (sec, t) => D.codes.filter(c=>(!sec||c.section===sec)&&(!t||typeOf(c)===t));
-  const h = (sec, t) => pick(sec,t).reduce((s,c)=>s+c.hours,0);
+  const h = (sec, t) => pick(sec,t).reduce((s,c)=>s+H(c),0);
   const n = (sec, t) => pick(sec,t).length;
   const grand = h();
   let m = '<thead><tr><th>Section</th><th>Productive hrs</th><th>Codes</th><th>Non-productive hrs</th><th>Codes</th><th>Total hrs</th><th>% of total</th></tr></thead><tbody>';
@@ -548,7 +587,7 @@ function drawRollup(){
 }
 
 /* ---------- All-codes grid ---------- */
-let gridRange = null;
+let gridRange = null, pendingFocus = null;
 const cellH = v => v < 0.05 ? '' : v < 10 ? v.toFixed(1) : fmt0(v);
 const cellF = v => v < 0.005 ? '' : v.toFixed(2);
 
@@ -575,6 +614,7 @@ function gridData(){
   if (!gridRange){
     let lo = Infinity, hi = -1;
     for (const c of D.codes){ const ix = idxFor(c); if (ix.length){ lo = Math.min(lo, ix[0]); hi = Math.max(hi, ix[ix.length-1]); } }
+    lo = Math.max(0, lo-4); hi = Math.min(weeks.length-1, hi+4);
     gridRange = [...Array(hi-lo+1).keys()].map(i=>i+lo);
   }
   // Picked codes win over the type filter.
@@ -582,13 +622,13 @@ function gridData(){
   const codes = D.codes.filter(keep).sort((a,b)=>a.row-b.row);
   const rows = codes.map(c=>({c, v: spread(c, settingFor(c))}));
   const sumW = (list) => { const t = new Float64Array(weeks.length); for (const r of list) for (const i of gridRange) t[i]+=r.v[i]; return t; };
-  const tot = sumW(rows), total = codes.reduce((s,c)=>s+c.hours,0);
+  const tot = sumW(rows), total = codes.reduce((s,c)=>s+H(c),0);
   const mixed = rows.some(r=>isPD(r.c)) && rows.some(r=>!isPD(r.c));
   const pdRows = rows.filter(r=>isPD(r.c)), npRows = rows.filter(r=>!isPD(r.c));
-  const pd = mixed ? {v:sumW(pdRows), h:pdRows.reduce((s,r)=>s+r.c.hours,0)} : null;
-  const np = mixed ? {v:sumW(npRows), h:npRows.reduce((s,r)=>s+r.c.hours,0)} : null;
+  const pd = mixed ? {v:sumW(pdRows), h:pdRows.reduce((s,r)=>s+H(r.c),0)} : null;
+  const np = mixed ? {v:sumW(npRows), h:npRows.reduce((s,r)=>s+H(r.c),0)} : null;
   // Whole workbook (all 93 codes, current curves) for comparison.
-  const all = projectSpread(false).tot, allTotal = D.codes.reduce((s,c)=>s+c.hours,0);
+  const all = projectSpread(false).tot, allTotal = D.codes.reduce((s,c)=>s+H(c),0);
   const isAll = codes.length === D.codes.length;
   return {codes, rows, tot, total, pd, np, all, allTotal, isAll};
 }
@@ -598,7 +638,7 @@ function viewRange(){
   if (!gridPick.size) return gridRange;
   let lo = Infinity, hi = -1;
   for (const code of gridPick.keys()){ const c = D.codes.find(x=>x.code===code), ix = idxFor(c); if (ix.length){ lo = Math.min(lo, ix[0]); hi = Math.max(hi, ix[ix.length-1]); } }
-  return gridRange.filter(i => i >= lo-2 && i <= hi+2);
+  return gridRange.filter(i => i >= lo-4 && i <= hi+4);
 }
 // Cumulative % always counts from the project start, then is read off for the weeks shown.
 function cumPct(v, total, R = viewRange()){
@@ -620,6 +660,11 @@ function renderGrid(){
     R.map(i=>`<th class="${hol(i)}" title="Week ending ${weeks[i]}${factor[i]<1?' · holiday factor '+factor[i]:''}">${dShort(weeks[i])}</th>`).join('') + '</tr></thead><tbody>';
   const minD = (()=>{ const d = new Date(weeks[0]+'T00:00'); d.setDate(d.getDate()-6); return d.toISOString().slice(0,10); })(), maxD = weeks[weeks.length-1];
   const dateCell = (c, which, editable) => {
+    if (isManual(c)){
+      const ix = idxFor(c), wi = which==='start' ? ix[0] : ix[ix.length-1];
+      const txt = wi == null ? '' : (which==='start' ? 'wk ' : 'wk ') + dShort(weeks[wi]);
+      return `<td class="st ${which==='start'?'cs':'cf'}" title="Set by typed manpower (week ending). BL ${which}: ${dShort(c[which])}"><i>${txt}</i></td>`;
+    }
     const cur = datesFor(c)[which], bl = c[which], chg = cur !== bl;
     const tip = chg ? `BL ${which}: ${dShort(bl)} → now ${dShort(cur)}` : `BL ${which} (from Sheet1)`;
     const revert = which==='finish' && datesChanged(c) && editable ? `<button class="revert" data-revert="${c.code}" title="Set ${c.code} back to BL dates ${dShort(c.start)} – ${dShort(c.finish)}">↺</button>` : '';
@@ -639,24 +684,32 @@ function renderGrid(){
   const blocks = ['hrs','pct','fte'].filter(k=>gridShow[k]);
   const pctTitle = pctMode==='wk' ? 'Weekly % of hours shown' : pctMode==='cum' ? 'Cumulative % of hours shown' : "Each code's own cumulative %";
   const multi = blocks.length > 1;
-  const share = c => total ? (c.hours/total*100).toFixed(1)+'%' : '';
+  const share = c => total ? (H(c)/total*100).toFixed(1)+'%' : '';
+  const totHrs = c => {
+    if (!hoursChanged(c)) return fmt0(H(c));
+    const d = H(c) - c.hours;
+    return `<span title="BL ${fmt0(c.hours)} hrs → now ${fmt0(H(c))} hrs">${fmt0(H(c))}<span class="dlt">${d>0?'+':'−'}${fmt0(Math.abs(d))}</span></span>`;
+  };
   const rowHead = (c, editable, totCell, cls='') =>
-    `<tr data-code="${c.code}" class="${current===c?'sel':''} ${cls}"><td class="st c1">${c.code}</td><td class="st c2" title="${c.activity}">${c.activity}</td>` +
-    `<td class="st c3">${isPD(c)?'PD':'NP'}</td><td class="st c4">${curveCell(c, editable)}</td>${dateCell(c,'start',editable)}${dateCell(c,'finish',editable)}<td class="st c5">${totCell}</td><td class="st c6">${share(c)}</td>`;
+    `<tr data-code="${c.code}" class="${current===c?'sel':''} ${isManual(c)?'manual':''} ${cls}"><td class="st c1">${c.code}</td><td class="st c2" title="${c.activity}">${c.activity}</td>` +
+    `<td class="st c3">${isPD(c)?'PD':'NP'}</td><td class="st c4">${curveCell(c, editable)}</td>${dateCell(c,'start',editable)}${dateCell(c,'finish',editable)}<td class="st c5 ${hoursChanged(c) && !cls.includes('pctrow') ? 'blchg' : ''}">${totCell}</td><td class="st c6">${share(c)}</td>`;
   const grp = t => { if (multi) h += `<tr class="grp"><td class="st cg" colspan="8">${t}</td><td colspan="${R.length}"></td></tr>`; };
   blocks.forEach((b, bi) => {
     const editable = bi === 0;
     if (b==='hrs'){ grp('Hours');
-      for (const {c,v} of rows) h += rowHead(c, editable, fmt0(c.hours)) + R.map(i=>`<td class="${hol(i)}">${cellH(v[i])}</td>`).join('') + '</tr>'; }
+      for (const {c,v} of rows) h += rowHead(c, editable, totHrs(c)) + R.map(i=>`<td class="${hol(i)}">${cellH(v[i])}</td>`).join('') + '</tr>'; }
     if (b==='pct'){ grp(pctTitle);
       const own = pctMode==='own', fp = x => x < 0.05 ? '' : x.toFixed(1) + '%';
       for (const {c,v} of rows){
-        const cells = own ? cumPct(v, c.hours) : pctCells(v, total), lo = idxFor(c)[0];
+        const cells = own ? cumPct(v, H(c)) : pctCells(v, total), lo = idxFor(c)[0];
         h += rowHead(c, editable, own ? '100%' : share(c), 'pctrow') + R.map((i,j)=>`<td class="${hol(i)}">${own ? (i>=lo ? cells[j].toFixed(1)+'%' : '') : fp(cells[j])}</td>`).join('') + '</tr>';
       }
     }
     if (b==='fte'){ grp(`Manpower (FTE at ${F} hrs/week)`);
-      for (const {c,v} of rows) h += rowHead(c, editable, (c.hours/F).toFixed(1)) + R.map(i=>`<td class="${hol(i)}">${cellF(v[i]/F)}</td>`).join('') + '</tr>'; }
+      for (const {c,v} of rows) h += rowHead(c, editable, (H(c)/F).toFixed(1)) + R.map(i=>{
+        const x = v[i]/F, val = x < 0.005 ? '' : +x.toFixed(2);
+        return `<td class="fcell ${hol(i)}"><input class="fte" inputmode="decimal" data-fte="${c.code}" data-w="${i}" value="${val}" aria-label="FTE ${c.code} week ending ${weeks[i]}" title="Type FTE for week ending ${dShort(weeks[i])} (hours = FTE × ${F})"></td>`;
+      }).join('') + '</tr>'; }
   });
   if (!rows.length) h += `<tr class="grp"><td class="st cg" colspan="8">No cost codes picked.</td><td colspan="${R.length}"></td></tr>`;
   h += '</tbody><tfoot>';
@@ -666,7 +719,8 @@ function renderGrid(){
     foot.push(['Productive hours', fmt0(pd.h), total ? (pd.h/total*100).toFixed(1)+'%' : '', R.map(i=>cellH(pd.v[i]))]);
     foot.push(['Non-productive hours', fmt0(np.h), total ? (np.h/total*100).toFixed(1)+'%' : '', R.map(i=>cellH(np.v[i]))]);
   }
-  foot.push([`Total hours (${shownLabel()})`, fmt0(total), total ? '100%' : '', R.map(i=>cellH(tot[i]))]);
+  const blTot = rows.reduce((s,r)=>s+r.c.hours,0), dTot = total - blTot;
+  foot.push([`Total hours (${shownLabel()})`, Math.abs(dTot) > 0.5 ? `<span title="BL ${fmt0(blTot)} hrs">${fmt0(total)}<span class="dlt">${dTot>0?'+':'−'}${fmt0(Math.abs(dTot))}</span></span>` : fmt0(total), total ? '100%' : '', R.map(i=>cellH(tot[i]))]);
   foot.push(['Weekly % complete', '100%', '', R.map(i=>total ? (tot[i]/total*100).toFixed(1)+'%' : ''), 'pct']);
   foot.push(['Cumulative % complete', '', '', cumPct(tot, total).map(x=>total ? x.toFixed(1)+'%' : ''), 'pct']);
   if (!isAll) foot.push([`Entire workbook cumulative % (all ${D.codes.length} codes)`, fmt0(allTotal), '', cumPct(all, allTotal).map(x=>x.toFixed(1)+'%'), 'cmp']);
@@ -676,9 +730,13 @@ function renderGrid(){
     h += `<tr class="${k===0?'first':''} ${cls||''}"><td class="st cg" colspan="6">${lab}</td><td class="st c5">${t}</td><td class="st c6">${sh}</td>` +
       cells.map((x,j)=>`<td class="${hol(R[j])}">${x}</td>`).join('') + '</tr>';
   });
+  // Keep the cursor in the FTE cell being typed in across re-renders.
+  const ae = document.activeElement, want = pendingFocus || (ae && ae.dataset && ae.dataset.fte ? {code:ae.dataset.fte, w:ae.dataset.w} : null);
   document.getElementById('grid').innerHTML = h + '</tfoot>';
-  const n = rows.length, nCh = rows.filter(r=>curveChanged(r.c)).length, nD = rows.filter(r=>datesChanged(r.c)).length;
-  document.getElementById('gridNote').textContent = `${n} codes · ${fmt0(total)} hrs (${(total/allTotal*100).toFixed(1)}% of workbook) · ${nCh} curve change${nCh===1?'':'s'} · ${nD} BL date change${nD===1?'':'s'}${lastSaved ? ' · last saved ' + new Date(lastSaved).toLocaleString() : ''}`;
+  pendingFocus = null;
+  if (want){ const el = document.querySelector(`#grid input[data-fte="${want.code}"][data-w="${want.w}"]`); if (el){ el.focus({preventScroll:true}); el.select(); } }
+  const n = rows.length, nCh = rows.filter(r=>curveChanged(r.c) && !isManual(r.c)).length, nD = rows.filter(r=>datesChanged(r.c) && !isManual(r.c)).length, nM = rows.filter(r=>isManual(r.c)).length;
+  document.getElementById('gridNote').textContent = `${n} codes · ${fmt0(total)} hrs (${(total/allTotal*100).toFixed(1)}% of workbook) · ${nCh} curve change${nCh===1?'':'s'} · ${nD} BL date change${nD===1?'':'s'} · ${nM} with typed manpower${lastSaved ? ' · last saved ' + new Date(lastSaved).toLocaleString() : ''}`;
 
   // Filter bars (one filter drives both tables and the graphs).
   document.querySelectorAll('.pick-btn').forEach(b=>b.textContent = `Cost codes: ${gridPick.size ? gridPick.size + ' picked' : 'All'} ▾`);
@@ -741,7 +799,7 @@ function drawCompare(G){
   if (gridPick.size && gridPick.size <= 8){
     for (const {c,v} of rows){
       const slot = gridPick.get(c.code) || 1, col = css('--k'+slot);
-      const ix = idxFor(c), lo = ix[0], hi = ix[ix.length-1], cp = cumPct(v, c.hours);
+      const ix = idxFor(c), lo = ix[0], hi = ix[ix.length-1], cp = cumPct(v, H(c));
       ds.push({label:c.code, data:R.map((i,j)=> i>=lo-1 ? cp[j] : null), borderColor:col, backgroundColor:col, borderWidth:2, pointRadius:0, pointHoverRadius:5, cubicInterpolationMode:'monotone', spanGaps:false});
       leg.push(`<span><i class="line" style="background:${col}"></i>${c.code}</span>`);
     }
@@ -770,7 +828,7 @@ function renderPickList(panel){
   const q = panel.querySelector('.pick-q').value.toLowerCase();
   const list = D.codes.filter(c => (c.code+' '+c.activity).toLowerCase().includes(q)).sort((a,b)=>a.row-b.row);
   panel.querySelector('.pick-list').innerHTML = list.map(c=>
-    `<label><input type="checkbox" data-pick="${c.code}" ${gridPick.has(c.code)?'checked':''}><b>${c.code}</b><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.activity}</span><span class="h">${isPD(c)?'PD':'NP'} · ${fmt0(c.hours)}</span></label>`).join('')
+    `<label><input type="checkbox" data-pick="${c.code}" ${gridPick.has(c.code)?'checked':''}><b>${c.code}</b><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.activity}</span><span class="h">${isPD(c)?'PD':'NP'} · ${fmt0(H(c))}</span></label>`).join('')
     || '<p class="hint" style="padding:8px">No cost codes match.</p>';
 }
 
@@ -779,13 +837,13 @@ function exportGrid(){
   const R = viewRange(), F = D.hoursPerFTE;
   const lines = [['Block','Cost Code','Activity','Type','Curve','Start','Finish','BL Start','BL Finish','Dates Changed','Total','% of Hrs Shown',...R.map(i=>weeks[i])].map(q).join(',')];
   const head = c => { const d = datesFor(c); return [c.code,c.activity,isPD(c)?'PD':'NP',curveName(c),d.start,d.finish,c.start,c.finish,datesChanged(c)?'Yes':'No']; };
-  const sh = c => total ? (c.hours/total*100).toFixed(2) : '';
-  if (gridShow.hrs) for (const {c,v} of rows) lines.push(['Hours',...head(c),c.hours.toFixed(2),sh(c),...R.map(i=>v[i].toFixed(2))].map(q).join(','));
+  const sh = c => total ? (H(c)/total*100).toFixed(2) : '';
+  if (gridShow.hrs) for (const {c,v} of rows) lines.push(['Hours',...head(c),H(c).toFixed(2),sh(c),...R.map(i=>v[i].toFixed(2))].map(q).join(','));
   if (gridShow.pct) for (const {c,v} of rows){
-    const cells = pctMode==='own' ? cumPct(v, c.hours) : pctCells(v, total);
+    const cells = pctMode==='own' ? cumPct(v, H(c)) : pctCells(v, total);
     lines.push([pctMode==='wk' ? 'Weekly %' : pctMode==='cum' ? 'Cumulative %' : "Code's own %",...head(c),'',sh(c),...cells.map(x=>x.toFixed(2))].map(q).join(','));
   }
-  if (gridShow.fte) for (const {c,v} of rows) lines.push(['Manpower (FTE)',...head(c),(c.hours/F).toFixed(2),sh(c),...R.map(i=>(v[i]/F).toFixed(2))].map(q).join(','));
+  if (gridShow.fte) for (const {c,v} of rows) lines.push(['Manpower (FTE)',...head(c),(H(c)/F).toFixed(2),sh(c),...R.map(i=>(v[i]/F).toFixed(2))].map(q).join(','));
   if (pd){ lines.push(['Total','','Productive hours','','','','','','','',pd.h.toFixed(2),'',...R.map(i=>pd.v[i].toFixed(2))].join(','));
            lines.push(['Total','','Non-productive hours','','','','','','','',np.h.toFixed(2),'',...R.map(i=>np.v[i].toFixed(2))].join(',')); }
   lines.push(['Total','','Total hours','','','','','','','',total.toFixed(2),'100',...R.map(i=>tot[i].toFixed(2))].join(','));
@@ -818,7 +876,7 @@ function download(name, text, type='text/csv'){
   a.download = name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
 }
 const q = s => /[",\n]/.test(String(s)) ? `"${String(s).replace(/"/g,'""')}"` : s;
-function curveName(c){ const s = settingFor(c); return s.curve==='custom' ? `Custom (peak ${s.peak}%, shape ${s.shape})` : CURVES[s.curve].label; }
+function curveName(c){ const s = settingFor(c); if (s.curve==='manual') return 'Manual FTE'; return s.curve==='custom' ? `Custom (peak ${s.peak}%, shape ${s.shape})` : CURVES[s.curve].label; }
 
 function exportCSV(kind){
   const head = ['Activity Category','Productive/NP','Cost Code','Activity','Section','Start Date','Finish Date','BL Start','BL Finish','Total Hrs','Curve','Dates Changed'];
@@ -826,15 +884,15 @@ function exportCSV(kind){
     const lines = [[...head, ...weeks].map(q).join(',')];
     for (const c of D.codes){
       const v = spread(c, settingFor(c));
-      const vals = kind==='hours' ? Array.from(v, x=>+x.toFixed(2)) : cumulative(v, c.hours).map(x=>+(x*100).toFixed(2));
+      const vals = kind==='hours' ? Array.from(v, x=>+x.toFixed(2)) : cumulative(v, H(c)).map(x=>+(x*100).toFixed(2));
       const d = datesFor(c);
-      lines.push([c.category,TYPE_LABEL[typeOf(c)],c.code,c.activity,c.section,d.start,d.finish,c.start,c.finish,c.hours,curveName(c),datesChanged(c)?'Yes':'No',...vals].map(q).join(','));
+      lines.push([c.category,TYPE_LABEL[typeOf(c)],c.code,c.activity,c.section,d.start,d.finish,c.start,c.finish,H(c),curveName(c),datesChanged(c)?'Yes':'No',...vals].map(q).join(','));
     }
     download(kind==='hours' ? 'henderson_weekly_hours.csv' : 'henderson_cumulative_pct.csv', lines.join('\n'));
   } else if (kind==='project'){
     const {tot: all, bySec} = projectSpread(false);
     const pd = projectSpread(false, isPD).tot;
-    const total = D.codes.filter(isPD).reduce((s,c)=>s+c.hours,0);
+    const total = D.codes.filter(isPD).reduce((s,c)=>s+H(c),0);
     const secs = [...SECTIONS,'Other'].filter(s=>bySec[s]);
     const lines = [['Week Ending','Holiday Factor',...secs.map(s=>s+' Hrs'),'Productive Hrs','NP Hrs','Total Hrs','Total FTE','Cum Productive Hrs','BL Cum % Complete','BL Weekly %'].join(',')];
     let s = 0;
@@ -860,7 +918,7 @@ function scheduleRefresh(){ cancelAnimationFrame(_raf); _raf = requestAnimationF
 (window.BASELINE_DATA ? Promise.resolve(window.BASELINE_DATA) : fetch('data/baseline.json').then(r=>r.json())).then(data=>{
   D = data; weeks = D.weeks; factor = D.holidayFactor;
   loadStamps();
-  document.getElementById('meta').textContent = `${D.codes.length} cost codes · ${fmt0(D.codes.reduce((s,c)=>s+c.hours,0))} hrs · Source: ${D.source}, Sheet1`;
+  document.getElementById('meta').textContent = `${D.codes.length} cost codes · ${fmt0(D.codes.reduce((s,c)=>s+c.hours,0))} hrs (BL) · Source: ${D.source}, Sheet1`;
   document.querySelectorAll('.fbar').forEach(el=>el.innerHTML = FILTER_BAR);
 
   loadUI();
@@ -868,9 +926,12 @@ function scheduleRefresh(){ cancelAnimationFrame(_raf); _raf = requestAnimationF
 
   const grid = document.getElementById('grid');
   grid.addEventListener('change', e=>{
+    const fi = e.target.closest('input[data-fte]');
+    if (fi){ commitFte(fi); return; }
     const sel = e.target.closest('select[data-code]');
     if (sel){
       const c = D.codes.find(x=>x.code===sel.dataset.code), cur = settingFor(c);
+      if (isManual(c) && sel.value !== 'manual' && !confirm(`Replace the typed manpower for ${c.code} with the ${CURVES[sel.value].label} curve? This respreads its BL hours (${fmt0(c.hours)}).`)){ renderGrid(); return; }
       setCurve(c, sel.value==='custom' ? {curve:'custom', peak:cur.peak, shape:cur.shape} : {curve:sel.value});
       current = c; refreshAll(); toast(`${c.code}: ${curveName(c)} · saved`); return;
     }
@@ -890,6 +951,53 @@ function scheduleRefresh(){ cancelAnimationFrame(_raf); _raf = requestAnimationF
       setCurve(c, {...settingFor(c), curve:'custom', peak});
       current = c; refreshAll(); toast(`${c.code}: ${curveName(c)} · saved`);
     }
+  });
+  // Save one typed FTE cell (on blur, Enter or arrow keys).
+  function commitFte(fi){
+    if (!fi.isConnected || fi.value === fi.defaultValue) return false;
+    const c = D.codes.find(x=>x.code===fi.dataset.fte), raw = fi.value.trim().replace(/,/g,''), val = raw === '' ? 0 : parseFloat(raw);
+    if (isNaN(val) || val < 0){ toast('Type a number of people (FTE), 0 or more.'); renderGrid(); return true; }
+    const was = isManual(c);
+    setFte(c, +fi.dataset.w, val); saveStamps(); current = c; refreshAll();
+    if (!was) toast(`${c.code} switched to Manual FTE: hours now come from the manpower you type`);
+    return true;
+  }
+  // Enter moves down a row (like Excel); arrows move between FTE cells.
+  document.getElementById('grid').addEventListener('keydown', e=>{
+    const fi = e.target.closest('input[data-fte]'); if (!fi) return;
+    const all = [...document.querySelectorAll('#grid input[data-fte]')];
+    const codes = [...new Set(all.map(x=>x.dataset.fte))], ws = [...new Set(all.map(x=>x.dataset.w))];
+    let r = codes.indexOf(fi.dataset.fte), k = ws.indexOf(fi.dataset.w);
+    if (e.key === 'Enter' || e.key === 'ArrowDown') r++; else if (e.key === 'ArrowUp') r--;
+    else if (e.key === 'ArrowRight' && fi.selectionStart === fi.value.length) k++; else if (e.key === 'ArrowLeft' && fi.selectionStart === 0) k--;
+    else return;
+    e.preventDefault();
+    const inside = r >= 0 && r < codes.length && k >= 0 && k < ws.length;
+    pendingFocus = inside ? {code: codes[r], w: ws[k]} : {code: fi.dataset.fte, w: fi.dataset.w};
+    if (commitFte(fi)) return;            // re-render puts the cursor on pendingFocus
+    pendingFocus = null;
+    const next = inside && document.querySelector(`#grid input[data-fte="${codes[r]}"][data-w="${ws[k]}"]`);
+    if (next){ next.focus(); next.select(); }
+  });
+  // Paste a block of numbers copied from Excel into the FTE cells.
+  document.getElementById('grid').addEventListener('paste', e=>{
+    const fi = e.target.closest('input[data-fte]'); if (!fi) return;
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    if (!/[\t\n]/.test(text.trim())) return;
+    e.preventDefault();
+    const all = [...document.querySelectorAll('#grid input[data-fte]')];
+    const codes = [...new Set(all.map(x=>x.dataset.fte))], ws = [...new Set(all.map(x=>x.dataset.w))];
+    const r0 = codes.indexOf(fi.dataset.fte), k0 = ws.indexOf(fi.dataset.w);
+    let n = 0;
+    text.replace(/\r/g,'').replace(/\n$/,'').split('\n').forEach((line, dr)=>{
+      line.split('\t').forEach((cell, dk)=>{
+        const code = codes[r0+dr], w = ws[k0+dk]; if (code == null || w == null) return;
+        const val = cell.trim() === '' ? 0 : parseFloat(cell.replace(/,/g,''));
+        if (isNaN(val) || val < 0) return;
+        setFte(D.codes.find(x=>x.code===code), +w, val); n++;
+      });
+    });
+    saveStamps(); pendingFocus = {code: fi.dataset.fte, w: fi.dataset.w}; refreshAll(); toast(`Pasted ${n} FTE values`);
   });
   document.getElementById('grid').addEventListener('click', e=>{
     const rv = e.target.closest('[data-revert]');
