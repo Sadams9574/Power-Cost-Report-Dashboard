@@ -5,6 +5,7 @@ Spreads each cost code's hours across its fixed Start/Finish dates from **Sheet1
 
 - **Curves:** Standard and Bell are the workbook's own Weights formulas (holiday factors applied). Linear, Front, Mid, Mid-back, Back, and Custom (set the peak %) are added on top. Change any code's curve in the man-hour table's Curve column. Changes save automatically.
 - **Man-hour table by cost code:** for every code, rows of weekly hours, then % (weekly or cumulative % of the hours shown, or each code's own %), then manpower (FTE at 60 hrs/week). Filter by Productive / Non-productive / Both or pick cost codes. At the bottom are subtotals, total hours, weekly and cumulative % complete (plus the entire workbook's cumulative % when filtered), and total manpower.
+- **BL date changes:** Start and Finish are editable in the table. Changing them respreads that code's hours over the new working weeks (holiday weeks still apply). Dates that differ from the original Sheet1 baseline are highlighted, hovering shows the BL date, and ↺ sets the row back to the BL dates. Exports include both the current and the BL dates.
 - **Graphs:** weekly hours bars and cumulative % lines, built from exactly the rows the table shows.
 - **Saving:** **Save HTML with my curves** downloads a copy of the page with every change built in. The table exports to CSV.
 
