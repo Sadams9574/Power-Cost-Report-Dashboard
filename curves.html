@@ -174,6 +174,10 @@
   table.grid tr.manual td.fcell input.fte{color:var(--text);font-weight:600;}
   table.grid .dlt{font-size:11px;margin-left:4px;}
   table.grid button.fit{font:inherit;font-size:11px;padding:0 5px;margin-right:4px;border:1px solid currentColor;border-radius:4px;background:none;color:inherit;cursor:pointer;}
+  table.grid button.fit.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+  table.grid tr.fitrow td.fcell{outline:2px dashed var(--accent);outline-offset:-3px;cursor:crosshair;}
+  table.grid tr.fitrow td.fcell input.fte{cursor:crosshair;}
+  .fit-banner{background:var(--accent-soft);border:1px solid var(--accent);border-radius:8px;padding:8px 12px;margin:0 0 10px;font-size:13px;}
   table.grid td.cd.over{color:var(--over);} table.grid td.cd.under{color:var(--under);} table.grid td.cd.ok{color:var(--good-ink);}
   table.grid input.peak{width:46px;font:inherit;font-size:12px;padding:2px 3px;margin-left:4px;}
   .pick-panel{position:absolute;z-index:20;top:calc(100% + 6px);left:0;width:min(440px,90vw);background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:10px;}
@@ -218,7 +222,7 @@
       <div class="head">
         <div>
           <h2>Man-hour table by cost code</h2>
-          <p class="hint" id="gridHint">Every change is saved and shown here. <b>Manpower drives the hours:</b> the curve spreads people per week (whole people by default), hours = FTE × 60, and each code's hours still equal its BL hours. Change a curve, change a Start or Finish date, or <b>type manpower by week</b> in the Manpower rows (the code switches to Manual FTE). Δ vs BL shows how far typed manpower is over (▲) or under (▼) the BL hours, and <b>Fit</b> scales it back. Enter moves down, arrow keys move around, and you can paste a block from Excel. <span class="chg-key"></span>Highlighted dates differ from the original baseline (hover over one to see the BL date). Filter by type or pick cost codes, and the graphs below follow.</p>
+          <p class="hint" id="gridHint">Every change is saved and shown here. <b>Manpower drives the hours:</b> the curve spreads people per week (whole people by default), hours = FTE × 60, and each code's hours still equal its BL hours. Change a curve, change a Start or Finish date, or <b>type manpower by week</b> in the Manpower rows (the code switches to Manual FTE). Δ vs BL shows how far typed manpower is over (▲) or under (▼) the BL hours, and <b>Fit</b> puts the difference into the week you click. Enter moves down, arrow keys move around, and you can paste a block from Excel. <span class="chg-key"></span>Highlighted dates differ from the original baseline (hover over one to see the BL date). Filter by type or pick cost codes, and the graphs below follow.</p>
         </div>
         <button class="btn" id="gridExport">Export this table (CSV)</button>
       </div>
@@ -227,8 +231,8 @@
         <span class="lbl">Rows</span>
         <div class="toggle" id="gridShow" title="Turn each block of rows on or off">
           <button aria-pressed="true" data-gshow="fte">Manpower</button>
-          <button aria-pressed="true" data-gshow="hrs">Hours</button>
           <button aria-pressed="true" data-gshow="pct">% complete</button>
+          <button aria-pressed="true" data-gshow="hrs">Hours</button>
         </div>
         <span class="lbl">Crew size</span>
         <div class="toggle" id="crewStep" title="Curves spread manpower in these steps; hours = FTE × 60 and still add up to BL">
@@ -245,6 +249,7 @@
         <span class="saved-note" id="gridNote"></span>
       </div>
       <div class="chips"></div>
+      <div class="fit-banner hidden" id="fitBanner"></div>
       <div class="grid-wrap" id="gridWrap"><table class="grid" id="grid"></table></div>
       <div class="chart-head" style="margin-top:18px">
         <h3 id="barTitle">Weekly hours</h3>
@@ -506,6 +511,13 @@ function spread(c, setting, raw = false){
   return raw ? out : crewRound(out, idx, c.hours);
 }
 
+// Put a code's whole over/under (BL hours - current hours) into one chosen week.
+function fitIntoWeek(c, i){
+  const dh = c.hours - H(c), cur = (stamps[c.code]?.fte?.[weeks[i]] || 0), next = cur + dh / D.hoursPerFTE;
+  if (next < -1e-9) return `Week ending ${dShort(weeks[i])} only has ${+cur.toFixed(2)} FTE; it can't take ${(-dh/D.hoursPerFTE).toFixed(2)} off. Pick a week with more manpower.`;
+  setFte(c, i, Math.max(0, +next.toFixed(4)));
+  return '';
+}
 // Scale a code's typed manpower so its hours equal BL again (same crew rounding).
 function fitToBL(c){
   const f = stamps[c.code]?.fte; if (!f) return;
@@ -636,7 +648,7 @@ function drawRollup(){
 }
 
 /* ---------- All-codes grid ---------- */
-let gridRange = null, pendingFocus = null;
+let gridRange = null, pendingFocus = null, fitPick = null;
 const cellH = v => v < 0.05 ? '' : v < 10 ? v.toFixed(1) : fmt0(v);
 const cellF = v => v < 0.005 ? '' : v.toFixed(2);
 
@@ -731,7 +743,7 @@ function renderGrid(){
       Object.entries(CURVES).map(([k,v])=>`<option value="${k}" ${st.curve===k?'selected':''}>${v.label}${k===wb?' (workbook)':''}</option>`).join('') + '</select>' +
       (st.curve==='custom' ? `<input class="peak" type="number" min="5" max="95" step="5" value="${st.peak}" data-peak="${c.code}" title="Peak at % of duration" aria-label="Peak % for ${c.code}">` : '') + '</div>';
   };
-  const blocks = ['fte','hrs','pct'].filter(k=>gridShow[k]);
+  const blocks = ['fte','pct','hrs'].filter(k=>gridShow[k]);
   const pctTitle = pctMode==='wk' ? 'Weekly % of hours shown' : pctMode==='cum' ? 'Cumulative % of hours shown' : "Each code's own cumulative %";
   const multi = blocks.length > 1;
   const share = c => total ? (H(c)/total*100).toFixed(1)+'%' : '';
@@ -743,7 +755,7 @@ function renderGrid(){
       `${dh > 0 ? 'Over' : 'Under'} BL by ${fmt0(Math.abs(dh))} hrs = ${Math.abs(fteW).toFixed(1)} FTE-weeks at ${F} hrs (BL ${fmt0(blH)} hrs)`;
     if (Math.abs(dh) <= 0.5) return `<td class="st cd ok" title="${tip}">✓ 0</td>`;
     const txt = unit === 'fte' ? `${Math.abs(fteW).toFixed(1)}` : fmt0(Math.abs(dh));
-    const fit = c && isManual(c) ? `<button class="fit" data-fit="${c.code}" title="Scale ${c.code}'s typed manpower so its hours equal BL (${fmt0(blH)})">Fit</button>` : '';
+    const fit = c && isManual(c) ? `<button class="fit ${fitPick===c.code?'on':''}" data-fit="${c.code}" title="Click Fit, then click the week in ${c.code}'s manpower row that should take the ${dh>0?'extra':'missing'} ${fmt0(Math.abs(dh))} hrs">${fitPick===c.code?'Pick week…':'Fit'}</button>` : '';
     return `<td class="st cd ${dh > 0 ? 'over' : 'under'}" title="${tip}">${fit}${dh > 0 ? '▲ +' : '▼ −'}${txt}</td>`;
   };
   const rowHead = (c, editable, totCell, cls='', unit='hrs') =>
@@ -762,7 +774,7 @@ function renderGrid(){
       }
     }
     if (b==='fte'){ grp(`Manpower (FTE at ${F} hrs/week)`);
-      for (const {c,v} of rows) h += rowHead(c, editable, (H(c)/F).toFixed(1), '', 'fte') + R.map(i=>{
+      for (const {c,v} of rows) h += rowHead(c, editable, (H(c)/F).toFixed(1), fitPick===c.code ? 'fitrow' : '', 'fte') + R.map(i=>{
         const x = v[i]/F, val = x < 0.005 ? '' : +x.toFixed(2);
         return `<td class="fcell ${hol(i)}"><input class="fte" inputmode="decimal" data-fte="${c.code}" data-w="${i}" value="${val}" aria-label="FTE ${c.code} week ending ${weeks[i]}" title="Type FTE for week ending ${dShort(weeks[i])} (hours = FTE × ${F})"></td>`;
       }).join('') + '</tr>'; }
@@ -773,19 +785,22 @@ function renderGrid(){
   const foot = [];
   const blTot = rows.reduce((s,r)=>s+r.c.hours,0), dTot = total - blTot;
   foot.push(['Total manpower (FTE-weeks)', (total/F).toFixed(0), '', R.map(i=>tot[i]/F < 0.005 ? '' : (tot[i]/F).toFixed(1)), '', 'fte']);
+  foot.push(['Weekly % complete', '100%', '', R.map(i=>total ? (tot[i]/total*100).toFixed(1)+'%' : ''), 'pct']);
+  foot.push(['Cumulative % complete', '', '', cumPct(tot, total).map(x=>total ? x.toFixed(1)+'%' : ''), 'pct']);
+  if (!isAll) foot.push([`Entire workbook cumulative % (all ${D.codes.length} codes)`, fmt0(allTotal), '', cumPct(all, allTotal).map(x=>x.toFixed(1)+'%'), 'cmp']);
   if (pd){
     foot.push(['Productive hours', fmt0(pd.h), total ? (pd.h/total*100).toFixed(1)+'%' : '', R.map(i=>cellH(pd.v[i]))]);
     foot.push(['Non-productive hours', fmt0(np.h), total ? (np.h/total*100).toFixed(1)+'%' : '', R.map(i=>cellH(np.v[i]))]);
   }
   foot.push([`Total hours (${shownLabel()})`, `<span title="BL ${fmt0(blTot)} hrs">${fmt0(total)}</span>`, total ? '100%' : '', R.map(i=>cellH(tot[i])), '', 'hrs']);
-  foot.push(['Weekly % complete', '100%', '', R.map(i=>total ? (tot[i]/total*100).toFixed(1)+'%' : ''), 'pct']);
-  foot.push(['Cumulative % complete', '', '', cumPct(tot, total).map(x=>total ? x.toFixed(1)+'%' : ''), 'pct']);
-  if (!isAll) foot.push([`Entire workbook cumulative % (all ${D.codes.length} codes)`, fmt0(allTotal), '', cumPct(all, allTotal).map(x=>x.toFixed(1)+'%'), 'cmp']);
   foot.forEach((f, k)=>{
     const [lab, t, sh, cells, cls, du] = f;
     h += `<tr class="${k===0?'first':''} ${cls||''}"><td class="st cg" colspan="6">${lab}</td><td class="st c5">${t}</td>${deltaCell(dTot, blTot, du || 'none')}<td class="st c6">${sh}</td>` +
       cells.map((x,j)=>`<td class="${hol(R[j])}">${x}</td>`).join('') + '</tr>';
   });
+  const fb = document.getElementById('fitBanner'), fc = fitPick && D.codes.find(x=>x.code===fitPick);
+  fb.classList.toggle('hidden', !fc);
+  if (fc){ const dh = fc.hours - H(fc); fb.innerHTML = `<b>Fit ${fc.code}:</b> click the week in its manpower row (dashed boxes) that should ${dh>0?'take the missing':'give up the extra'} <b>${fmt0(Math.abs(dh))} hrs</b> (${(Math.abs(dh)/F).toFixed(2)} FTE). Press Esc or click Fit again to cancel.`; }
   // Keep the cursor in the FTE cell being typed in across re-renders.
   const ae = document.activeElement, want = pendingFocus || (ae && ae.dataset && ae.dataset.fte ? {code:ae.dataset.fte, w:ae.dataset.w} : null);
   document.getElementById('grid').innerHTML = h + '</tfoot>';
@@ -896,18 +911,18 @@ function exportGrid(){
   const head = c => { const d = datesFor(c); return [c.code,c.activity,isPD(c)?'PD':'NP',curveName(c),d.start,d.finish,c.start,c.finish,datesChanged(c)?'Yes':'No']; };
   const sh = c => total ? (H(c)/total*100).toFixed(2) : '';
   if (gridShow.fte) for (const {c,v} of rows) lines.push(['Manpower (FTE)',...head(c),(H(c)/F).toFixed(2),((H(c)-c.hours)/F).toFixed(2),sh(c),...R.map(i=>(v[i]/F).toFixed(2))].map(q).join(','));
-  if (gridShow.hrs) for (const {c,v} of rows) lines.push(['Hours',...head(c),H(c).toFixed(2),(H(c)-c.hours).toFixed(2),sh(c),...R.map(i=>v[i].toFixed(2))].map(q).join(','));
   if (gridShow.pct) for (const {c,v} of rows){
     const cells = pctMode==='own' ? cumPct(v, H(c)) : pctCells(v, total);
     lines.push([pctMode==='wk' ? 'Weekly %' : pctMode==='cum' ? 'Cumulative %' : "Code's own %",...head(c),'','',sh(c),...cells.map(x=>x.toFixed(2))].map(q).join(','));
   }
+  if (gridShow.hrs) for (const {c,v} of rows) lines.push(['Hours',...head(c),H(c).toFixed(2),(H(c)-c.hours).toFixed(2),sh(c),...R.map(i=>v[i].toFixed(2))].map(q).join(','));
   lines.push(['Total','','Total manpower (FTE)','','','','','','','',(total/F).toFixed(2),((total-rows.reduce((s,r)=>s+r.c.hours,0))/F).toFixed(2),'',...R.map(i=>(tot[i]/F).toFixed(2))].join(','));
-  if (pd){ lines.push(['Total','','Productive hours','','','','','','','',pd.h.toFixed(2),'','',...R.map(i=>pd.v[i].toFixed(2))].join(','));
-           lines.push(['Total','','Non-productive hours','','','','','','','',np.h.toFixed(2),'','',...R.map(i=>np.v[i].toFixed(2))].join(',')); }
-  lines.push(['Total','','Total hours','','','','','','','',total.toFixed(2),(total-rows.reduce((s,r)=>s+r.c.hours,0)).toFixed(2),'100',...R.map(i=>tot[i].toFixed(2))].join(','));
   lines.push(['Total','','Weekly % complete','','','','','','','','100','','',...R.map(i=>(total ? tot[i]/total*100 : 0).toFixed(2))].join(','));
   lines.push(['Total','','Cumulative % complete','','','','','','','','','','',...cumPct(tot,total).map(x=>x.toFixed(2))].join(','));
   if (!isAll) lines.push(['Total','','Entire workbook cumulative %','','','','','','','',allTotal.toFixed(2),'','',...cumPct(all,allTotal).map(x=>x.toFixed(2))].join(','));
+  if (pd){ lines.push(['Total','','Productive hours','','','','','','','',pd.h.toFixed(2),'','',...R.map(i=>pd.v[i].toFixed(2))].join(','));
+           lines.push(['Total','','Non-productive hours','','','','','','','',np.h.toFixed(2),'','',...R.map(i=>np.v[i].toFixed(2))].join(',')); }
+  lines.push(['Total','','Total hours','','','','','','','',total.toFixed(2),(total-rows.reduce((s,r)=>s+r.c.hours,0)).toFixed(2),'100',...R.map(i=>tot[i].toFixed(2))].join(','));
   const name = gridPick.size ? 'picked' : gridType==='PD' ? 'productive' : gridType==='NP' ? 'nonproductive' : 'all';
   download(`henderson_codes_${name}.csv`, lines.join('\n'));
 }
@@ -1019,6 +1034,7 @@ function scheduleRefresh(){ cancelAnimationFrame(_raf); _raf = requestAnimationF
     if (!was) toast(`${c.code} switched to Manual FTE: hours now come from the manpower you type`);
     return true;
   }
+  document.addEventListener('keydown', e=>{ if (e.key === 'Escape' && fitPick){ fitPick = null; renderGrid(); } });
   // Enter moves down a row (like Excel); arrows move between FTE cells.
   document.getElementById('grid').addEventListener('keydown', e=>{
     const fi = e.target.closest('input[data-fte]'); if (!fi) return;
@@ -1056,12 +1072,24 @@ function scheduleRefresh(){ cancelAnimationFrame(_raf); _raf = requestAnimationF
     });
     saveStamps(); pendingFocus = {code: fi.dataset.fte, w: fi.dataset.w}; refreshAll(); toast(`Pasted ${n} FTE values`);
   });
+  document.getElementById('grid').addEventListener('mousedown', e=>{
+    const cell = e.target.closest('input[data-fte]');
+    if (fitPick && cell && cell.dataset.fte === fitPick) e.preventDefault();
+  });
   document.getElementById('grid').addEventListener('click', e=>{
     const ft = e.target.closest('[data-fit]');
-    if (ft){
-      const c = D.codes.find(x=>x.code===ft.dataset.fit), before = H(c);
-      fitToBL(c); saveStamps(); current = c; refreshAll();
-      toast(`${c.code}: manpower scaled to BL, ${fmt0(before)} → ${fmt0(H(c))} hrs`); return;
+    if (ft){ fitPick = fitPick === ft.dataset.fit ? null : ft.dataset.fit; current = D.codes.find(x=>x.code===ft.dataset.fit); renderGrid(); return; }
+    if (fitPick){
+      const cell = e.target.closest('input[data-fte]');
+      if (cell && cell.dataset.fte === fitPick){
+        const c = D.codes.find(x=>x.code===fitPick), before = H(c), w = +cell.dataset.w;
+        const err = fitIntoWeek(c, w);
+        if (err){ toast(err); return; }
+        fitPick = null; saveStamps(); current = c; cell.blur(); refreshAll();
+        toast(`${c.code}: ${fmt0(Math.abs(c.hours - before))} hrs ${c.hours > before ? 'added to' : 'taken from'} week ending ${dShort(weeks[w])} · now matches BL`);
+        return;
+      }
+      fitPick = null; renderGrid();
     }
     const rv = e.target.closest('[data-revert]');
     if (rv){
