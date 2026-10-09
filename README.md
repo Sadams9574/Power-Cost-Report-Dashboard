@@ -7,7 +7,7 @@ Spreads each cost code's hours across its fixed Start/Finish dates from **Sheet1
 - **Charts:** weekly hours or manpower (FTE at 60 hrs/week), plus cumulative % complete compared with the workbook curve.
 - **Productive vs non-productive:** filter and subtotal by Activity Category (`PD-*` = productive, `NP-*` = non-productive). The project baseline % complete is earned on productive hours only.
 - **Saving:** curve changes save automatically in the browser. **Save HTML with my curves** downloads a copy of the page with every change built in. "Stamp curve" marks a curve as approved.
-- **All cost codes table:** below the charts, every code's weekly hours and manpower, with Productive / Non-productive / Both filters. It shows totals at the bottom and weekly and cumulative % complete. You can change any code's curve right in the table.
+- **All cost codes table:** below the charts, every code's weekly hours, manpower, and cumulative % complete, with Productive / Non-productive / Both filters. A cost code picker narrows the table to selected codes, zooms to their weeks, and charts each code's % complete against the entire workbook. It shows totals at the bottom and weekly and cumulative % complete. You can change any code's curve right in the table.
 - **Exports:** CSV of the table, weekly hours, cumulative %, and project % complete. Export or import curves as JSON.
 
 Refresh the data after editing the workbook:

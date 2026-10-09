@@ -13,6 +13,7 @@
     --accent:#2a78d6;--accent-soft:#cde2fb;
     --s-pv:#2a78d6;--s-civil:#eb6834;--s-ss:#1baf7a;--s-general:#eda100;--s-other:#8a8984;
     --ref:#9b9a95;--good:#0ca30c;--grid:#e9e8e4;
+    --k1:#2a78d6;--k2:#eb6834;--k3:#1baf7a;--k4:#eda100;--k5:#e87ba4;--k6:#008300;--k7:#4a3aa7;--k8:#e34948;
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
@@ -22,6 +23,7 @@
       --accent:#3987e5;--accent-soft:#1c3a5e;
       --s-pv:#3987e5;--s-civil:#d95926;--s-ss:#199e70;--s-general:#c98500;--s-other:#77766f;
       --ref:#6f6e68;--grid:#2a2a27;
+      --k1:#3987e5;--k2:#d95926;--k3:#199e70;--k4:#c98500;--k5:#d55181;--k6:#008300;--k7:#9085e9;--k8:#e66767;
     }
   }
   :root[data-theme="dark"]{
@@ -31,6 +33,7 @@
     --accent:#3987e5;--accent-soft:#1c3a5e;
     --s-pv:#3987e5;--s-civil:#d95926;--s-ss:#199e70;--s-general:#c98500;--s-other:#77766f;
     --ref:#6f6e68;--grid:#2a2a27;
+    --k1:#3987e5;--k2:#d95926;--k3:#199e70;--k4:#c98500;--k5:#d55181;--k6:#008300;--k7:#9085e9;--k8:#e66767;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
@@ -128,7 +131,10 @@
   table.grid .c2{left:92px;width:200px;min-width:200px;max-width:200px;overflow:hidden;text-overflow:ellipsis;}
   table.grid .c3{left:292px;width:42px;min-width:42px;max-width:42px;}
   table.grid .c4{left:334px;width:140px;min-width:140px;max-width:140px;}
-  table.grid .c5{left:474px;width:82px;min-width:82px;max-width:82px;text-align:right;border-right:2px solid var(--border);}
+  table.grid .c5{left:474px;width:82px;min-width:82px;max-width:82px;text-align:right;}
+  table.grid .c6{left:556px;width:72px;min-width:72px;max-width:72px;text-align:right;border-right:2px solid var(--border);}
+  table.grid tr.pctrow td{color:var(--text-2);}
+  table.grid tfoot tr.cmp td{color:var(--text-2);font-weight:600;font-style:italic;}
   table.grid .cg{left:0;}
   table.grid tbody tr{cursor:pointer;}
   table.grid tbody tr:hover td{background:var(--surface-2);}
@@ -144,6 +150,20 @@
   .mark{display:inline-block;width:14px;font-weight:700;}
   .mark.stamped{color:var(--good);}
   .mark.changed{color:var(--accent);}
+  .picker{position:relative;}
+  .pick-panel{position:absolute;z-index:20;top:calc(100% + 6px);left:0;width:min(440px,90vw);background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:10px;}
+  .pick-panel .row{display:flex;gap:6px;margin-bottom:8px;}
+  .pick-panel input[type=search]{flex:1;}
+  .pick-list{max-height:320px;overflow:auto;border-top:1px solid var(--border);}
+  .pick-list label{display:grid;grid-template-columns:18px 84px 1fr auto;gap:6px;align-items:center;padding:5px 2px;font-size:12px;border-bottom:1px solid var(--border);cursor:pointer;}
+  .pick-list label:hover{background:var(--surface-2);}
+  .pick-list .h{color:var(--text-2);font-variant-numeric:tabular-nums;}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px;}
+  .pchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:14px;padding:2px 4px 2px 8px;font-size:12px;background:var(--surface);}
+  .pchip i{width:10px;height:10px;border-radius:3px;display:inline-block;}
+  .pchip button{border:0;background:none;color:var(--text-2);cursor:pointer;font-size:14px;line-height:1;padding:0 4px;}
+  .toggle button[aria-disabled="true"]{opacity:.45;}
+  .cmp-box{position:relative;height:230px;margin-bottom:12px;}
   .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--surface);padding:9px 16px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;}
   .toast.on{opacity:1;}
   .hidden{display:none !important;}
@@ -238,26 +258,43 @@
     <div class="panel grid-panel">
       <div class="head">
         <div>
-          <h2>All cost codes — weekly hours and manpower</h2>
-          <p class="hint">Every curve change is saved and shown here. Change any code's curve in the Curve column or with the buttons above. Click a row to open that code.</p>
+          <h2>All cost codes — weekly hours, manpower and % complete</h2>
+          <p class="hint">Every curve change is saved and shown here. Pick cost codes to look at just those, and compare them against the whole workbook. Change a curve in the Curve column. Click a row to open that code.</p>
         </div>
         <button class="btn" id="gridExport">Export this table (CSV)</button>
       </div>
       <div class="grid-ctl">
-        <span class="lbl">Show codes</span>
+        <div class="picker">
+          <button class="btn" id="pickBtn" aria-expanded="false">Cost codes: All ▾</button>
+          <div class="pick-panel hidden" id="pickPanel">
+            <div class="row">
+              <input type="search" id="pickQ" placeholder="Search code or activity…">
+              <button class="btn" id="pickShown">Select shown</button>
+              <button class="btn" id="pickClear">Clear</button>
+            </div>
+            <div class="pick-list" id="pickList"></div>
+          </div>
+        </div>
+        <span class="lbl">Type</span>
         <div class="toggle" id="gridType">
           <button aria-pressed="true" data-gtype="PD">Productive</button>
           <button aria-pressed="false" data-gtype="NP">Non-productive</button>
           <button aria-pressed="false" data-gtype="">Both</button>
         </div>
         <span class="lbl">Rows</span>
-        <div class="toggle" id="gridShow">
-          <button aria-pressed="false" data-gshow="hrs">Hours</button>
-          <button aria-pressed="false" data-gshow="fte">Manpower</button>
-          <button aria-pressed="true" data-gshow="both">Hours + Manpower</button>
+        <div class="toggle" id="gridShow" title="Turn each block of rows on or off">
+          <button aria-pressed="true" data-gshow="hrs">Hours</button>
+          <button aria-pressed="true" data-gshow="fte">Manpower</button>
+          <button aria-pressed="true" data-gshow="pct">% complete</button>
         </div>
         <span class="saved-note" id="gridNote"></span>
       </div>
+      <div class="chips" id="pickChips"></div>
+      <div class="chart-head">
+        <h3 id="cmpTitle">Cumulative % complete — comparison</h3>
+        <div class="legend" id="cmpLegend"></div>
+      </div>
+      <div class="cmp-box"><canvas id="cmpChart"></canvas></div>
       <div class="grid-wrap" id="gridWrap"><table class="grid" id="grid"></table></div>
     </div>
   </section>
@@ -349,7 +386,9 @@ function betaWeight(x, mode, c){
   return Math.pow(x, a-1) * Math.pow(1-x, b-1);
 }
 
-let D, weeks, factor, stamps = {}, current = null, unit = 'hrs', rollType = '', gridType = 'PD', gridShow = 'both';
+let D, weeks, factor, stamps = {}, current = null, unit = 'hrs', rollType = '', gridType = 'PD';
+const gridShow = {hrs:true, fte:true, pct:true};
+const gridPick = new Map();   // code -> color slot (1-8), in pick order
 const isPD = c => /^PD/i.test(c.category || '');
 const typeOf = c => isPD(c) ? 'PD' : 'NP';
 const TYPE_LABEL = {PD:'Productive', NP:'Non-productive'};
@@ -651,27 +690,69 @@ let gridRange = null;
 const cellH = v => v < 0.05 ? '' : v < 10 ? v.toFixed(1) : fmt0(v);
 const cellF = v => v < 0.005 ? '' : v.toFixed(2);
 
+const UI_KEY = 'henderson-commodity-grid-ui-v1';
+function saveUI(){ try { localStorage.setItem(UI_KEY, JSON.stringify({gridType, gridShow, pick:[...gridPick.entries()]})); } catch(e){} }
+function loadUI(){
+  try {
+    const u = JSON.parse(localStorage.getItem(UI_KEY)); if (!u) return;
+    if (['PD','NP',''].includes(u.gridType)) gridType = u.gridType;
+    Object.assign(gridShow, u.gridShow || {});
+    const known = new Set(D.codes.map(c=>c.code));
+    for (const [k,v] of u.pick || []) if (known.has(k)) gridPick.set(k, v);
+  } catch(e){}
+}
+function pickSlot(){ const used = new Set(gridPick.values()); for (let i=1;i<=8;i++) if (!used.has(i)) return i; return 0; }
+function togglePick(code, on){
+  if (on && !gridPick.has(code)) gridPick.set(code, pickSlot());
+  if (!on) gridPick.delete(code);
+}
+
 function gridData(){
   if (!gridRange){
     let lo = Infinity, hi = -1;
     for (const c of D.codes){ const ix = c._idx || (c._idx = activeWeeks(c)); if (ix.length){ lo = Math.min(lo, ix[0]); hi = Math.max(hi, ix[ix.length-1]); } }
     gridRange = [...Array(hi-lo+1).keys()].map(i=>i+lo);
   }
-  const codes = D.codes.filter(c => !gridType || typeOf(c)===gridType).sort((a,b)=>a.row-b.row);
+  // Picked codes win over the type filter.
+  const keep = gridPick.size ? c => gridPick.has(c.code) : c => !gridType || typeOf(c)===gridType;
+  const codes = D.codes.filter(keep).sort((a,b)=>a.row-b.row);
   const rows = codes.map(c=>({c, v: spread(c, settingFor(c))}));
   const sumW = (list) => { const t = new Float64Array(weeks.length); for (const r of list) for (const i of gridRange) t[i]+=r.v[i]; return t; };
   const tot = sumW(rows), total = codes.reduce((s,c)=>s+c.hours,0);
-  const pd = gridType==='' ? sumW(rows.filter(r=>isPD(r.c))) : null;
-  const np = gridType==='' ? sumW(rows.filter(r=>!isPD(r.c))) : null;
-  return {codes, rows, tot, total, pd, np};
+  const mixed = rows.some(r=>isPD(r.c)) && rows.some(r=>!isPD(r.c));
+  const pdRows = rows.filter(r=>isPD(r.c)), npRows = rows.filter(r=>!isPD(r.c));
+  const pd = mixed ? {v:sumW(pdRows), h:pdRows.reduce((s,r)=>s+r.c.hours,0)} : null;
+  const np = mixed ? {v:sumW(npRows), h:npRows.reduce((s,r)=>s+r.c.hours,0)} : null;
+  // Whole workbook (all 93 codes, current curves) for comparison.
+  const all = projectSpread(false).tot, allTotal = D.codes.reduce((s,c)=>s+c.hours,0);
+  const isAll = codes.length === D.codes.length;
+  return {codes, rows, tot, total, pd, np, all, allTotal, isAll};
+}
+
+// Week columns shown: the whole project, or just the picked codes' weeks (plus 2 on each side).
+function viewRange(){
+  if (!gridPick.size) return gridRange;
+  let lo = Infinity, hi = -1;
+  for (const code of gridPick.keys()){ const c = D.codes.find(x=>x.code===code), ix = c._idx || (c._idx = activeWeeks(c)); if (ix.length){ lo = Math.min(lo, ix[0]); hi = Math.max(hi, ix[ix.length-1]); } }
+  return gridRange.filter(i => i >= lo-2 && i <= hi+2);
+}
+// Cumulative % always counts from the project start, then is read off for the weeks shown.
+function cumPct(v, total, R = viewRange()){
+  let s = 0; const m = new Map();
+  for (const i of gridRange){ s += v[i]; m.set(i, total ? s/total*100 : 0); }
+  return R.map(i=>m.get(i));
+}
+function shownLabel(){
+  if (gridPick.size) return `${gridPick.size} picked code${gridPick.size>1?'s':''}`;
+  return gridType==='PD' ? 'productive' : gridType==='NP' ? 'non-productive' : 'all codes';
 }
 
 function renderGrid(){
   if (!D) return;
-  const {rows, tot, total, pd, np} = gridData();
-  const R = gridRange, F = D.hoursPerFTE;
-  const hol = i => factor[i] < 1 ? ' hol' : '';
-  let h = '<thead><tr><th class="st c1">Code</th><th class="st c2">Activity</th><th class="st c3">Type</th><th class="st c4">Curve</th><th class="st c5">Total</th>' +
+  const G = gridData(), {rows, tot, total, pd, np, all, allTotal, isAll} = G;
+  const R = viewRange(), F = D.hoursPerFTE;
+  const hol = i => factor[i] < 1 ? 'hol' : '';
+  let h = '<thead><tr><th class="st c1">Code</th><th class="st c2">Activity</th><th class="st c3">Type</th><th class="st c4">Curve</th><th class="st c5">Total</th><th class="st c6" title="Share of the hours shown">% of hrs</th>' +
     R.map(i=>`<th class="${hol(i)}" title="Week ending ${weeks[i]}${factor[i]<1?' · holiday factor '+factor[i]:''}">${dShort(weeks[i])}</th>`).join('') + '</tr></thead><tbody>';
 
   const curveCell = (c, editable) => {
@@ -681,55 +762,123 @@ function renderGrid(){
     return `<div style="display:flex;align-items:center">${mark}<select data-code="${c.code}" aria-label="Curve for ${c.code}">` +
       Object.entries(CURVES).map(([k,v])=>`<option value="${k}" ${st.curve===k?'selected':''}>${k==='custom' && st.curve==='custom' ? `Custom ${st.peak}%` : v.label}</option>`).join('') + '</select></div>';
   };
-  const block = (title, div, fmt, editable) => {
-    if (gridShow==='both') h += `<tr class="grp"><td class="st cg" colspan="5">${title}</td><td colspan="${R.length}"></td></tr>`;
-    for (const {c, v} of rows){
-      h += `<tr data-code="${c.code}" class="${current===c?'sel':''}"><td class="st c1">${c.code}</td><td class="st c2" title="${c.activity}">${c.activity}</td>` +
-        `<td class="st c3">${isPD(c)?'PD':'NP'}</td><td class="st c4">${curveCell(c, editable)}</td><td class="st c5">${div===1 ? fmt0(c.hours) : (c.hours/div).toFixed(1)}</td>` +
-        R.map(i=>`<td class="${hol(i).trim()}">${fmt(v[i]/div)}</td>`).join('') + '</tr>';
+  const blocks = ['hrs','fte','pct'].filter(k=>gridShow[k]);
+  const multi = blocks.length > 1;
+  const share = c => total ? (c.hours/total*100).toFixed(1)+'%' : '';
+  const rowHead = (c, editable, totCell, cls='') =>
+    `<tr data-code="${c.code}" class="${current===c?'sel':''} ${cls}"><td class="st c1">${c.code}</td><td class="st c2" title="${c.activity}">${c.activity}</td>` +
+    `<td class="st c3">${isPD(c)?'PD':'NP'}</td><td class="st c4">${curveCell(c, editable)}</td><td class="st c5">${totCell}</td><td class="st c6">${share(c)}</td>`;
+  const grp = t => { if (multi) h += `<tr class="grp"><td class="st cg" colspan="6">${t}</td><td colspan="${R.length}"></td></tr>`; };
+  blocks.forEach((b, bi) => {
+    const editable = bi === 0;
+    if (b==='hrs'){ grp('Hours');
+      for (const {c,v} of rows) h += rowHead(c, editable, fmt0(c.hours)) + R.map(i=>`<td class="${hol(i)}">${cellH(v[i])}</td>`).join('') + '</tr>'; }
+    if (b==='fte'){ grp(`Manpower (FTE at ${F} hrs/week)`);
+      for (const {c,v} of rows) h += rowHead(c, editable, (c.hours/F).toFixed(1)) + R.map(i=>`<td class="${hol(i)}">${cellF(v[i]/F)}</td>`).join('') + '</tr>'; }
+    if (b==='pct'){ grp('Cumulative % complete by cost code');
+      for (const {c,v} of rows){
+        const ix = c._idx, lo = ix[0], hi = ix[ix.length-1], cp = cumPct(v, c.hours);
+        h += rowHead(c, editable, '100%', 'pctrow') + R.map((i,j)=>`<td class="${hol(i)}">${i>=lo && i<=hi ? cp[j].toFixed(1)+'%' : ''}</td>`).join('') + '</tr>';
+      }
     }
-  };
-  if (gridShow!=='fte') block('Hours', 1, cellH, true);
-  if (gridShow!=='hrs') block(`Manpower (FTE at ${F} hrs/week)`, F, cellF, gridShow==='fte');
+  });
+  if (!rows.length) h += `<tr class="grp"><td class="st cg" colspan="6">No cost codes picked.</td><td colspan="${R.length}"></td></tr>`;
   h += '</tbody><tfoot>';
 
-  const label = gridType==='PD' ? 'productive' : gridType==='NP' ? 'non-productive' : 'all';
   const foot = [];
   if (pd){
-    foot.push(['Productive hours', fmt0(D.codes.filter(isPD).reduce((s,c)=>s+c.hours,0)), R.map(i=>cellH(pd[i]))]);
-    foot.push(['Non-productive hours', fmt0(D.codes.filter(c=>!isPD(c)).reduce((s,c)=>s+c.hours,0)), R.map(i=>cellH(np[i]))]);
+    foot.push(['Productive hours', fmt0(pd.h), total ? (pd.h/total*100).toFixed(1)+'%' : '', R.map(i=>cellH(pd.v[i]))]);
+    foot.push(['Non-productive hours', fmt0(np.h), total ? (np.h/total*100).toFixed(1)+'%' : '', R.map(i=>cellH(np.v[i]))]);
   }
-  foot.push([`Total hours (${label})`, fmt0(total), R.map(i=>cellH(tot[i]))]);
-  foot.push([`Total manpower (FTE)`, (total/F).toFixed(0), R.map(i=>tot[i]/F < 0.005 ? '' : (tot[i]/F).toFixed(1))]);
-  let cum = 0;
-  const wk = [], cu = [];
-  for (const i of R){ cum += tot[i]; wk.push(total ? (tot[i]/total*100).toFixed(1)+'%' : ''); cu.push(total ? (cum/total*100).toFixed(1)+'%' : ''); }
-  foot.push(['Weekly % complete', '100%', wk]);
-  foot.push(['Cumulative % complete', '', cu]);
-  foot.forEach(([lab, t, cells], k)=>{
-    h += `<tr class="${k===0?'first':''} ${k>=foot.length-2?'pct':''}"><td class="st cg" colspan="4">${lab}</td><td class="st c5">${t}</td>` +
-      cells.map((x,j)=>`<td class="${hol(R[j]).trim()}">${x}</td>`).join('') + '</tr>';
+  foot.push([`Total hours (${shownLabel()})`, fmt0(total), total ? '100%' : '', R.map(i=>cellH(tot[i]))]);
+  foot.push(['Total manpower (FTE)', (total/F).toFixed(0), '', R.map(i=>tot[i]/F < 0.005 ? '' : (tot[i]/F).toFixed(1))]);
+  const cu = cumPct(tot, total);
+  foot.push(['Weekly % complete', '100%', '', R.map(i=>total ? (tot[i]/total*100).toFixed(1)+'%' : ''), 'pct']);
+  foot.push(['Cumulative % complete', '', '', cu.map(x=>total ? x.toFixed(1)+'%' : ''), 'pct']);
+  if (!isAll){
+    const ca = cumPct(all, allTotal);
+    foot.push([`Entire workbook cumulative % (all ${D.codes.length} codes)`, fmt0(allTotal), '', ca.map(x=>x.toFixed(1)+'%'), 'cmp']);
+  }
+  foot.forEach((f, k)=>{
+    const [lab, t, sh, cells, cls] = f;
+    h += `<tr class="${k===0?'first':''} ${cls||''}"><td class="st cg" colspan="4">${lab}</td><td class="st c5">${t}</td><td class="st c6">${sh}</td>` +
+      cells.map((x,j)=>`<td class="${hol(R[j])}">${x}</td>`).join('') + '</tr>';
   });
   document.getElementById('grid').innerHTML = h + '</tfoot>';
   const n = rows.length, nCh = rows.filter(r=>stamps[r.c.code]).length;
-  document.getElementById('gridNote').textContent = `${n} codes · ${nCh} with changed or stamped curves${lastSaved ? ' · last saved ' + new Date(lastSaved).toLocaleString() : ''}`;
+  document.getElementById('gridNote').textContent = `${n} codes · ${fmt0(total)} hrs (${(total/allTotal*100).toFixed(1)}% of workbook) · ${nCh} with changed curves${lastSaved ? ' · last saved ' + new Date(lastSaved).toLocaleString() : ''}`;
+
+  // Picker button, chips, type toggle state.
+  document.getElementById('pickBtn').textContent = `Cost codes: ${gridPick.size ? gridPick.size + ' picked' : 'All'} ▾`;
+  document.getElementById('pickChips').innerHTML = [...gridPick.keys()].map(code=>{
+    const c = D.codes.find(x=>x.code===code), slot = gridPick.get(code);
+    return `<span class="pchip">${slot ? `<i style="background:var(--k${slot})"></i>` : ''}${code} · ${c.activity.replace(code+'-','').replace(code+' ','')}<button data-unpick="${code}" aria-label="Remove ${code}">×</button></span>`;
+  }).join('') + (gridPick.size ? '<button class="btn" data-unpick="*" style="padding:2px 10px">Clear all</button>' : '');
+  document.querySelectorAll('#gridType button').forEach(b=>{ b.setAttribute('aria-pressed', b.dataset.gtype===gridType); b.setAttribute('aria-disabled', gridPick.size>0); b.title = gridPick.size ? 'Showing picked codes. Clear the picks to filter by type.' : ''; });
+  document.querySelectorAll('#gridShow button').forEach(b=>b.setAttribute('aria-pressed', !!gridShow[b.dataset.gshow]));
+  drawCompare(G);
+  if (!document.getElementById('pickPanel').classList.contains('hidden')) renderPickList();
+}
+
+// Line chart: each picked code (up to 8), the shown total, and the whole workbook.
+function drawCompare(G){
+  const {rows, tot, total, all, allTotal, isAll} = G;
+  const R = viewRange(), labels = R.map(i=>dShort(weeks[i]));
+  const ds = [], leg = [];
+  if (gridPick.size && gridPick.size <= 8){
+    for (const {c,v} of rows){
+      const slot = gridPick.get(c.code) || 1, col = css('--k'+slot);
+      const ix = c._idx, lo = ix[0], hi = ix[ix.length-1], cp = cumPct(v, c.hours);
+      ds.push({label:c.code, data:R.map((i,j)=> i>=lo-1 ? cp[j] : null), borderColor:col, backgroundColor:col, borderWidth:2, pointRadius:0, pointHoverRadius:5, cubicInterpolationMode:'monotone', spanGaps:false});
+      leg.push(`<span><i class="line" style="background:${col}"></i>${c.code}</span>`);
+    }
+  }
+  const tcol = css('--text');
+  if (rows.length && !(gridPick.size===1)){
+    ds.push({label:`Total (${shownLabel()})`, data:cumPct(tot,total), borderColor:tcol, borderWidth:3, pointRadius:0, pointHoverRadius:5, cubicInterpolationMode:'monotone'});
+    leg.push(`<span><i class="line" style="background:${tcol};height:3px"></i>Total (${shownLabel()})</span>`);
+  }
+  if (!isAll){
+    ds.push({label:'Entire workbook', data:cumPct(all, allTotal), borderColor:css('--ref'), borderDash:[5,4], borderWidth:2, pointRadius:0, pointHoverRadius:4, cubicInterpolationMode:'monotone'});
+    leg.push('<span><i class="dash"></i>Entire workbook</span>');
+  }
+  if (gridPick.size > 8) leg.push('<span>More than 8 codes picked: showing their total only</span>');
+  document.getElementById('cmpLegend').innerHTML = leg.join('');
+  document.getElementById('cmpTitle').textContent = gridPick.size ? 'Cumulative % complete: picked codes vs entire workbook' : `Cumulative % complete: ${shownLabel()}${isAll ? '' : ' vs entire workbook'}`;
+  const base = chartBase();
+  setChart('cmpChart', {type:'line', data:{labels, datasets:ds},
+    options:{...base, scales:{...base.scales, y:{...base.scales.y, max:100, ticks:{...base.scales.y.ticks, callback:x=>x+'%', stepSize:25}}},
+      plugins:{...base.plugins, tooltip:{...base.plugins.tooltip, filter: it => it.raw != null, callbacks:{
+        title: items => `Week ending ${weeks[R[items[0].dataIndex]]}`,
+        label: it => ` ${it.dataset.label}: ${it.raw.toFixed(1)}%`}}}}});
+}
+
+function renderPickList(){
+  const q = document.getElementById('pickQ').value.toLowerCase();
+  const list = D.codes.filter(c => (c.code+' '+c.activity).toLowerCase().includes(q)).sort((a,b)=>a.row-b.row);
+  document.getElementById('pickList').innerHTML = list.map(c=>
+    `<label><input type="checkbox" data-pick="${c.code}" ${gridPick.has(c.code)?'checked':''}><b>${c.code}</b><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.activity}</span><span class="h">${isPD(c)?'PD':'NP'} · ${fmt0(c.hours)}</span></label>`).join('')
+    || '<p class="hint" style="padding:8px">No cost codes match.</p>';
 }
 
 function exportGrid(){
-  const {rows, tot, total, pd, np} = gridData();
-  const R = gridRange, F = D.hoursPerFTE;
-  const lines = [['Section','Cost Code','Activity','Type','Curve','Total',...R.map(i=>weeks[i])].map(q).join(',')];
-  const add = (sec, div) => { for (const {c,v} of rows) lines.push([sec,c.code,c.activity,isPD(c)?'PD':'NP',curveName(c),(c.hours/div).toFixed(2),...R.map(i=>(v[i]/div).toFixed(2))].map(q).join(',')); };
-  if (gridShow!=='fte') add('Hours', 1);
-  if (gridShow!=='hrs') add('Manpower (FTE)', F);
-  if (pd){ lines.push(['Total','','Productive hours','','','',...R.map(i=>pd[i].toFixed(2))].join(','));
-           lines.push(['Total','','Non-productive hours','','','',...R.map(i=>np[i].toFixed(2))].join(',')); }
-  lines.push(['Total','','Total hours','','',total.toFixed(2),...R.map(i=>tot[i].toFixed(2))].join(','));
-  lines.push(['Total','','Total manpower (FTE)','','',(total/F).toFixed(2),...R.map(i=>(tot[i]/F).toFixed(2))].join(','));
-  let cum = 0; const cu = R.map(i=>{ cum += tot[i]; return (cum/total*100).toFixed(2); });
-  lines.push(['Total','','Weekly % complete','','','100',...R.map(i=>(tot[i]/total*100).toFixed(2))].join(','));
-  lines.push(['Total','','Cumulative % complete','','','',...cu].join(','));
-  download(`henderson_all_codes_${gridType==='PD'?'productive':gridType==='NP'?'nonproductive':'all'}.csv`, lines.join('\n'));
+  const {rows, tot, total, pd, np, all, allTotal, isAll} = gridData();
+  const R = viewRange(), F = D.hoursPerFTE;
+  const lines = [['Block','Cost Code','Activity','Type','Curve','Total','% of Hrs Shown',...R.map(i=>weeks[i])].map(q).join(',')];
+  const head = c => [c.code,c.activity,isPD(c)?'PD':'NP',curveName(c)];
+  const sh = c => total ? (c.hours/total*100).toFixed(2) : '';
+  if (gridShow.hrs) for (const {c,v} of rows) lines.push(['Hours',...head(c),c.hours.toFixed(2),sh(c),...R.map(i=>v[i].toFixed(2))].map(q).join(','));
+  if (gridShow.fte) for (const {c,v} of rows) lines.push(['Manpower (FTE)',...head(c),(c.hours/F).toFixed(2),sh(c),...R.map(i=>(v[i]/F).toFixed(2))].map(q).join(','));
+  if (gridShow.pct) for (const {c,v} of rows) lines.push(['Cumulative %',...head(c),'100',sh(c),...cumPct(v,c.hours).map(x=>x.toFixed(2))].map(q).join(','));
+  if (pd){ lines.push(['Total','','Productive hours','','',pd.h.toFixed(2),'',...R.map(i=>pd.v[i].toFixed(2))].join(','));
+           lines.push(['Total','','Non-productive hours','','',np.h.toFixed(2),'',...R.map(i=>np.v[i].toFixed(2))].join(',')); }
+  lines.push(['Total','','Total hours','','',total.toFixed(2),'100',...R.map(i=>tot[i].toFixed(2))].join(','));
+  lines.push(['Total','','Total manpower (FTE)','','',(total/F).toFixed(2),'',...R.map(i=>(tot[i]/F).toFixed(2))].join(','));
+  lines.push(['Total','','Weekly % complete','','','100','',...R.map(i=>(total ? tot[i]/total*100 : 0).toFixed(2))].join(','));
+  lines.push(['Total','','Cumulative % complete','','','','',...cumPct(tot,total).map(x=>x.toFixed(2))].join(','));
+  if (!isAll) lines.push(['Total','','Entire workbook cumulative %','','',allTotal.toFixed(2),'',...cumPct(all,allTotal).map(x=>x.toFixed(2))].join(','));
+  const name = gridPick.size ? 'picked' : gridType==='PD' ? 'productive' : gridType==='NP' ? 'nonproductive' : 'all';
+  download(`henderson_codes_${name}.csv`, lines.join('\n'));
 }
 
 function saveHtmlCopy(){
@@ -798,6 +947,7 @@ function scheduleRefresh(){ cancelAnimationFrame(_raf); _raf = requestAnimationF
   document.getElementById('sec').innerHTML = '<option value="">All sect.</option>' +
     [...new Set(D.codes.map(c=>c.section))].map(s=>`<option>${s}</option>`).join('');
 
+  loadUI();
   renderKPIs();
   const first = [...D.codes].sort((a,b)=>b.hours-a.hours).find(c=>c.section==='PV' && !/FOE|Yard/.test(c.activity)) || D.codes[0];
   selectCode(first.code);
@@ -835,15 +985,36 @@ function scheduleRefresh(){ cancelAnimationFrame(_raf); _raf = requestAnimationF
     document.getElementById('cTitle').scrollIntoView({behavior:'smooth', block:'start'});
   });
   document.querySelectorAll('#gridType button').forEach(b=>b.addEventListener('click', ()=>{
-    gridType = b.dataset.gtype;
-    document.querySelectorAll('#gridType button').forEach(x=>x.setAttribute('aria-pressed', x===b));
-    renderGrid();
+    if (gridPick.size){ toast('Showing picked codes. Clear the picks to filter by type.'); return; }
+    gridType = b.dataset.gtype; saveUI(); renderGrid();
   }));
   document.querySelectorAll('#gridShow button').forEach(b=>b.addEventListener('click', ()=>{
-    gridShow = b.dataset.gshow;
-    document.querySelectorAll('#gridShow button').forEach(x=>x.setAttribute('aria-pressed', x===b));
-    renderGrid();
+    const k = b.dataset.gshow;
+    if (gridShow[k] && Object.values(gridShow).filter(Boolean).length === 1) return;   // keep at least one block
+    gridShow[k] = !gridShow[k]; saveUI(); renderGrid();
   }));
+  const pickPanel = document.getElementById('pickPanel'), pickBtn = document.getElementById('pickBtn');
+  pickBtn.addEventListener('click', e=>{
+    e.stopPropagation();
+    const open = pickPanel.classList.toggle('hidden') === false;
+    pickBtn.setAttribute('aria-expanded', open);
+    if (open){ renderPickList(); document.getElementById('pickQ').focus(); }
+  });
+  document.addEventListener('click', e=>{ if (!e.target.closest('.picker')){ pickPanel.classList.add('hidden'); pickBtn.setAttribute('aria-expanded', false); } });
+  document.getElementById('pickQ').addEventListener('input', renderPickList);
+  document.getElementById('pickList').addEventListener('change', e=>{
+    const cb = e.target.closest('input[data-pick]'); if (!cb) return;
+    togglePick(cb.dataset.pick, cb.checked); saveUI(); renderGrid();
+  });
+  document.getElementById('pickShown').addEventListener('click', ()=>{
+    document.querySelectorAll('#pickList input[data-pick]').forEach(cb=>togglePick(cb.dataset.pick, true)); saveUI(); renderGrid();
+  });
+  document.getElementById('pickClear').addEventListener('click', ()=>{ gridPick.clear(); saveUI(); renderGrid(); });
+  document.getElementById('pickChips').addEventListener('click', e=>{
+    const b = e.target.closest('[data-unpick]'); if (!b) return;
+    if (b.dataset.unpick==='*') gridPick.clear(); else gridPick.delete(b.dataset.unpick);
+    saveUI(); renderGrid();
+  });
   document.getElementById('gridExport').addEventListener('click', exportGrid);
   document.getElementById('saveHtml').addEventListener('click', saveHtmlCopy);
   document.querySelectorAll('.toggle button[data-unit]').forEach(b=>b.addEventListener('click', ()=>setUnit(b.dataset.unit)));
@@ -871,7 +1042,7 @@ function scheduleRefresh(){ cancelAnimationFrame(_raf); _raf = requestAnimationF
     e.target.value = '';
   });
   renderGrid();
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{ renderDetail(); if (!document.getElementById('view-rollup').classList.contains('hidden')) drawRollup(); });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{ renderDetail(); renderGrid(); if (!document.getElementById('view-rollup').classList.contains('hidden')) drawRollup(); });
 });
 </script>
 </body>
