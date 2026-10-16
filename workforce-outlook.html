@@ -23,19 +23,20 @@
   --f-display:"Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
   --f-body:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --r:10px;
+  --hero-bg:#121821; --hero-ink:#f2f5f9; --hero-muted:#a3acb8; --hero-line:rgba(255,255,255,.16);
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0d0f12; --surface:#16191d; --ink:#eef0f3; --ink-2:#b8bdc5; --muted:#868b93;
   --grid:#262a30; --line:#3a3f46; --ring:rgba(255,255,255,.10); --accent:#3987e5; --accent-ink:#ffffff;
   --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
-  --good-ink:#0ca30c; --div-neg:#e05252; --div-pos:#3987e5; --div-mid:#24282e; --seq:#3987e5; color-scheme:dark }}
+  --good-ink:#0ca30c; --div-neg:#e05252; --div-pos:#3987e5; --div-mid:#24282e; --seq:#3987e5; --hero-bg:#1a212b; color-scheme:dark }}
 :root[data-theme="dark"]{
   --bg:#0d0f12; --surface:#16191d; --ink:#eef0f3; --ink-2:#b8bdc5; --muted:#868b93;
   --grid:#262a30; --line:#3a3f46; --ring:rgba(255,255,255,.10); --accent:#3987e5; --accent-ink:#ffffff;
   --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
-  --good-ink:#0ca30c; --div-neg:#e05252; --div-pos:#3987e5; --div-mid:#24282e; --seq:#3987e5; color-scheme:dark }
+  --good-ink:#0ca30c; --div-neg:#e05252; --div-pos:#3987e5; --div-mid:#24282e; --seq:#3987e5; --hero-bg:#1a212b; color-scheme:dark }
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
 .wrap{max-width:1240px;margin:0 auto;padding-block:20px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
 h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance}
 h1{font-size:clamp(24px,3.2vw,32px);font-weight:800;letter-spacing:-.01em}
@@ -184,28 +185,97 @@ ol.steps{margin:6px 0 0;padding-left:20px;color:var(--ink-2);display:grid;gap:4p
 .chg-add{margin-top:8px}
 .list input[type=month]{width:140px}
 .list input.note-in{width:150px}
+/* executive band */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.hero{background:var(--hero-bg);color:var(--hero-ink)}
+.hero-in{max-width:1240px;margin:0 auto;padding-block:18px 0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:10px}
+.hero .eyebrow{color:var(--hero-muted)}
+.hero h1{color:var(--hero-ink);font-size:clamp(26px,3.6vw,38px)}
+.hero .summary{font-size:clamp(15px,1.55vw,17px);line-height:1.55;max-width:80ch;margin:2px 0 0;color:var(--hero-ink);opacity:.92}
+.hero .summary b{font-weight:650;opacity:1}
+.hero .sub{color:var(--hero-muted);font-size:13px}
+.hero-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.hero .seg{background:transparent;border-color:var(--hero-line)}
+.hero .seg button{color:var(--hero-muted);border-right-color:var(--hero-line)}
+.hero .seg button[aria-pressed="true"]{background:var(--hero-ink);color:var(--hero-bg)}
+.hero .tabs{border-bottom:0;margin-top:8px}
+.hero .tab{color:var(--hero-muted)}
+.hero .tab:hover,.hero .tab[aria-selected="true"]{color:var(--hero-ink)}
+.hero .tab .ct{color:var(--hero-muted)}
+.btn.hero-btn{background:transparent;border:1px solid var(--hero-line);color:var(--hero-ink);font-weight:600;padding:6px 12px;font-size:12.5px}
+.btn.hero-btn[aria-pressed="true"]{background:var(--hero-ink);color:var(--hero-bg)}
+/* 1-2-3 steps */
+.steps-bar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;list-style:none;margin:0;padding:0}
+@media (max-width:760px){.steps-bar{grid-template-columns:minmax(0,1fr)}}
+.step{all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:2px 12px;align-items:center;padding:12px 14px;border:1px solid var(--ring);border-radius:var(--r);background:var(--surface)}
+.step:hover{border-color:var(--line)}
+.step:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.step .n{grid-row:span 2;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-display);font-weight:700;background:var(--bg);border:1.5px solid var(--line);color:var(--ink-2)}
+.step.done .n{background:var(--good);border-color:var(--good);color:#fff}
+.step.todo .n{border-color:var(--accent);color:var(--accent);background:color-mix(in oklab,var(--accent) 8%,var(--surface))}
+.step.todo{border-color:color-mix(in oklab,var(--accent) 45%,var(--ring))}
+.step b{font-family:var(--f-display);font-weight:600;font-size:14px}
+.step .d{color:var(--ink-2);font-size:12.5px}
+.step .go{grid-row:span 2;color:var(--accent);font-weight:600;font-size:12.5px;white-space:nowrap}
+/* jump nav */
+.jump{position:sticky;top:env(safe-area-inset-top,0px);z-index:15;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;padding-block:8px;background:var(--bg);border-bottom:1px solid var(--grid)}
+.jump a{white-space:nowrap;text-decoration:none;color:var(--ink-2);font-size:13px;font-weight:600;padding:6px 11px;border-radius:999px}
+.jump a:hover{background:var(--surface);color:var(--ink)}
+.jump a:focus-visible{outline:2px solid var(--accent)}
+.wrap > section, .wrap > details{scroll-margin-top:64px}
+body.present #manage, body.present .steps-bar{display:none!important}
+/* HR hiring plan */
+.hr-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.hr-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px}
+.hr-tile{border:1px solid var(--ring);border-radius:8px;padding:10px 12px;display:grid;gap:2px;align-content:start}
+.hr-tile .v{font-family:var(--f-display);font-size:26px;font-weight:700;line-height:1.1}
+.hr-tile .d{color:var(--ink-2);font-size:12px}
+.hr-tile.hot{border-color:color-mix(in oklab,var(--crit) 45%,var(--ring));background:color-mix(in oklab,var(--crit) 5%,var(--surface))}
+.hr-wrap{overflow-x:auto;border:1px solid var(--ring);border-radius:8px}
+table.hr{border-collapse:separate;border-spacing:0;font-size:12.5px;font-variant-numeric:tabular-nums;background:var(--surface);min-width:100%}
+.hr th,.hr td{padding:7px 9px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--grid)}
+.hr thead th{font-size:11px;font-weight:600;color:var(--muted);position:sticky;top:0;background:var(--surface)}
+.hr thead th.now{color:var(--crit)}
+.hr th.rl{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1;font-weight:500;color:var(--ink);min-width:170px}
+.hr th.rl i{display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--c);margin-right:7px}
+.hr td.lead{color:var(--muted)}
+.hr .h{display:inline-block;min-width:34px;padding:2px 7px;border-radius:5px;background:color-mix(in oklab,var(--crit) 14%,transparent);color:var(--crit);font-weight:700}
+.hr .r{color:var(--muted)}
+.hr .z{color:var(--line)}
+.hr td.tot{font-weight:700;color:var(--ink)}
+.hr tfoot th,.hr tfoot td{font-weight:700;border-top:2px solid var(--line);border-bottom:0;background:var(--surface)}
+.hr tfoot tr.sub th,.hr tfoot tr.sub td{font-weight:500;color:var(--ink-2);border-top:1px solid var(--grid)}
+#hrStatus{font-size:12.5px;color:var(--ink-2)}
+details.paste{margin-top:4px}
+details.paste summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--accent)}
+details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.4 ui-monospace,Menlo,Consolas,monospace;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px}
 .list select.sm{font-size:12px;padding:2px 4px;max-width:140px}
 </style>
 
-<div class="wrap">
-  <div class="topbar">
-    <div class="eyebrow">Workforce planning · crew headcount by craft</div>
-    <label class="ctl" style="grid-auto-flow:column;align-items:center;gap:8px"><span>Theme</span>
-      <div class="seg" id="theme">
-        <button type="button" data-v="light">Light</button>
-        <button type="button" data-v="dark">Dark</button>
-        <button type="button" data-v="auto">Auto</button>
+<div class="hero">
+  <div class="hero-in">
+    <div class="topbar">
+      <div class="eyebrow">Workforce planning · Executive review · <span id="asOf"></span></div>
+      <div class="hero-tools">
+        <button type="button" class="btn hero-btn" id="presentBtn" aria-pressed="false">Presentation view</button>
+        <div class="seg" id="theme" role="group" aria-label="Theme">
+          <button type="button" data-v="light">Light</button>
+          <button type="button" data-v="dark">Dark</button>
+          <button type="button" data-v="auto">Auto</button>
+        </div>
       </div>
-    </label>
+    </div>
+    <h1 id="viewTitle">Workforce Outlook</h1>
+    <p class="summary" id="execSummary">Loading plan…</p>
+    <div class="sub" id="subline"></div>
+    <nav class="tabs" id="sectorTabs" role="tablist" aria-label="Sector"></nav>
   </div>
+</div>
 
-  <nav class="tabs" id="sectorTabs" role="tablist" aria-label="Sector"></nav>
+<div class="wrap">
+  <ol class="steps-bar" id="stepsBar" aria-label="How to use this page"></ol>
 
   <header class="top">
-    <div>
-      <h1 id="viewTitle">Workforce Outlook</h1>
-      <div class="sub" id="subline">Loading plan…</div>
-    </div>
     <div class="controls" role="group" aria-label="View options">
       <label class="ctl"><span>Work included</span>
         <div class="seg" id="scenario">
@@ -242,6 +312,10 @@ ol.steps{margin:6px 0 0;padding-left:20px;color:var(--ink-2);display:grid;gap:4p
     </div>
   </header>
 
+  <nav class="jump" aria-label="Jump to section">
+    <a href="#kpis">Summary</a><a href="#mainPanel">Histogram</a><a href="#gapsPanel">Future gaps</a><a href="#hrPanel">HR hiring plan</a><a href="#sectorPanel" id="jumpSector">By sector</a><a href="#hmPanel">Shortage grid</a><a href="#jobsPanel">Jobs</a><a href="#manage" id="jumpManage">Update the plan</a>
+  </nav>
+
   <section class="kpis" id="kpis" aria-label="Headline numbers"></section>
 
   <section class="panel" id="mainPanel">
@@ -261,6 +335,28 @@ ol.steps{margin:6px 0 0;padding-left:20px;color:var(--ink-2);display:grid;gap:4p
     <button type="button" class="btn ghost gaps-more" id="gapsMore" hidden></button>
   </section>
 
+  <section class="panel" id="hrPanel">
+    <div class="panel-head">
+      <div><h2>HR hiring plan</h2><div class="note" id="hrNote"></div></div>
+      <div class="hr-actions">
+        <div class="seg" id="hrView" role="group" aria-label="Show hires by">
+          <button type="button" data-v="start">By start month</button>
+          <button type="button" data-v="recruit">By recruit-by month</button>
+        </div>
+        <div class="seg" id="hrHorizon" role="group" aria-label="Months shown">
+          <button type="button" data-v="12">12 mo</button>
+          <button type="button" data-v="24">24 mo</button>
+          <button type="button" data-v="all">All</button>
+        </div>
+        <button type="button" class="btn ghost" id="hrCopy">Copy table</button>
+        <button type="button" class="btn" id="hrXlsx">Download Excel</button>
+      </div>
+    </div>
+    <div class="hr-tiles" id="hrTiles"></div>
+    <div class="hr-wrap"><table class="hr" id="hrTable"></table></div>
+    <div class="note" style="margin-top:8px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><span id="hrFoot"></span><span id="hrStatus" role="status"></span></div>
+  </section>
+
   <section class="panel" id="sectorPanel">
     <div class="panel-head">
       <div><h2>By sector</h2><div class="note" id="sectorNote"></div></div>
@@ -268,7 +364,7 @@ ol.steps{margin:6px 0 0;padding-left:20px;color:var(--ink-2);display:grid;gap:4p
     <div class="multiples" id="sectorMinis"></div>
   </section>
 
-  <section class="panel">
+  <section class="panel" id="hmPanel">
     <div class="panel-head">
       <div><h2 id="hmTitle">Where we are short</h2><div class="note" id="hmNote"></div></div>
       <button type="button" class="btn ghost" id="expandAll">Show every craft</button>
@@ -277,7 +373,7 @@ ol.steps{margin:6px 0 0;padding-left:20px;color:var(--ink-2);display:grid;gap:4p
     <div class="hm-key" id="hmKey"></div>
   </section>
 
-  <section class="panel">
+  <section class="panel" id="jobsPanel">
     <div class="panel-head">
       <div><h2>Each job's histogram</h2><div class="note">Monthly average headcount by craft group at full job size, all on the same scale so jobs compare directly.</div></div>
     </div>
@@ -312,6 +408,11 @@ ol.steps{margin:6px 0 0;padding-left:20px;color:var(--ink-2);display:grid;gap:4p
         <h3>Headcount on hand</h3>
         <div class="note">People you have today (or can count on) in each craft. Leave blank if unknown; blank crafts are left out of the shortage math. Overall always uses company-wide numbers. A sector uses its own numbers once you enter any, otherwise company-wide.</div>
         <label class="ctl"><span>Headcount for</span><div class="seg" id="capTarget"></div></label>
+        <details class="paste" id="pasteWrap"><summary>Paste current manpower from Excel</summary>
+          <div class="note" style="margin-top:6px">Copy two columns from Excel (craft, then headcount) and paste them here. Applies to the “Headcount for” choice above.</div>
+          <textarea id="pasteBox" aria-label="Pasted manpower" placeholder="Laborer&#9;90&#10;Operator II&#9;30&#10;Foreman I&#9;20"></textarea>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:6px"><button type="button" class="btn ghost" id="pasteApply">Apply</button><span class="status" id="pasteStatus"></span></div>
+        </details>
         <div class="cap-grid tbl-wrap"><table class="list" id="capTable"></table></div>
         <h3 style="margin-top:10px">Planned hires and releases</h3>
         <div class="note">Changes to headcount from a month onward, for example +10 Journeyman Electricians from Mar '27, or −20 Laborers from Nov '27. They show when “With hiring plan” is selected. A sector change only applies if that sector has its own headcount entered.</div>
@@ -363,13 +464,13 @@ const state = {
   jobs: new Map(),
   capacity: {company:{}, bySector:{}},
   craftMap: {},
-  capMode: "plan",
+  capMode: "plan", hrView: "start", hrHorizon: "12",
   sector: "all", scenario: "weighted", stack: "sector", grain: "month", theme: "light", capTarget: "company",
   hiddenJobs: new Set(), hiddenGroups: new Set(), expanded: new Set(), expandAll: false,
 };
 try { const s = JSON.parse(localStorage.getItem("wfo-ui") || "{}");
-  ["scenario","stack","grain","theme","sector","capMode"].forEach(k => { if (s[k]) state[k] = s[k]; }); } catch {}
-const saveUi = () => { try { localStorage.setItem("wfo-ui", JSON.stringify({scenario:state.scenario,stack:state.stack,grain:state.grain,theme:state.theme,sector:state.sector,capMode:state.capMode})); } catch {} };
+  ["scenario","stack","grain","theme","sector","capMode","hrView","hrHorizon"].forEach(k => { if (s[k]) state[k] = s[k]; }); } catch {}
+const saveUi = () => { try { localStorage.setItem("wfo-ui", JSON.stringify({scenario:state.scenario,stack:state.stack,grain:state.grain,theme:state.theme,sector:state.sector,capMode:state.capMode,hrView:state.hrView,hrHorizon:state.hrHorizon})); } catch {} };
 const groupOf = c => (state.craftMap[c] && gById(state.craftMap[c])) || guessGroup(c);
 
 let db = null, canWrite = true, live = false;
@@ -526,27 +627,31 @@ function render(){
   if (state.sector !== "all" && state.stack === "sector") state.stack = "group";
   renderTabs(); renderControls();
   const M = buildModel();
+  { const d = new Date(NOW); $("asOf").textContent = `Plan as of ${MON[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`; }
+  renderSteps(); renderSummary(M);
   renderManage();
   const label = state.sector === "all" ? "Overall" : state.sector;
   $("viewTitle").textContent = state.sector === "all" ? "Workforce Outlook · Overall" : `Workforce Outlook · ${state.sector}`;
   $("sectorPanel").hidden = state.sector !== "all" || !state.jobs.size;
-  $("gapsPanel").hidden = !state.jobs.size;
+  $("gapsPanel").hidden = !M;
+  $("hrPanel").hidden = !M;
+  $("jumpSector").hidden = state.sector !== "all";
   if (!M) { renderEmpty(label); return; }
   const names = M.jobs.map(j => j.name);
   $("subline").textContent = `${M.jobs.length} job${M.jobs.length>1?"s":""} · ${wkLabel(M.weeks[0])} – ${wkLabel(M.weeks[M.W-1])} · ${names.slice(0,3).join(", ")}${names.length>3?` +${names.length-3} more`:""}`;
-  renderKpis(M); renderMain(M); renderGaps(M); if (state.sector === "all") renderSectorMinis(); renderHeatmap(M); renderJobMinis(M);
+  renderKpis(M); renderMain(M); renderGaps(M); renderHR(M); if (state.sector === "all") renderSectorMinis(); renderHeatmap(M); renderJobMinis(M);
 }
 
 function renderTabs(){
   const all = [...state.jobs.values()];
   const count = n => all.filter(j => jobSector(j) === n).length;
-  const tabs = [{key:"all", name:"Overall", color:"--ink", n:all.length}, ...SECTORS.map(s => ({key:s.name, name:s.name, color:s.color, n:count(s.name)}))];
+  const tabs = [{key:"all", name:"Overall", color:"--hero-ink", n:all.length}, ...SECTORS.map(s => ({key:s.name, name:s.name, color:s.color, n:count(s.name)}))];
   if (count("Unassigned")) tabs.push({key:"Unassigned", name:"Unassigned", color:"--muted", n:count("Unassigned")});
   $("sectorTabs").innerHTML = tabs.map(t => `<button type="button" class="tab" role="tab" data-sector="${esc(t.key)}" aria-selected="${state.sector===t.key}" style="--c:var(${t.color})">${t.key!=="all"?"<i></i>":""}${esc(t.name)} <span class="ct">${t.n} job${t.n!==1?"s":""}</span></button>`).join("");
 }
 
 function renderControls(){
-  for (const [id,key] of [["scenario","scenario"],["stack","stack"],["grain","grain"],["theme","theme"],["capMode","capMode"]])
+  for (const [id,key] of [["scenario","scenario"],["stack","stack"],["grain","grain"],["theme","theme"],["capMode","capMode"],["hrView","hrView"],["hrHorizon","hrHorizon"]])
     $(id).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === state[key])));
   $("stack").querySelector('[data-v="sector"]').hidden = state.sector !== "all";
   const jobs = [...state.jobs.values()].filter(j => state.sector === "all" || jobSector(j) === state.sector).sort((a,b)=>a.start.localeCompare(b.start));
@@ -843,6 +948,139 @@ function renderManage(){
     : `<tbody><tr><td class="note">Crafts appear here once a job is loaded${state.capTarget!=="company"?` for ${esc(state.capTarget)}`:""}.</td></tr></tbody>`;
 }
 
+// ---------- steps, summary, HR plan ----------
+function renderSteps(){
+  const n = state.jobs.size, crafts = manageCrafts();
+  const entered = crafts.filter(c => hasCapIn(state.capacity.company||{}, c) || Object.values(state.capacity.bySector||{}).some(m => hasCapIn(m, c))).length;
+  const M = n ? buildModel() : null; const sh = M ? shortages(M) : [];
+  const s1 = n ? "done" : "todo", s2 = !n ? "" : entered ? "done" : "todo", s3 = n && entered ? "done" : "";
+  const step = (k, cls, title, desc, go) => `<li><button type="button" class="step ${cls}" data-step="${k}"><span class="n">${cls==="done"?"✓":k}</span><b>${title}</b><span class="go">${go}</span><span class="d">${desc}</span></button></li>`;
+  $("stepsBar").innerHTML =
+    step(1, s1, "Drop in your Excel", n ? `${n} job${n>1?"s":""} loaded. Drop in again any time to refresh.` : "Load your workforce planning workbook (.xlsm).", n ? "Refresh →" : "Choose file →") +
+    step(2, s2, "Enter current manpower", !n ? "Available after step 1." : entered ? `${entered} of ${crafts.length} crafts entered. Blank crafts are left out.` : `Type or paste the people you have today in each of ${crafts.length} crafts.`, entered ? "Edit →" : "Enter →") +
+    step(3, s3, "See shortfalls vs covered", !(n && entered) ? "Available after step 2." : sh.length ? `${sh.length} craft${sh.length>1?"s":""} short ahead · see gaps and the HR hiring plan.` : "Every craft entered is covered from today on.", "View →");
+}
+function summaryCounts(M){ const P = hrPlan(M, 12, "start"); return {hires12: P.rows.reduce((s,r)=>s+r.hires.reduce((a,b)=>a+b,0),0)}; }
+function renderSummary(M){
+  const el = $("execSummary");
+  if (!M) { el.innerHTML = state.jobs.size ? "No jobs in this sector yet. Load its workbook or change a job's sector under Update the plan." : "Load your Excel workforce plans to see the crew you need, where you fall short, and who HR has to hire."; return; }
+  if (M.tw >= M.W) { el.textContent = "All work in this view is in the past."; return; }
+  const tot = totalSeries(M); let pk = 0, pi = M.tw; for (let i=M.tw;i<M.W;i++) if (tot[i]>pk){pk=tot[i];pi=i;}
+  const where = state.sector === "all" ? "" : ` in ${state.sector}`;
+  let h = `Across <b>${M.visJobs.length} job${M.visJobs.length!==1?"s":""}</b>${where}, the crew peaks at <b>${fmt(pk)} people</b> the week of <b>${wkLabel(M.weeks[pi])}</b>. `;
+  const capT = capTotal(M);
+  if (!capT) h += `Enter current manpower to see shortfalls and the HR hiring plan.`;
+  else {
+    const sh = shortages(M), G = findGaps(M), {hires12} = summaryCounts(M);
+    h += sh.length ? `Against <b>${fmt(capT[M.tw])} on hand</b>, <b>${sh.length} craft${sh.length>1?"s":""}</b> come up short${hires12?` and HR needs about <b>${fmt(hires12)} new hires</b> in the next 12 months`:""}. ` : `The <b>${fmt(capT[M.tw])} people on hand</b> cover every craft entered. `;
+    const nx = G.short[0]; if (nx) h += `First decision: hire <b>${fmt(nx.gap)} ${esc(nx.craft)}</b> ${nx.urgency==="now"?"<b>now</b>":`by <b>${wkLabel(nx.hireBy)}</b>`}. `;
+    const v = G.valleys.find(x => x.start > NOW + 4*WEEK) || G.valleys[0];
+    if (v && v.kind === "idle") h += `Crews run short of work <b>${wkLabel(v.start)} – ${wkLabel(v.end)}</b>; chase work starting then.`;
+  }
+  el.innerHTML = h;
+}
+// month-by-month HR view: shortfall at the busiest week, hires = month-on-month increase, releases = decrease
+function hrPlan(M, H, view){
+  let mi = M.months.map((_,i)=>i).filter(i => i >= M.tm); if (H !== Infinity) mi = mi.slice(0, H);
+  const rows = []; const firstKey = mi.length ? M.months[mi[0]] : null;
+  capCrafts(M).forEach(c => {
+    const cap = M.capS[c], d = M.demand[c];
+    const S = mi.map(m => { const ix = M.monthIdx[m].filter(w => w >= M.tw); return ix.length ? Math.max(0, Math.round(Math.max(...ix.map(w => d[w]-cap[w])))) : 0; });
+    const hires = S.map((v,k) => Math.max(0, v - (k ? S[k-1] : 0)));
+    const rel = S.map((v,k) => Math.max(0, (k ? S[k-1] : 0) - v));
+    if (!hires.some(Boolean)) return;
+    const lead = leadOf(c); let overdue = 0; const rec = mi.map(() => 0);
+    hires.forEach((v,k) => { if (!v) return; const t = parseDay(M.months[mi[k]] + "-01") - lead*WEEK; const key = moKey(t);
+      if (key < firstKey) overdue += v; else { const j = mi.findIndex(m => M.months[m] === key); rec[j >= 0 ? j : k] += v; } });
+    rows.push({craft:c, g:groupOf(c), lead, S, hires, rel, rec, overdue});
+  });
+  rows.sort((a,b) => ALLG.indexOf(a.g) - ALLG.indexOf(b.g) || a.craft.localeCompare(b.craft));
+  return {mi, rows, labels: mi.map(m => moLabel(M.months[m])), view};
+}
+function hrCurrent(M){ return hrPlan(M, state.hrHorizon === "all" ? Infinity : +state.hrHorizon, state.hrView); }
+const sumArr = (rows, f, k) => rows.reduce((s,r)=>s + r[f][k], 0);
+function renderHR(M){
+  const P = hrCurrent(M), rec = state.hrView === "recruit";
+  const scen = {awarded:"awarded work only", weighted:"awarded work plus pipeline weighted by win %", all:"every job at full size"}[state.scenario];
+  const noCap = M.crafts.filter(c => inVisGroup(M,c) && !M.capS[c] && Math.max(0, ...Array.from(M.demand[c]).slice(M.tw)) > 0.5);
+  $("hrNote").innerHTML = !capCrafts(M).length ? "Enter current manpower (step 2) to build the hiring plan."
+    : `New people needed each month, by craft, based on ${scen} and ${state.capMode==="plan"?"headcount <b>including</b> your planned hires":"today's headcount"}. ${rec ? "Recruit-by moves each hire earlier by that craft's weeks to hire." : "A hire is counted in the month the shortfall grows; − shows people who free up."}${state.scenario!=="awarded"?" For firm hiring, set Work included to Awarded only.":""}`;
+  if (!capCrafts(M).length) { $("hrTiles").innerHTML = ""; $("hrTable").innerHTML = ""; $("hrFoot").textContent = ""; return; }
+  const field = rec ? "rec" : "hires", n = P.mi.length;
+  const tot = P.labels.map((_,k) => sumArr(P.rows, field, k));
+  const totS = P.labels.map((_,k) => sumArr(P.rows, "S", k));
+  const overdue = P.rows.reduce((s,r)=>s+r.overdue,0);
+  const win = k => tot.slice(0,k).reduce((a,b)=>a+b,0);
+  let pk = 0, pki = 0; totS.forEach((v,k)=>{ if (v>pk){pk=v;pki=k;} });
+  const tile = (lbl, v, d, hot) => `<div class="hr-tile ${hot?"hot":""}"><div class="eyebrow">${lbl}</div><div class="v">${fmt(v)}</div><div class="d">${d}</div></div>`;
+  $("hrTiles").innerHTML = (rec
+    ? tile("Recruit now (overdue)", overdue, "Should already be recruiting to start on time", overdue>0) + tile("Recruit this month", tot[0]||0, P.labels[0]||"", (tot[0]||0)>0) + tile("Next 3 months", win(3), `${P.labels[0]||""} – ${P.labels[Math.min(2,n-1)]||""}`) + tile(`Next ${n} months`, win(n) + overdue, "Total to recruit incl. overdue")
+    : tile("Start this month", tot[0]||0, P.labels[0]||"", (tot[0]||0)>0) + tile("Next 3 months", win(3), `${P.labels[0]||""} – ${P.labels[Math.min(2,n-1)]||""}`) + tile(`Next ${n} months`, win(n), "Total new hires") )
+    + tile("Peak shortfall", pk, pk ? `${P.labels[pki]} · busiest week` : "No shortfall in this window", false);
+  if (!P.rows.length) { $("hrTable").innerHTML = `<tbody><tr><td style="text-align:left;padding:16px" class="note">No new hires needed in this window for crafts with manpower entered.</td></tr></tbody>`; }
+  else {
+    const cell = (r,k) => { const v = r[field][k]; const rl = !rec ? r.rel[k] : 0;
+      const tip = `${r.craft} · ${P.labels[k]}|Short ${fmt(r.S[k])} at the busiest week${v?`|${rec?`Start recruiting ${fmt(v)} (${r.lead} wk lead)`:`Hire ${fmt(v)} more to start this month`}`:""}${rl?`|${fmt(rl)} can be released`:""}`;
+      return `<td data-tip="${esc(tip)}">${v ? `<span class="h">+${fmt(v)}</span>` : rl ? `<span class="r">−${fmt(rl)}</span>` : `<span class="z">·</span>`}</td>`; };
+    let h = `<thead><tr><th class="rl">Craft</th><th>Weeks to hire</th>${rec?`<th class="now">Overdue</th>`:""}${P.labels.map(l=>`<th>${l}</th>`).join("")}<th>Total</th></tr></thead><tbody>`;
+    P.rows.forEach(r => { const t = r[field].reduce((a,b)=>a+b,0) + (rec ? r.overdue : 0);
+      h += `<tr><th class="rl" scope="row" style="--c:var(${r.g.color})"><i></i>${esc(r.craft)}</th><td class="lead">${r.lead}</td>${rec?`<td>${r.overdue?`<span class="h">+${fmt(r.overdue)}</span>`:`<span class="z">·</span>`}</td>`:""}${P.labels.map((_,k)=>cell(r,k)).join("")}<td class="tot">${fmt(t)}</td></tr>`; });
+    h += `</tbody><tfoot><tr><th class="rl" scope="row">${rec?"Recruit (all crafts)":"New hires (all crafts)"}</th><td></td>${rec?`<td>${fmt(overdue)}</td>`:""}${tot.map(v=>`<td>${v?fmt(v):"·"}</td>`).join("")}<td>${fmt(win(n)+(rec?overdue:0))}</td></tr>
+      <tr class="sub"><th class="rl" scope="row">Total short (busiest week)</th><td></td>${rec?"<td></td>":""}${totS.map(v=>`<td>${v?fmt(v):"·"}</td>`).join("")}<td></td></tr></tfoot>`;
+    $("hrTable").innerHTML = h;
+  }
+  $("hrFoot").textContent = noCap.length ? `Not included because no manpower is entered: ${noCap.slice(0,8).join(", ")}${noCap.length>8?` +${noCap.length-8} more`:""}.` : "";
+}
+function hrSheets(M){
+  const H = state.hrHorizon === "all" ? Infinity : +state.hrHorizon;
+  const P = hrPlan(M, H, "start");
+  const d = new Date(NOW), stamp = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const scen = {awarded:"Awarded only", weighted:"Weighted by win %", all:"If we win everything"}[state.scenario];
+  const meta = [`Workforce Outlook · ${state.sector==="all"?"Overall":state.sector} · Work included: ${scen} · Headcount: ${state.capMode==="plan"?"with hiring plan":"as of today"} · Generated ${stamp}`];
+  const mk = (title, field, extra) => { const head = ["Craft","Craft group","Weeks to hire", ...(extra?["Overdue"]:[]), ...P.labels, "Total"];
+    const body = P.rows.map(r => { const vals = r[field]; const t = vals.reduce((a,b)=>a+b,0) + (extra ? r.overdue : 0); return [r.craft, r.g.name, r.lead, ...(extra?[r.overdue]:[]), ...vals, t]; });
+    const totRow = ["All crafts","","", ...(extra?[P.rows.reduce((s,r)=>s+r.overdue,0)]:[]), ...P.labels.map((_,k)=>sumArr(P.rows, field, k)), ""];
+    return {title, aoa:[meta, [title], [], head, ...body, totRow]}; };
+  return {stamp, P, sheets:[mk("New hires by start month","hires"), mk("Recruit-by month","rec",true), mk("Shortfall at busiest week","S"), mk("People who free up","rel")]};
+}
+function tsvOfCurrent(M){
+  const P = hrCurrent(M), rec = state.hrView === "recruit", field = rec ? "rec" : "hires";
+  const head = ["Craft","Weeks to hire", ...(rec?["Overdue"]:[]), ...P.labels, "Total"];
+  const lines = [head, ...P.rows.map(r => [r.craft, r.lead, ...(rec?[r.overdue]:[]), ...r[field], r[field].reduce((a,b)=>a+b,0)+(rec?r.overdue:0)])];
+  return lines.map(l => l.join("\t")).join("\n");
+}
+const downloadsP = window.claude?.use ? window.claude.use("downloads") : Promise.resolve(null);
+async function exportXlsx(){
+  const M = buildModel(); if (!M) return;
+  if (typeof XLSX === "undefined") { $("hrStatus").textContent = "The Excel writer did not load. Use Copy table instead."; return; }
+  const {stamp, sheets} = hrSheets(M); const wb = XLSX.utils.book_new();
+  sheets.forEach(sh => { const ws = XLSX.utils.aoa_to_sheet(sh.aoa); ws["!cols"] = [{wch:34},{wch:26},{wch:13}, ...Array(40).fill({wch:9})]; XLSX.utils.book_append_sheet(wb, ws, sh.title.slice(0,31)); });
+  const filename = `HR_Hiring_Plan_${state.sector==="all"?"Overall":state.sector}_${stamp}.xlsx`;
+  if (!window.claude) { XLSX.writeFile(wb, filename); $("hrStatus").textContent = `Saved ${filename}.`; return; }
+  const dl = await downloadsP;
+  if (!dl) { $("hrStatus").textContent = "Download isn't available in this view. Use Copy table and paste into Excel."; return; }
+  try { await dl.save({filename, data: XLSX.write(wb, {bookType:"xlsx", type:"array"})}); $("hrStatus").textContent = `Saved ${filename}.`; }
+  catch (err) { $("hrStatus").textContent = err?.code === "declined" ? "Download cancelled." : "Download isn't available here. Use Copy table instead."; }
+}
+function copyText(text, statusEl, okMsg){
+  const done = () => statusEl.textContent = okMsg;
+  const fallback = () => { const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); done(); } catch { statusEl.textContent = "Copy didn't work here. Select the table and copy it manually."; } ta.remove(); };
+  try { navigator.clipboard.writeText(text).then(done, fallback); } catch { fallback(); }
+}
+function applyPaste(){
+  const txt = $("pasteBox").value; const known = new Map(manageCrafts().map(c => [c.toLowerCase(), c]));
+  const cap = state.capacity; cap.company = cap.company || {}; cap.bySector = cap.bySector || {};
+  const map = state.capTarget === "company" ? cap.company : (cap.bySector[state.capTarget] = cap.bySector[state.capTarget] || {});
+  let n = 0; const unknown = [];
+  txt.split(/\r?\n/).forEach(line => { const parts = line.split(/\t|,|\s{2,}/).map(x => x.trim()).filter(Boolean); if (parts.length < 2) return;
+    const num = Number(String(parts[parts.length-1]).replace(/[^0-9.\-]/g,"")); if (!isFinite(num) || parts[parts.length-1] === "") return;
+    const raw = parts.slice(0,-1).join(" "); if (/^craft/i.test(raw)) return;
+    const name = known.get(raw.toLowerCase()) || raw; if (!known.has(raw.toLowerCase())) unknown.push(raw);
+    map[name] = Math.max(0, Math.round(num)); n++; });
+  $("pasteStatus").textContent = n ? `Applied ${n} craft${n>1?"s":""}${unknown.length?`. Not in any job yet: ${unknown.slice(0,4).join(", ")}${unknown.length>4?"…":""}`:""}.` : "Nothing to apply. Paste two columns: craft and headcount.";
+  if (n) { $("pasteBox").value = ""; saveCapacity(); }
+}
+
 function manageCrafts(){ const set = new Set(); state.jobs.forEach(j => Object.keys(j.crafts||{}).forEach(c=>set.add(c))); Object.keys(state.capacity.company||{}).forEach(c=>set.add(c));
   return [...set].sort((a,b)=>{ const ga=ALLG.indexOf(groupOf(a)), gb=ALLG.indexOf(groupOf(b)); return ga-gb || a.localeCompare(b); }); }
 function renderChanges(dis){
@@ -865,13 +1103,27 @@ document.addEventListener("click", e => {
   if (tab) { state.sector = tab.dataset.sector; state.hiddenJobs.clear(); if (state.sector !== "all") { if (state.stack === "sector") state.stack = "group"; if (SECTORS.some(s=>s.name===state.sector)) state.capTarget = state.sector; } else state.capTarget = "company"; saveUi(); render(); window.scrollTo({top:0, behavior:"smooth"}); return; }
   const ct = e.target.closest("[data-cap-target]"); if (ct) { state.capTarget = ct.dataset.capTarget; renderManage(); return; }
   const seg = e.target.closest(".seg button");
-  if (seg && ["scenario","stack","grain","theme","capMode"].includes(seg.parentElement.id)) { const key = seg.parentElement.id; state[key] = seg.dataset.v; saveUi(); if (key === "theme") { applyTheme(); rethemed(); } else render(); return; }
+  if (seg && ["scenario","stack","grain","theme","capMode","hrView","hrHorizon"].includes(seg.parentElement.id)) { const key = seg.parentElement.id; state[key] = seg.dataset.v; saveUi(); if (key === "theme") { applyTheme(); rethemed(); } else render(); return; }
   const sa = e.target.closest("[data-all],[data-none]");
   if (sa) { const which = sa.dataset.all || sa.dataset.none, none = !!sa.dataset.none;
     if (which === "jobs") { state.hiddenJobs.clear(); if (none) [...state.jobs.values()].filter(j => state.sector === "all" || jobSector(j) === state.sector).forEach(j => state.hiddenJobs.add(j.id)); }
     else { state.hiddenGroups.clear(); if (none) GROUPS.forEach(g => state.hiddenGroups.add(g.id)); }
     render(); return; }
   const ex = e.target.closest("[data-expand]"); if (ex) { const id = ex.dataset.expand; state.expanded.has(id) ? state.expanded.delete(id) : state.expanded.add(id); render(); return; }
+  const st = e.target.closest("[data-step]");
+  if (st) { const k = +st.dataset.step;
+    if (k === 3) { $("gapsPanel").scrollIntoView({behavior:"smooth"}); return; }
+    $("manage").open = true;
+    if (k === 1) { $("drop").scrollIntoView({behavior:"smooth", block:"center"}); if (canWrite) $("file").click(); return; }
+    if (state.capTarget !== "company") { state.capTarget = "company"; renderManage(); }
+    $("capTable").scrollIntoView({behavior:"smooth", block:"center"});
+    setTimeout(() => { const inp = [...document.querySelectorAll("#capTable [data-cap]")].find(x => x.value === "") || document.querySelector("#capTable [data-cap]"); inp?.focus({preventScroll:true}); }, 450);
+    return; }
+  if (e.target.id === "presentBtn") { const on = !document.body.classList.contains("present"); document.body.classList.toggle("present", on); e.target.setAttribute("aria-pressed", String(on)); e.target.textContent = on ? "Exit presentation" : "Presentation view"; return; }
+  if (e.target.id === "jumpManage") { $("manage").open = true; }
+  if (e.target.id === "hrCopy") { const M = buildModel(); if (M) copyText(tsvOfCurrent(M), $("hrStatus"), "Copied. Paste into Excel or an email."); return; }
+  if (e.target.id === "hrXlsx") { exportXlsx(); return; }
+  if (e.target.id === "pasteApply") { applyPaste(); return; }
   if (e.target.id === "gapsMore") { state.gapsAll = !state.gapsAll; render(); return; }
   if (e.target.id === "chgAdd") { const cs = manageCrafts(); const d = new Date(NOW); const nm = `${d.getUTCMonth()===11?d.getUTCFullYear()+1:d.getUTCFullYear()}-${String((d.getUTCMonth()+1)%12+1).padStart(2,"0")}`;
     state.capacity.changes = [...(state.capacity.changes||[]), {craft:cs[0]||"", scope: state.capTarget, from:nm, delta:5, note:""}]; saveCapacity(); return; }
@@ -908,7 +1160,7 @@ document.addEventListener("input", e => {
   if (v === "") delete map[c]; else map[c] = Math.max(0, +v);
   if (state.capTarget !== "company" && !Object.keys(map).length) delete cap.bySector[state.capTarget];
   clearTimeout(capTimer); capTimer = setTimeout(saveCapacity, 700);
-  const M = buildModel(); if (M) { renderKpis(M); renderMain(M); renderGaps(M); renderHeatmap(M); }
+  const M = buildModel(); if (M) { renderKpis(M); renderMain(M); renderGaps(M); renderHR(M); renderHeatmap(M); renderSummary(M); }
 });
 
 const tip = $("tip");
