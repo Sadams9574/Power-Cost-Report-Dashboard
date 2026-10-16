@@ -100,6 +100,10 @@ table.hm{border-collapse:separate;border-spacing:2px;font-size:12px;font-variant
 .hm .oh{min-width:58px;text-align:right;font-family:var(--f-display);font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink);padding:4px 8px;border-left:1px solid var(--line);margin-right:-12px}
 .hm thead .oh{font-family:var(--f-body);font-size:11px;font-weight:600;color:var(--muted);border-left-color:transparent}
 .hm .oh.none{color:var(--muted);font-weight:500}
+.hm .oh-in{width:58px;text-align:right;font:700 13px var(--f-display);font-variant-numeric:tabular-nums;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:3px 6px}
+.hm .oh-in:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+.hm .oh-in::placeholder{color:var(--muted);font-weight:500}
+.hm .oh:has(.oh-in){padding:2px 8px}
 .hm tr.craft .oh{font-weight:600;font-size:12px}
 .hm td div{min-width:42px;height:26px;display:grid;place-items:center;border-radius:4px;color:var(--ink)}
 .hm td div.dark{color:#fff}
@@ -367,7 +371,13 @@ details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.
   <section class="panel" id="hmPanel">
     <div class="panel-head">
       <div><h2 id="hmTitle">Where we are short</h2><div class="note" id="hmNote"></div></div>
-      <button type="button" class="btn ghost" id="expandAll">Show every craft</button>
+      <div class="hr-actions">
+        <div class="seg" id="hmCells" role="group" aria-label="Cells show">
+          <button type="button" data-v="gap">Over / under</button>
+          <button type="button" data-v="need">Forecast need</button>
+        </div>
+        <button type="button" class="btn ghost" id="expandAll">Show every craft</button>
+      </div>
     </div>
     <div class="hm-wrap"><table class="hm" id="heatmap"></table></div>
     <div class="hm-key" id="hmKey"></div>
@@ -466,7 +476,7 @@ const state = {
   craftMap: {},
   capMode: "plan", hrView: "start", hrHorizon: "12",
   sector: "all", scenario: "weighted", stack: "sector", grain: "month", theme: "light", capTarget: "company",
-  hiddenJobs: new Set(), hiddenGroups: new Set(), expanded: new Set(), expandAll: false,
+  hiddenJobs: new Set(), hiddenGroups: new Set(), expanded: new Set(), expandAll: true, hmCells: "gap",
 };
 try { const s = JSON.parse(localStorage.getItem("wfo-ui") || "{}");
   ["scenario","stack","grain","theme","sector","capMode","hrView","hrHorizon"].forEach(k => { if (s[k]) state[k] = s[k]; }); } catch {}
@@ -504,10 +514,22 @@ function factor(job){
 function jobColor(id){ const ids = [...state.jobs.keys()].sort(); const i = ids.indexOf(id); return i < JOB_SLOTS.length ? JOB_SLOTS[i] : "--muted"; }
 
 // headcount on hand for a view: company-wide on Overall, sector numbers when that sector has any
+// actuals typed anywhere count everywhere: a sector uses its own number for a craft, else company-wide;
+// Overall uses company-wide, else the sum of sector numbers for that craft
 function capView(sector){
-  if (sector && sector !== "all") { const m = state.capacity.bySector?.[sector]; if (m && Object.keys(m).length) return {map:m, source:sector}; }
-  return {map: state.capacity.company || {}, source:"company"};
+  const co = state.capacity.company || {}, bs = state.capacity.bySector || {};
+  const map = {}, src = {}; const ok = v => v !== "" && v !== null && v !== undefined && isFinite(+v);
+  if (sector && sector !== "all") {
+    for (const [c,v] of Object.entries(co)) if (ok(v)) { map[c] = +v; src[c] = "company"; }
+    for (const [c,v] of Object.entries(bs[sector] || {})) if (ok(v)) { map[c] = +v; src[c] = "sector"; }
+  } else {
+    for (const m of Object.values(bs)) for (const [c,v] of Object.entries(m || {})) if (ok(v)) { map[c] = (map[c] || 0) + (+v); src[c] = "sum"; }
+    for (const [c,v] of Object.entries(co)) if (ok(v)) { map[c] = +v; src[c] = "company"; }
+  }
+  const kinds = new Set(Object.values(src));
+  return {map, src, source: sector && sector !== "all" && kinds.has("sector") ? sector : "company", mixed: kinds.size > 1};
 }
+const scopeApplies = (M, ch) => { const sc = ch.scope || "company"; return M.sector === "all" || sc === "company" || sc === M.sector; };
 
 const NOW = Date.now();
 const DEFAULT_LEAD = {sup:6, lab:2, ops:4, mod:3, ele:8, wel:6, stf:6, trd:4, oth:4};
@@ -515,7 +537,7 @@ const leadOf = c => { const v = state.capacity.leadTimes?.[c]; return v !== unde
 const planChanges = () => (state.capacity.changes || []).filter(ch => ch && ch.craft && /^\d{4}-\d{2}$/.test(ch.from || "") && +ch.delta);
 function capSeries(M, c){
   const map = M.cap.map; const base = hasCapIn(map,c) ? +map[c] : null;
-  const chs = state.capMode === "plan" ? planChanges().filter(ch => ch.craft === c && (ch.scope || "company") === M.cap.source) : [];
+  const chs = state.capMode === "plan" ? planChanges().filter(ch => ch.craft === c && scopeApplies(M, ch)) : [];
   if (base === null && !chs.length) return null;
   const a = new Float64Array(M.W).fill(base || 0);
   chs.forEach(ch => { const t = parseDay(ch.from + "-01"); for (let i=0;i<M.W;i++) if (M.weeks[i] + 3*DAY >= t) a[i] += +ch.delta; });
@@ -651,7 +673,7 @@ function renderTabs(){
 }
 
 function renderControls(){
-  for (const [id,key] of [["scenario","scenario"],["stack","stack"],["grain","grain"],["theme","theme"],["capMode","capMode"],["hrView","hrView"],["hrHorizon","hrHorizon"]])
+  for (const [id,key] of [["scenario","scenario"],["stack","stack"],["grain","grain"],["theme","theme"],["capMode","capMode"],["hrView","hrView"],["hrHorizon","hrHorizon"],["hmCells","hmCells"]])
     $(id).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === state[key])));
   $("stack").querySelector('[data-v="sector"]').hidden = state.sector !== "all";
   const jobs = [...state.jobs.values()].filter(j => state.sector === "all" || jobSector(j) === state.sector).sort((a,b)=>a.start.localeCompare(b.start));
@@ -667,7 +689,8 @@ function renderControls(){
 
 const ICON_ALERT = `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.5 15 14H1L8 1.5Zm-.75 4.5v4h1.5V6h-1.5Zm0 5.25v1.5h1.5v-1.5h-1.5Z"/></svg>`;
 const ICON_OK = `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6.5 11.2 3.3 8l-1 1 4.2 4.2L14 5.7l-1-1z"/></svg>`;
-const capSourceText = M => M.cap.source === "company" ? (M.sector === "all" ? "company-wide" : "company-wide (no sector numbers entered)") : `${M.cap.source} crew`;
+const capSourceText = M => M.sector === "all" ? (M.cap.mixed ? "company-wide plus sector numbers" : Object.values(M.cap.src).includes("sum") ? "sector numbers added up" : "company-wide")
+  : M.cap.source === "company" ? "company-wide actuals" : (M.cap.mixed ? `${M.sector} actuals, company-wide where blank` : `${M.sector} actuals`);
 
 function renderKpis(M){
   if (M.tw >= M.W) { $("kpis").innerHTML = `<div class="kpi"><div class="eyebrow">Work ahead</div><div class="v">—</div><div class="d">All weeks in this view are in the past.</div></div>`; return; }
@@ -675,7 +698,7 @@ function renderKpis(M){
   const capT = capTotal(M), cs = capCrafts(M);
   const sh = shortages(M); const G = findGaps(M);
   let worstNeed = 0; if (capT) { const dem = demandOf(M, cs); for (let i=M.tw;i<M.W;i++) worstNeed = Math.max(worstNeed, dem[i]-capT[i]); }
-  const planOn = state.capMode === "plan" && planChanges().some(ch => (ch.scope||"company") === M.cap.source);
+  const planOn = state.capMode === "plan" && planChanges().some(ch => scopeApplies(M, ch));
   const capEnd = capT ? capT[M.W-1] : null;
   let gapTile;
   if (!cs.length) gapTile = `<div class="kpi"><div class="eyebrow">Craft shortages ahead</div><div class="v">—</div><span class="pill idle">Headcount on hand not entered</span><div class="d">Open “Update the plan” below and enter people per craft to see gaps.</div></div>`;
@@ -789,7 +812,11 @@ function cellStyle(v, mode, scale){
   return {bg:`color-mix(in oklab, var(--seq) ${pct}%, var(--surface))`, dark:pct>55};
 }
 
+let hmDirty = false;
 function renderHeatmap(M){
+  const ae = document.activeElement;
+  if (ae && ae.tagName === "INPUT" && ae.closest?.("#heatmap")) { hmDirty = true; return; } // don't rebuild under the cursor
+  hmDirty = false;
   const visCrafts = M.crafts.filter(c => inVisGroup(M,c));
   const anyCap = visCrafts.some(c => M.capS[c]);
   const mode = anyCap ? "gap" : "demand";
@@ -797,8 +824,8 @@ function renderHeatmap(M){
   const ixOf = i => M.monthIdx[i].filter(w => w >= M.tw);
   $("hmTitle").textContent = anyCap ? "Where we are short, month by month" : "Headcount needed by craft";
   $("hmNote").textContent = anyCap
-    ? `From this month on. Headcount on hand (${capSourceText(M)}${state.capMode==="plan"?", with hiring plan":""}) minus the busiest week of each month. The On hand column is the headcount you entered; each month shows + spare or − short against it. Crafts with no headcount entered show people needed in grey.`
-    : "From this month on, busiest week of each month. Enter headcount on hand to turn this into a shortage map.";
+    ? `From this month on. Actual is the manpower you have today (${capSourceText(M)}); type in it to update. ${state.hmCells==="need"?"Each month shows the forecast need at the busiest week; color shows over (blue) or under (red) against actual":"Each month shows actual minus the forecast need at the busiest week: + over, − under"}${state.capMode==="plan"?", including your hiring plan":""}. Crafts with no actual entered show forecast need in grey.`
+    : "From this month on, forecast need at the busiest week of each month. Type your current manpower in the Actual column to see over / under.";
   if (!mi.length) { $("heatmap").innerHTML = `<tbody><tr><td><div class="empty">All work in this view is in the past.</div></td></tr></tbody>`; $("hmKey").innerHTML = ""; return; }
   const rows = [];
   M.usedGroups.filter(g => M.visGroup(g)).forEach(g => {
@@ -818,9 +845,12 @@ function renderHeatmap(M){
   const scaleGap = Math.max(1, ...rows.flatMap(r => r.gap ? r.gap.map(Math.abs) : []));
   const scaleDem = Math.max(1, ...rows.flatMap(r => r.peak));
   const planLbl = state.capMode === "plan" && planChanges().length ? " (months to the right include the hiring plan)" : "";
-  let h = `<thead><tr><th class="rl"><div class="rlw"><span>Craft</span>${anyCap?`<span class="oh">On hand</span>`:""}</div></th>${mi.map(m=>`<th scope="col">${moLabel(M.months[m])}</th>`).join("")}</tr></thead><tbody>`;
+  let h = `<thead><tr><th class="rl"><div class="rlw"><span>Craft</span><span class="oh">Actual</span></div></th>${mi.map(m=>`<th scope="col">${moLabel(M.months[m])}</th>`).join("")}</tr></thead><tbody>`;
   rows.forEach(r => {
-    const capTxt = anyCap ? `<span class="oh ${r.cap===null?"none":""}" title="${r.cap===null?"No headcount entered":`On hand today${planLbl}`}">${r.cap===null?"—":fmt(r.cap)}</span>` : "";
+    const capVal = r.type === "craft" ? (M.cap.map[r.label] ?? "") : "";
+    const capTxt = r.type === "craft" && canWrite
+      ? `<span class="oh"><input class="oh-in" type="number" min="0" step="1" inputmode="numeric" data-cap-grid="${esc(r.label)}" value="${capVal===""?"":esc(capVal)}" placeholder="—" aria-label="Actual manpower today, ${esc(r.label)}" title="Type the people you have today${planLbl}"></span>`
+      : `<span class="oh ${r.cap===null?"none":""}" title="${r.cap===null?"No actual entered":`Actual today${planLbl}`}">${r.cap===null?"—":fmt(r.cap)}</span>`;
     const lab = r.type === "grp"
       ? `<div class="rlw"><button type="button" data-expand="${r.g.id}" aria-expanded="${state.expandAll||state.expanded.has(r.g.id)}"><i style="width:10px;height:10px;border-radius:3px;background:var(${r.g.color});display:inline-block"></i>${esc(r.label)}</button>${capTxt}</div>`
       : `<div class="rlw"><span>${esc(r.label)}</span>${capTxt}</div>`;
@@ -828,7 +858,7 @@ function renderHeatmap(M){
     mi.forEach((m,i) => {
       const useGap = mode === "gap" && r.gap; const v = useGap ? r.gap[i] : r.peak[i];
       const st = useGap ? cellStyle(v,"gap",scaleGap) : (mode==="gap" ? {bg:"transparent", dark:false, zero:true} : cellStyle(v,"demand",scaleDem));
-      const txt = useGap ? (Math.abs(v)<0.5 ? "0" : (v>0?"+":"−")+fmt(Math.abs(v))) : (v<0.05 ? "·" : fmt(v));
+      const txt = useGap && state.hmCells !== "need" ? (Math.abs(v)<0.5 ? "0" : (v>0?"+":"−")+fmt(Math.abs(v))) : (r.peak[i]<0.05 ? "·" : fmt(r.peak[i]));
       const tip = `${r.label} · ${moLabel(M.months[m])}|Busiest week needs ${fmt(r.peak[i],1)}${useGap ? `|${v<0?`Short by ${fmt(-v,1)}`:`Spare ${fmt(v,1)}`}` : ""}`;
       h += `<td><div class="${st.dark?"dark":""} ${st.zero?"zero":""}" style="background:${st.bg}" data-tip="${esc(tip)}">${txt}</div></td>`;
     });
@@ -957,7 +987,7 @@ function renderSteps(){
   const step = (k, cls, title, desc, go) => `<li><button type="button" class="step ${cls}" data-step="${k}"><span class="n">${cls==="done"?"✓":k}</span><b>${title}</b><span class="go">${go}</span><span class="d">${desc}</span></button></li>`;
   $("stepsBar").innerHTML =
     step(1, s1, "Drop in your Excel", n ? `${n} job${n>1?"s":""} loaded. Drop in again any time to refresh.` : "Load your workforce planning workbook (.xlsm).", n ? "Refresh →" : "Choose file →") +
-    step(2, s2, "Enter current manpower", !n ? "Available after step 1." : entered ? `${entered} of ${crafts.length} crafts entered. Blank crafts are left out.` : `Type or paste the people you have today in each of ${crafts.length} crafts.`, entered ? "Edit →" : "Enter →") +
+    step(2, s2, "Enter current manpower (actuals)", !n ? "Available after step 1." : entered ? `${entered} of ${crafts.length} crafts entered. Blank crafts are left out.` : `Type the people you have today in the Actual column of the shortage grid, or paste from Excel.`, entered ? "Edit →" : "Enter →") +
     step(3, s3, "See shortfalls vs covered", !(n && entered) ? "Available after step 2." : sh.length ? `${sh.length} craft${sh.length>1?"s":""} short ahead · see gaps and the HR hiring plan.` : "Every craft entered is covered from today on.", "View →");
 }
 function summaryCounts(M){ const P = hrPlan(M, 12, "start"); return {hires12: P.rows.reduce((s,r)=>s+r.hires.reduce((a,b)=>a+b,0),0)}; }
@@ -992,7 +1022,7 @@ function hrPlan(M, H, view){
     const lead = leadOf(c); let overdue = 0; const rec = mi.map(() => 0);
     hires.forEach((v,k) => { if (!v) return; const t = parseDay(M.months[mi[k]] + "-01") - lead*WEEK; const key = moKey(t);
       if (key < firstKey) overdue += v; else { const j = mi.findIndex(m => M.months[m] === key); rec[j >= 0 ? j : k] += v; } });
-    rows.push({craft:c, g:groupOf(c), lead, S, hires, rel, rec, overdue});
+    rows.push({craft:c, g:groupOf(c), lead, S, hires, rel, rec, overdue, actual: Math.round(cap[Math.min(M.tw, M.W-1)])});
   });
   rows.sort((a,b) => ALLG.indexOf(a.g) - ALLG.indexOf(b.g) || a.craft.localeCompare(b.craft));
   return {mi, rows, labels: mi.map(m => moLabel(M.months[m])), view};
@@ -1022,11 +1052,11 @@ function renderHR(M){
     const cell = (r,k) => { const v = r[field][k]; const rl = !rec ? r.rel[k] : 0;
       const tip = `${r.craft} · ${P.labels[k]}|Short ${fmt(r.S[k])} at the busiest week${v?`|${rec?`Start recruiting ${fmt(v)} (${r.lead} wk lead)`:`Hire ${fmt(v)} more to start this month`}`:""}${rl?`|${fmt(rl)} can be released`:""}`;
       return `<td data-tip="${esc(tip)}">${v ? `<span class="h">+${fmt(v)}</span>` : rl ? `<span class="r">−${fmt(rl)}</span>` : `<span class="z">·</span>`}</td>`; };
-    let h = `<thead><tr><th class="rl">Craft</th><th>Weeks to hire</th>${rec?`<th class="now">Overdue</th>`:""}${P.labels.map(l=>`<th>${l}</th>`).join("")}<th>Total</th></tr></thead><tbody>`;
+    let h = `<thead><tr><th class="rl">Craft</th><th>Weeks to hire</th><th>Actual</th>${rec?`<th class="now">Overdue</th>`:""}${P.labels.map(l=>`<th>${l}</th>`).join("")}<th>Total</th></tr></thead><tbody>`;
     P.rows.forEach(r => { const t = r[field].reduce((a,b)=>a+b,0) + (rec ? r.overdue : 0);
-      h += `<tr><th class="rl" scope="row" style="--c:var(${r.g.color})"><i></i>${esc(r.craft)}</th><td class="lead">${r.lead}</td>${rec?`<td>${r.overdue?`<span class="h">+${fmt(r.overdue)}</span>`:`<span class="z">·</span>`}</td>`:""}${P.labels.map((_,k)=>cell(r,k)).join("")}<td class="tot">${fmt(t)}</td></tr>`; });
-    h += `</tbody><tfoot><tr><th class="rl" scope="row">${rec?"Recruit (all crafts)":"New hires (all crafts)"}</th><td></td>${rec?`<td>${fmt(overdue)}</td>`:""}${tot.map(v=>`<td>${v?fmt(v):"·"}</td>`).join("")}<td>${fmt(win(n)+(rec?overdue:0))}</td></tr>
-      <tr class="sub"><th class="rl" scope="row">Total short (busiest week)</th><td></td>${rec?"<td></td>":""}${totS.map(v=>`<td>${v?fmt(v):"·"}</td>`).join("")}<td></td></tr></tfoot>`;
+      h += `<tr><th class="rl" scope="row" style="--c:var(${r.g.color})"><i></i>${esc(r.craft)}</th><td class="lead">${r.lead}</td><td class="tot">${fmt(r.actual)}</td>${rec?`<td>${r.overdue?`<span class="h">+${fmt(r.overdue)}</span>`:`<span class="z">·</span>`}</td>`:""}${P.labels.map((_,k)=>cell(r,k)).join("")}<td class="tot">${fmt(t)}</td></tr>`; });
+    h += `</tbody><tfoot><tr><th class="rl" scope="row">${rec?"Recruit (all crafts)":"New hires (all crafts)"}</th><td></td><td>${fmt(P.rows.reduce((s,r)=>s+r.actual,0))}</td>${rec?`<td>${fmt(overdue)}</td>`:""}${tot.map(v=>`<td>${v?fmt(v):"·"}</td>`).join("")}<td>${fmt(win(n)+(rec?overdue:0))}</td></tr>
+      <tr class="sub"><th class="rl" scope="row">Total short (busiest week)</th><td></td><td></td>${rec?"<td></td>":""}${totS.map(v=>`<td>${v?fmt(v):"·"}</td>`).join("")}<td></td></tr></tfoot>`;
     $("hrTable").innerHTML = h;
   }
   $("hrFoot").textContent = noCap.length ? `Not included because no manpower is entered: ${noCap.slice(0,8).join(", ")}${noCap.length>8?` +${noCap.length-8} more`:""}.` : "";
@@ -1037,16 +1067,16 @@ function hrSheets(M){
   const d = new Date(NOW), stamp = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   const scen = {awarded:"Awarded only", weighted:"Weighted by win %", all:"If we win everything"}[state.scenario];
   const meta = [`Workforce Outlook · ${state.sector==="all"?"Overall":state.sector} · Work included: ${scen} · Headcount: ${state.capMode==="plan"?"with hiring plan":"as of today"} · Generated ${stamp}`];
-  const mk = (title, field, extra) => { const head = ["Craft","Craft group","Weeks to hire", ...(extra?["Overdue"]:[]), ...P.labels, "Total"];
-    const body = P.rows.map(r => { const vals = r[field]; const t = vals.reduce((a,b)=>a+b,0) + (extra ? r.overdue : 0); return [r.craft, r.g.name, r.lead, ...(extra?[r.overdue]:[]), ...vals, t]; });
-    const totRow = ["All crafts","","", ...(extra?[P.rows.reduce((s,r)=>s+r.overdue,0)]:[]), ...P.labels.map((_,k)=>sumArr(P.rows, field, k)), ""];
+  const mk = (title, field, extra) => { const head = ["Craft","Craft group","Weeks to hire","Actual today", ...(extra?["Overdue"]:[]), ...P.labels, "Total"];
+    const body = P.rows.map(r => { const vals = r[field]; const t = vals.reduce((a,b)=>a+b,0) + (extra ? r.overdue : 0); return [r.craft, r.g.name, r.lead, r.actual, ...(extra?[r.overdue]:[]), ...vals, t]; });
+    const totRow = ["All crafts","","", P.rows.reduce((s,r)=>s+r.actual,0), ...(extra?[P.rows.reduce((s,r)=>s+r.overdue,0)]:[]), ...P.labels.map((_,k)=>sumArr(P.rows, field, k)), ""];
     return {title, aoa:[meta, [title], [], head, ...body, totRow]}; };
   return {stamp, P, sheets:[mk("New hires by start month","hires"), mk("Recruit-by month","rec",true), mk("Shortfall at busiest week","S"), mk("People who free up","rel")]};
 }
 function tsvOfCurrent(M){
   const P = hrCurrent(M), rec = state.hrView === "recruit", field = rec ? "rec" : "hires";
-  const head = ["Craft","Weeks to hire", ...(rec?["Overdue"]:[]), ...P.labels, "Total"];
-  const lines = [head, ...P.rows.map(r => [r.craft, r.lead, ...(rec?[r.overdue]:[]), ...r[field], r[field].reduce((a,b)=>a+b,0)+(rec?r.overdue:0)])];
+  const head = ["Craft","Weeks to hire","Actual today", ...(rec?["Overdue"]:[]), ...P.labels, "Total"];
+  const lines = [head, ...P.rows.map(r => [r.craft, r.lead, r.actual, ...(rec?[r.overdue]:[]), ...r[field], r[field].reduce((a,b)=>a+b,0)+(rec?r.overdue:0)])];
   return lines.map(l => l.join("\t")).join("\n");
 }
 const downloadsP = window.claude?.use ? window.claude.use("downloads") : Promise.resolve(null);
@@ -1100,10 +1130,10 @@ function renderChanges(dis){
 document.addEventListener("click", e => {
   document.querySelectorAll("details.dd[open]").forEach(d => { if (!d.contains(e.target)) d.open = false; });
   const tab = e.target.closest("[data-sector]");
-  if (tab) { state.sector = tab.dataset.sector; state.hiddenJobs.clear(); if (state.sector !== "all") { if (state.stack === "sector") state.stack = "group"; if (SECTORS.some(s=>s.name===state.sector)) state.capTarget = state.sector; } else state.capTarget = "company"; saveUi(); render(); window.scrollTo({top:0, behavior:"smooth"}); return; }
+  if (tab) { state.sector = tab.dataset.sector; state.hiddenJobs.clear(); if (state.sector !== "all" && state.stack === "sector") state.stack = "group"; saveUi(); render(); window.scrollTo({top:0, behavior:"smooth"}); return; }
   const ct = e.target.closest("[data-cap-target]"); if (ct) { state.capTarget = ct.dataset.capTarget; renderManage(); return; }
   const seg = e.target.closest(".seg button");
-  if (seg && ["scenario","stack","grain","theme","capMode","hrView","hrHorizon"].includes(seg.parentElement.id)) { const key = seg.parentElement.id; state[key] = seg.dataset.v; saveUi(); if (key === "theme") { applyTheme(); rethemed(); } else render(); return; }
+  if (seg && ["scenario","stack","grain","theme","capMode","hrView","hrHorizon","hmCells"].includes(seg.parentElement.id)) { const key = seg.parentElement.id; state[key] = seg.dataset.v; saveUi(); if (key === "theme") { applyTheme(); rethemed(); } else render(); return; }
   const sa = e.target.closest("[data-all],[data-none]");
   if (sa) { const which = sa.dataset.all || sa.dataset.none, none = !!sa.dataset.none;
     if (which === "jobs") { state.hiddenJobs.clear(); if (none) [...state.jobs.values()].filter(j => state.sector === "all" || jobSector(j) === state.sector).forEach(j => state.hiddenJobs.add(j.id)); }
@@ -1113,6 +1143,8 @@ document.addEventListener("click", e => {
   const st = e.target.closest("[data-step]");
   if (st) { const k = +st.dataset.step;
     if (k === 3) { $("gapsPanel").scrollIntoView({behavior:"smooth"}); return; }
+    if (k === 2 && document.querySelector("#heatmap [data-cap-grid]")) { $("hmPanel").scrollIntoView({behavior:"smooth"});
+      setTimeout(() => { const all = [...document.querySelectorAll("#heatmap [data-cap-grid]")]; const inp = all.find(x => x.value === "") || all[0]; inp?.focus({preventScroll:true}); }, 500); return; }
     $("manage").open = true;
     if (k === 1) { $("drop").scrollIntoView({behavior:"smooth", block:"center"}); if (canWrite) $("file").click(); return; }
     if (state.capTarget !== "company") { state.capTarget = "company"; renderManage(); }
@@ -1146,6 +1178,15 @@ document.addEventListener("change", e => {
 });
 let capTimer = null;
 document.addEventListener("input", e => {
+  if (e.target.dataset.capGrid !== undefined) {
+    const c = e.target.dataset.capGrid, v = e.target.value, Mv = buildModel();
+    const cap = state.capacity; cap.company = cap.company || {}; cap.bySector = cap.bySector || {};
+    const inSector = state.sector !== "all" && Mv && Mv.cap.src[c] === "sector";
+    const map = inSector ? cap.bySector[state.sector] : cap.company;
+    if (v === "") delete map[c]; else map[c] = Math.max(0, Math.round(+v));
+    clearTimeout(capTimer); capTimer = setTimeout(saveCapacity, 900);
+    const M = buildModel(); if (M) { renderKpis(M); renderMain(M); renderGaps(M); renderHR(M); renderSummary(M); renderSteps(); }
+    return; }
   if (e.target.dataset.lead !== undefined) { const c = e.target.dataset.lead, v = e.target.value; const lt = state.capacity.leadTimes = {...(state.capacity.leadTimes||{})};
     if (v === "") delete lt[c]; else lt[c] = Math.max(0, Math.min(52, +v)); clearTimeout(capTimer); capTimer = setTimeout(saveCapacity, 700); return; }
   if (e.target.dataset.chg !== undefined) { const i = +e.target.dataset.chg, f = e.target.dataset.f; const chs = state.capacity.changes = [...(state.capacity.changes||[])];
@@ -1168,6 +1209,10 @@ document.addEventListener("pointerover", e => { const t = e.target.closest("[dat
   const [a,...rest] = t.dataset.tip.split("|"); tip.innerHTML = `<b>${esc(a)}</b><br>${rest.map(esc).join("<br>")}`; tip.hidden = false; });
 document.addEventListener("pointermove", e => { if (tip.hidden) return; const x = Math.min(e.clientX+14, innerWidth - tip.offsetWidth - 8); const y = e.clientY + 16 + tip.offsetHeight > innerHeight ? e.clientY - tip.offsetHeight - 10 : e.clientY + 16; tip.style.left = x+"px"; tip.style.top = y+"px"; });
 document.addEventListener("pointerleave", () => tip.hidden = true);
+document.addEventListener("focusout", e => { if (e.target.dataset?.capGrid !== undefined) setTimeout(() => { const ae = document.activeElement; if (hmDirty && !(ae && ae.tagName === "INPUT" && ae.closest?.("#heatmap"))) { const M = buildModel(); if (M) renderHeatmap(M); } }, 0); });
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.dataset?.capGrid !== undefined) { e.preventDefault(); const all = [...document.querySelectorAll("#heatmap [data-cap-grid]")]; const i = all.indexOf(e.target); (all[i+1] || e.target).focus(); (all[i+1] || e.target).select?.(); }
+});
 document.addEventListener("keydown", e => { if (e.key === "Escape") document.querySelectorAll("details.dd[open]").forEach(d => { d.open = false; d.querySelector("summary").focus(); }); });
 
 function rethemed(){ if (mainChart){ mainChart.destroy(); mainChart = null; } minis.forEach(c=>c.destroy()); minis.clear(); $("multiples").innerHTML = ""; $("sectorMinis").innerHTML = ""; render(); }
@@ -1309,7 +1354,7 @@ render();
     state.jobs = new Map(snap.docs.map(d => [d.id, {...d.data(), id:d.id}])); render();
   }, err => status(`Live updates stopped: ${err.message||err.code}. Reload the page.`, true));
   db.doc("settings/capacity").onSnapshot(snap => {
-    if (document.activeElement?.dataset?.cap !== undefined) return;
+    if (document.activeElement?.dataset?.cap !== undefined || document.activeElement?.dataset?.capGrid !== undefined) return;
     const d = snap.exists ? snap.data() : {};
     if (document.activeElement?.closest?.("#chgTable")) return;
     state.capacity = {company:{...(d.company || d.crafts || {})}, bySector:JSON.parse(JSON.stringify(d.bySector || {})), changes:JSON.parse(JSON.stringify(d.changes || [])), leadTimes:{...(d.leadTimes || {})}}; render();
