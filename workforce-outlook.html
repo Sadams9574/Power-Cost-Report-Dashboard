@@ -128,25 +128,53 @@ table.list{width:100%;border-collapse:collapse;font-size:13px}
 .empty{display:grid;gap:8px;justify-items:start;padding:28px;text-align:left}
 ol.steps{margin:6px 0 0;padding-left:20px;color:var(--ink-2);display:grid;gap:4px;max-width:70ch}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+/* sector tabs + theme */
+[hidden]{display:none!important}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.tab{all:unset;cursor:pointer;padding:10px 14px 9px;font-family:var(--f-display);font-weight:600;font-size:15px;color:var(--ink-2);border-bottom:3px solid transparent;margin-bottom:-1px;white-space:nowrap;display:inline-flex;gap:8px;align-items:center}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--c,var(--ink))}
+.tab .ct{font-family:var(--f-body);font-size:11.5px;color:var(--muted);font-weight:500}
+.tab i{width:9px;height:9px;border-radius:2px;background:var(--c)}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.mini .hd button{all:unset;cursor:pointer;font-family:var(--f-display);font-weight:600;font-size:14px;display:inline-flex;gap:8px;align-items:center}
+.mini .hd button:hover{text-decoration:underline}
+.mini .hd button:focus-visible{outline:2px solid var(--accent)}
+.mini .hd i{width:10px;height:10px;border-radius:3px;background:var(--c)}
+.list select.sm{font-size:12px;padding:2px 4px;max-width:140px}
 </style>
 
 <div class="wrap">
+  <div class="topbar">
+    <div class="eyebrow">Workforce planning · crew headcount by craft</div>
+    <label class="ctl" style="grid-auto-flow:column;align-items:center;gap:8px"><span>Theme</span>
+      <div class="seg" id="theme">
+        <button type="button" data-v="light">Light</button>
+        <button type="button" data-v="dark">Dark</button>
+        <button type="button" data-v="auto">Auto</button>
+      </div>
+    </label>
+  </div>
+
+  <nav class="tabs" id="sectorTabs" role="tablist" aria-label="Sector"></nav>
+
   <header class="top">
     <div>
-      <div class="eyebrow">Workforce planning · crew headcount by craft</div>
-      <h1>Workforce Outlook</h1>
+      <h1 id="viewTitle">Workforce Outlook</h1>
       <div class="sub" id="subline">Loading plan…</div>
     </div>
     <div class="controls" role="group" aria-label="View options">
       <label class="ctl"><span>Work included</span>
         <div class="seg" id="scenario">
           <button type="button" data-v="awarded">Awarded only</button>
-          <button type="button" data-v="weighted">Weighted pipeline</button>
+          <button type="button" data-v="weighted">Weighted by win %</button>
           <button type="button" data-v="all">If we win everything</button>
         </div>
       </label>
       <label class="ctl"><span>Stack by</span>
         <div class="seg" id="stack">
+          <button type="button" data-v="sector">Sector</button>
           <button type="button" data-v="group">Craft group</button>
           <button type="button" data-v="job">Job</button>
         </div>
@@ -176,6 +204,13 @@ ol.steps{margin:6px 0 0;padding-left:20px;color:var(--ink-2);display:grid;gap:4p
     <div class="legend" id="mainLegend"></div>
   </section>
 
+  <section class="panel" id="sectorPanel">
+    <div class="panel-head">
+      <div><h2>By sector</h2><div class="note" id="sectorNote"></div></div>
+    </div>
+    <div class="multiples" id="sectorMinis"></div>
+  </section>
+
   <section class="panel">
     <div class="panel-head">
       <div><h2 id="hmTitle">Where we are short</h2><div class="note" id="hmNote"></div></div>
@@ -187,18 +222,18 @@ ol.steps{margin:6px 0 0;padding-left:20px;color:var(--ink-2);display:grid;gap:4p
 
   <section class="panel">
     <div class="panel-head">
-      <div><h2>Each job's histogram</h2><div class="note">Monthly average headcount by craft group, all on the same scale so jobs compare directly.</div></div>
+      <div><h2>Each job's histogram</h2><div class="note">Monthly average headcount by craft group at full job size, all on the same scale so jobs compare directly.</div></div>
     </div>
     <div class="multiples" id="multiples"></div>
   </section>
 
   <details class="panel manage" id="manage">
-    <summary><div><h2>Update the plan</h2><div class="note" id="manageNote">Load job workbooks, set job status and enter headcount on hand.</div></div></summary>
+    <summary><div><h2>Update the plan</h2><div class="note" id="manageNote">Load job workbooks, set sector and status, and enter headcount on hand.</div></div></summary>
     <div class="manage-grid">
       <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:16px;min-width:0">
         <div class="drop" id="drop">
           <h3>Add or refresh jobs from Excel</h3>
-          <div class="note">Drop one or more <b>.xlsm / .xlsx</b> workforce workbooks here. Every tab that has the “Craft … Total Crew” summary block becomes a job. Loading a job with the same name replaces it.</div>
+          <div class="note">Drop one or more <b>.xlsm / .xlsx</b> workforce workbooks here, from any sector. Every tab that has the “Craft … Total Crew” summary block becomes a job. Loading a job with the same name replaces it.</div>
           <label class="btn" for="file">Choose workbooks</label>
           <input type="file" id="file" accept=".xlsx,.xlsm,.xls" multiple hidden>
           <div class="status" id="loadStatus" role="status"></div>
@@ -207,13 +242,18 @@ ol.steps{margin:6px 0 0;padding-left:20px;color:var(--ink-2);display:grid;gap:4p
           <h3 style="margin-bottom:6px">Jobs in the plan</h3>
           <div class="tbl-wrap"><table class="list" id="jobTable"></table></div>
         </div>
-        <div class="note">
-          <b>Tips for the workbook.</b> Optional cells anywhere on a job tab: a cell reading <i>Status</i> with Awarded / Likely / Bidding next to it, and a cell reading <i>Win %</i> with the chance of winning next to it. A tab named <i>Capacity</i> with craft names in column A and headcount in column B fills in headcount on hand.
+        <div class="note" style="display:grid;gap:6px">
+          <b>How the workbook tells the dashboard what it is</b>
+          <span><b>Sector:</b> a cell reading <i>Sector</i> with Power, Pipeline or Facilities next to it. If there is none, the file name is used (for example <i>Pipeline_Workforce.xlsm</i>). You can also change it in the table above.</span>
+          <span><b>Status and Win %:</b> a cell reading <i>Status</i> (Awarded, Likely or Bidding) and a cell reading <i>Win %</i>, each with the value next to it.</span>
+          <span><b>Crafts tab:</b> a tab named <i>Crafts</i> with the craft in column A and its group in column B (for example <i>Welder Helper | Welding &amp; Pipefitting</i>).</span>
+          <span><b>Capacity tab:</b> a tab named <i>Capacity</i> with craft in column A, headcount in column B, and optionally a sector in column C. Rows with no sector count company-wide.</span>
         </div>
       </div>
-      <div style="min-width:0">
-        <h3 style="margin-bottom:4px">Headcount on hand</h3>
-        <div class="note" style="margin-bottom:8px">People you have today (or can count on) in each craft. Leave blank if unknown; blank crafts are left out of the shortage math.</div>
+      <div style="min-width:0;display:grid;gap:8px;align-content:start">
+        <h3>Headcount on hand</h3>
+        <div class="note">People you have today (or can count on) in each craft. Leave blank if unknown; blank crafts are left out of the shortage math. Overall always uses company-wide numbers. A sector uses its own numbers once you enter any, otherwise company-wide.</div>
+        <label class="ctl"><span>Headcount for</span><div class="seg" id="capTarget"></div></label>
         <div class="cap-grid tbl-wrap"><table class="list" id="capTable"></table></div>
       </div>
     </div>
@@ -224,33 +264,50 @@ ol.steps{margin:6px 0 0;padding-left:20px;color:var(--ink-2);display:grid;gap:4p
 <script>
 (() => {
 "use strict";
-// ---------- craft groups (fixed order = fixed color slot) ----------
-const GROUPS = [
-  {id:"sup",  name:"Supervision",         color:"--s1", crafts:["Superintendent","Foreman I","Foreman II"]},
-  {id:"lab",  name:"Laborers & Spotters", color:"--s2", crafts:["Laborer","Spotter"]},
-  {id:"ops",  name:"Operators & Drivers", color:"--s3", crafts:["Operator I","Operator II","Truck Driver","Mechanic"]},
-  {id:"mod",  name:"Module Installers",   color:"--s4", crafts:["Module Installer"]},
-  {id:"ele",  name:"Electrical",          color:"--s5", crafts:["Journeyman Electrician (Licensed)","Journeyman Electrician (Unlicensed)","Apprentice Electrician","Electricians"]},
-  {id:"sqc",  name:"Safety & QC",         color:"--s6", crafts:["Lead Safety Coordinator","Safety","Quality Control"]},
-  {id:"stf",  name:"Staff & Overhead",    color:"--s7", crafts:["Project Coordinator","Equipment Manager","Administrative Clerk","Field Procurement","Procurement Manager","Safety Management","Material Management","PM","Project controls","PM Director","Vice President","PWA Home office","Precon Help","Engineering"]},
+// ---------- sectors & craft groups (fixed order = fixed color slot) ----------
+const SECTORS = [
+  {name:"Power",      color:"--s1"},
+  {name:"Pipeline",   color:"--s2"},
+  {name:"Facilities", color:"--s3"},
 ];
-const OTHER = {id:"oth", name:"Other crafts", color:"--s8", crafts:[]};
-const craftGroup = new Map(); GROUPS.forEach(g => g.crafts.forEach(c => craftGroup.set(c.toLowerCase(), g)));
-const groupOf = c => craftGroup.get(String(c).toLowerCase()) || OTHER;
-const JOB_SLOTS = ["--s1","--s2","--s3","--s4","--s5","--s6","--s7"];
+const UNASSIGNED = {name:"Unassigned", color:"--muted"};
+const sectorInfo = n => SECTORS.find(s => s.name === n) || UNASSIGNED;
+const matchSector = v => { const t = String(v||"").toLowerCase(); return t.includes("power") || /\bsolar|\bpv\b|\bwind\b|substation|\bbess\b/.test(t) ? "Power" : t.includes("pipe") ? "Pipeline" : t.includes("facilit") ? "Facilities" : null; };
+const GROUPS = [
+  {id:"sup", name:"Supervision",                  color:"--s1", kw:/supervis|foreman|superintendent|general foreman/, crafts:["Superintendent","Foreman I","Foreman II","General Foreman"]},
+  {id:"lab", name:"Laborers & Spotters",          color:"--s2", kw:/labor|spotter|flagger|swamper/, crafts:["Laborer","Spotter"]},
+  {id:"ops", name:"Operators & Drivers",          color:"--s3", kw:/operat|driver|oiler|mechanic|equipment op/, crafts:["Operator I","Operator II","Truck Driver","Mechanic"]},
+  {id:"mod", name:"Module Installers",            color:"--s4", kw:/module/, crafts:["Module Installer"]},
+  {id:"ele", name:"Electrical & Instrumentation", color:"--s5", kw:/electric|instrument|lineman|linemen|e&i/, crafts:["Journeyman Electrician (Licensed)","Journeyman Electrician (Unlicensed)","Apprentice Electrician","Electricians"]},
+  {id:"wel", name:"Welding & Pipefitting",        color:"--s6", kw:/weld|pipefit|fitter|boilermaker|pipe/, crafts:["Welder","Welder Helper","Pipefitter","Pipefitter Helper","Boilermaker"]},
+  {id:"stf", name:"Staff, Safety & QC",           color:"--s7", kw:/safety|quality|\bqc\b|\bqa\b|inspector|manager|coordinator|clerk|engineer|controls|procure|president|director|\bpm\b|admin|office|precon|staff|overhead/, crafts:["Lead Safety Coordinator","Safety","Quality Control","Project Coordinator","Equipment Manager","Administrative Clerk","Field Procurement","Procurement Manager","Safety Management","Material Management","PM","Project controls","PM Director","Vice President","PWA Home office","Precon Help","Engineering"]},
+  {id:"trd", name:"Mechanical & Civil Trades",    color:"--s8", kw:/millwright|ironworker|iron|carpent|concrete|rigger|insulat|painter|coating|mason|scaffold|trade|civil|mechanical/, crafts:["Millwright","Ironworker","Carpenter","Concrete Finisher","Rigger","Insulator","Painter"]},
+];
+const OTHER = {id:"oth", name:"Other crafts", color:"--muted", crafts:[]};
+const ALLG = [...GROUPS, OTHER];
+const gById = id => ALLG.find(g => g.id === id);
+const defaultGroup = new Map(); GROUPS.forEach(g => g.crafts.forEach(c => defaultGroup.set(c.toLowerCase(), g)));
+function guessGroup(c){ const t = String(c).toLowerCase(); if (defaultGroup.has(t)) return defaultGroup.get(t);
+  for (const id of ["mod","wel","ele","sup","ops","lab","trd","stf"]) { const g = gById(id); if (g.kw.test(t)) return g; } return OTHER; }
+function groupFromName(n){ const t = String(n||"").toLowerCase().trim(); if (!t) return null;
+  const exact = ALLG.find(g => g.name.toLowerCase() === t || g.id === t); if (exact) return exact;
+  for (const id of ["mod","wel","ele","sup","ops","lab","trd","stf"]) { const g = gById(id); if (g.kw.test(t)) return g; } return OTHER; }
+const JOB_SLOTS = ["--s1","--s2","--s3","--s4","--s5","--s6","--s7","--s8"];
 const DAY = 86400000, WEEK = 7*DAY;
 const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 // ---------- state ----------
 const state = {
-  jobs: new Map(),          // id -> job
-  capacity: {},             // craft -> number
-  scenario: "weighted", stack: "group", grain: "month",
+  jobs: new Map(),
+  capacity: {company:{}, bySector:{}},
+  craftMap: {},
+  sector: "all", scenario: "weighted", stack: "sector", grain: "month", theme: "light", capTarget: "company",
   hiddenJobs: new Set(), hiddenGroups: new Set(), expanded: new Set(), expandAll: false,
 };
 try { const s = JSON.parse(localStorage.getItem("wfo-ui") || "{}");
-  ["scenario","stack","grain"].forEach(k => { if (s[k]) state[k] = s[k]; }); } catch {}
-const saveUi = () => { try { localStorage.setItem("wfo-ui", JSON.stringify({scenario:state.scenario,stack:state.stack,grain:state.grain})); } catch {} };
+  ["scenario","stack","grain","theme","sector"].forEach(k => { if (s[k]) state[k] = s[k]; }); } catch {}
+const saveUi = () => { try { localStorage.setItem("wfo-ui", JSON.stringify({scenario:state.scenario,stack:state.stack,grain:state.grain,theme:state.theme,sector:state.sector})); } catch {} };
+const groupOf = c => (state.craftMap[c] && gById(state.craftMap[c])) || guessGroup(c);
 
 let db = null, canWrite = true, live = false;
 const $ = id => document.getElementById(id);
@@ -263,6 +320,16 @@ const wkLabel = t => { const d = new Date(t); return `${MON[d.getUTCMonth()]} ${
 const moLabel = k => { const [y,m] = k.split("-").map(Number); return `${MON[m-1]} '${String(y).slice(2)}`; };
 const moKey = t => { const d = new Date(t); return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}`; };
 const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,60) || "job";
+const jobSector = j => SECTORS.some(s => s.name === j.sector) ? j.sector : "Unassigned";
+
+// ---------- theme ----------
+let applyingTheme = false;
+function applyTheme(){
+  const r = document.documentElement; applyingTheme = true;
+  if (state.theme === "auto") r.removeAttribute("data-theme"); else if (r.getAttribute("data-theme") !== state.theme) r.setAttribute("data-theme", state.theme);
+  applyingTheme = false;
+}
+applyTheme();
 
 function factor(job){
   if (state.scenario === "all") return 1;
@@ -272,102 +339,123 @@ function factor(job){
 }
 function jobColor(id){ const ids = [...state.jobs.keys()].sort(); const i = ids.indexOf(id); return i < JOB_SLOTS.length ? JOB_SLOTS[i] : "--muted"; }
 
+// headcount on hand for a view: company-wide on Overall, sector numbers when that sector has any
+function capView(sector){
+  if (sector && sector !== "all") { const m = state.capacity.bySector?.[sector]; if (m && Object.keys(m).length) return {map:m, source:sector}; }
+  return {map: state.capacity.company || {}, source:"company"};
+}
+
 // ---------- model ----------
-function buildModel(){
-  const jobs = [...state.jobs.values()].sort((a,b) => a.start.localeCompare(b.start) || a.name.localeCompare(b.name));
+function buildModel(sector = state.sector){
+  const jobs = [...state.jobs.values()].filter(j => sector === "all" || jobSector(j) === sector)
+    .sort((a,b) => a.start.localeCompare(b.start) || a.name.localeCompare(b.name));
   if (!jobs.length) return null;
   let t0 = Infinity, t1 = -Infinity;
   jobs.forEach(j => { const s = parseDay(j.start); t0 = Math.min(t0, s); t1 = Math.max(t1, s + (j.weeks-1)*WEEK); });
   const W = Math.round((t1 - t0)/WEEK) + 1;
   const weeks = Array.from({length:W}, (_,i) => t0 + i*WEEK);
   const crafts = new Set(); jobs.forEach(j => Object.keys(j.crafts||{}).forEach(c => crafts.add(c)));
-  // per job, per craft, aligned weekly (unfactored)
   const aligned = new Map();
   jobs.forEach(j => {
     const off = Math.round((parseDay(j.start) - t0)/WEEK); const m = {};
-    for (const [c, arr] of Object.entries(j.crafts||{})) { const a = new Float64Array(W); arr.forEach((v,i) => { if (off+i < W) a[off+i] = +v || 0; }); m[c] = a; }
+    for (const [c, arr] of Object.entries(j.crafts||{})) { const a = new Float64Array(W); arr.forEach((v,i) => { if (off+i < W && off+i >= 0) a[off+i] = +v || 0; }); m[c] = a; }
     aligned.set(j.id, m);
   });
   const visJobs = jobs.filter(j => !state.hiddenJobs.has(j.id));
   const visGroup = g => !state.hiddenGroups.has(g.id);
-  // demand by craft (factored, visible jobs)
   const demand = {};
   crafts.forEach(c => demand[c] = new Float64Array(W));
   visJobs.forEach(j => { const f = factor(j); if (!f) return; const m = aligned.get(j.id);
     for (const c in m) { const a = m[c], d = demand[c]; for (let i=0;i<W;i++) d[i] += a[i]*f; } });
-  const usedGroups = [...GROUPS, OTHER].filter(g => [...crafts].some(c => groupOf(c) === g));
-  // months
+  const usedGroups = ALLG.filter(g => [...crafts].some(c => groupOf(c) === g));
   const months = []; const monthIdx = [];
   weeks.forEach((t,i) => { const k = moKey(t); if (!months.length || months[months.length-1] !== k) { months.push(k); monthIdx.push([]); } monthIdx[monthIdx.length-1].push(i); });
-  return {jobs, visJobs, weeks, W, crafts:[...crafts], aligned, demand, usedGroups, visGroup, months, monthIdx};
+  const cap = capView(sector);
+  return {sector, jobs, visJobs, weeks, W, crafts:[...crafts], aligned, demand, usedGroups, visGroup, months, monthIdx, cap};
 }
 const inVisGroup = (M, c) => M.visGroup(groupOf(c));
+const hasCapIn = (map, c) => map[c] !== undefined && map[c] !== null && map[c] !== "";
+function capSum(map, crafts){ let s = 0, any = false; crafts.forEach(c => { if (hasCapIn(map,c)) { s += +map[c]; any = true; } }); return any ? s : null; }
 function totalSeries(M){ const t = new Float64Array(M.W); M.crafts.forEach(c => { if (!inVisGroup(M,c)) return; const d = M.demand[c]; for (let i=0;i<M.W;i++) t[i]+=d[i]; }); return t; }
-function capFor(crafts){ let s = 0, any = false; crafts.forEach(c => { const v = state.capacity[c]; if (v !== undefined && v !== null && v !== "") { s += +v; any = true; } }); return any ? s : null; }
-const hasCap = c => state.capacity[c] !== undefined && state.capacity[c] !== null && state.capacity[c] !== "";
-function toPeriods(M, arr, how="avg"){
+function toPeriods(M, arr){
   if (state.grain === "week") return Array.from(arr);
-  return M.monthIdx.map(ix => how === "max" ? Math.max(...ix.map(i => arr[i])) : ix.reduce((s,i)=>s+arr[i],0)/ix.length);
+  return M.monthIdx.map(ix => ix.reduce((s,i)=>s+arr[i],0)/ix.length);
+}
+const monthlyAvg = (M, arr) => M.monthIdx.map(ix => ix.reduce((s,i)=>s+arr[i],0)/ix.length);
+function shortages(M){
+  const out = [], map = M.cap.map;
+  M.crafts.forEach(c => { if (!inVisGroup(M,c) || !hasCapIn(map,c)) return; const cap = +map[c], d = M.demand[c];
+    let worst = 0, wi = -1; for (let i=0;i<M.W;i++){ const g = d[i]-cap; if (g > worst){ worst = g; wi = i; } }
+    if (worst > 0.5) out.push({craft:c, gap:worst, week:M.weeks[wi]}); });
+  return out.sort((a,b)=>b.gap-a.gap);
 }
 
 // ---------- rendering ----------
 let mainChart = null; const minis = new Map();
 function render(){
-  renderControls();
+  if (state.sector !== "all" && !SECTORS.some(s=>s.name===state.sector) && state.sector !== "Unassigned") state.sector = "all";
+  if (state.sector !== "all" && state.stack === "sector") state.stack = "group";
+  renderTabs(); renderControls();
   const M = buildModel();
-  renderManage(M);
-  if (!M) { renderEmpty(); return; }
-  $("mainPanel").hidden = false;
+  renderManage();
+  const label = state.sector === "all" ? "Overall" : state.sector;
+  $("viewTitle").textContent = state.sector === "all" ? "Workforce Outlook · Overall" : `Workforce Outlook · ${state.sector}`;
+  $("sectorPanel").hidden = state.sector !== "all" || !state.jobs.size;
+  if (!M) { renderEmpty(label); return; }
   const names = M.jobs.map(j => j.name);
   $("subline").textContent = `${M.jobs.length} job${M.jobs.length>1?"s":""} · ${wkLabel(M.weeks[0])} – ${wkLabel(M.weeks[M.W-1])} · ${names.slice(0,3).join(", ")}${names.length>3?` +${names.length-3} more`:""}`;
-  renderKpis(M); renderMain(M); renderHeatmap(M); renderMultiples(M);
+  renderKpis(M); renderMain(M); if (state.sector === "all") renderSectorMinis(); renderHeatmap(M); renderJobMinis(M);
+}
+
+function renderTabs(){
+  const all = [...state.jobs.values()];
+  const count = n => all.filter(j => jobSector(j) === n).length;
+  const tabs = [{key:"all", name:"Overall", color:"--ink", n:all.length}, ...SECTORS.map(s => ({key:s.name, name:s.name, color:s.color, n:count(s.name)}))];
+  if (count("Unassigned")) tabs.push({key:"Unassigned", name:"Unassigned", color:"--muted", n:count("Unassigned")});
+  $("sectorTabs").innerHTML = tabs.map(t => `<button type="button" class="tab" role="tab" data-sector="${esc(t.key)}" aria-selected="${state.sector===t.key}" style="--c:var(${t.color})">${t.key!=="all"?"<i></i>":""}${esc(t.name)} <span class="ct">${t.n} job${t.n!==1?"s":""}</span></button>`).join("");
 }
 
 function renderControls(){
-  for (const [id,key] of [["scenario","scenario"],["stack","stack"],["grain","grain"]])
+  for (const [id,key] of [["scenario","scenario"],["stack","stack"],["grain","grain"],["theme","theme"]])
     $(id).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === state[key])));
-  const jobs = [...state.jobs.values()].sort((a,b)=>a.start.localeCompare(b.start));
-  $("jobChips").innerHTML = jobs.length ? jobs.map(j => `<button type="button" class="chip" data-job="${esc(j.id)}" aria-pressed="${!state.hiddenJobs.has(j.id)}" style="--c:var(${jobColor(j.id)})"><i></i>${esc(j.name)} <span class="note">${esc(j.status)}${j.status!=="Awarded"?` · ${fmt(+j.win||0)}%`:""}</span></button>`).join("") : `<span class="note">No jobs loaded yet</span>`;
-  $("groupChips").innerHTML = [...GROUPS].map(g => `<button type="button" class="chip" data-group="${g.id}" aria-pressed="${!state.hiddenGroups.has(g.id)}" style="--c:var(${g.color})"><i></i>${g.name}</button>`).join("");
+  $("stack").querySelector('[data-v="sector"]').hidden = state.sector !== "all";
+  const jobs = [...state.jobs.values()].filter(j => state.sector === "all" || jobSector(j) === state.sector).sort((a,b)=>a.start.localeCompare(b.start));
+  $("jobChips").innerHTML = jobs.length ? jobs.map(j => `<button type="button" class="chip" data-job="${esc(j.id)}" aria-pressed="${!state.hiddenJobs.has(j.id)}" style="--c:var(${jobColor(j.id)})"><i></i>${esc(j.name)} <span class="note">${state.sector==="all"?esc(jobSector(j))+" · ":""}${esc(j.status)}${j.status!=="Awarded"?` · ${fmt(+j.win||0)}%`:""}</span></button>`).join("") : `<span class="note">No jobs in this view yet</span>`;
+  $("groupChips").innerHTML = GROUPS.map(g => `<button type="button" class="chip" data-group="${g.id}" aria-pressed="${!state.hiddenGroups.has(g.id)}" style="--c:var(${g.color})"><i></i>${g.name}</button>`).join("");
 }
 
 const ICON_ALERT = `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.5 15 14H1L8 1.5Zm-.75 4.5v4h1.5V6h-1.5Zm0 5.25v1.5h1.5v-1.5h-1.5Z"/></svg>`;
 const ICON_OK = `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6.5 11.2 3.3 8l-1 1 4.2 4.2L14 5.7l-1-1z"/></svg>`;
-
-function shortages(M){
-  // per craft: worst week shortfall vs capacity (only crafts with capacity entered)
-  const out = [];
-  M.crafts.forEach(c => { if (!inVisGroup(M,c) || !hasCap(c)) return; const cap = +state.capacity[c], d = M.demand[c];
-    let worst = 0, wi = -1, first = -1; for (let i=0;i<M.W;i++){ const g = d[i]-cap; if (g > 0.5 && first<0) first = i; if (g > worst){ worst = g; wi = i; } }
-    if (worst > 0.5) out.push({craft:c, gap:worst, week:M.weeks[wi], first:M.weeks[first]}); });
-  return out.sort((a,b)=>b.gap-a.gap);
-}
+const capSourceText = M => M.cap.source === "company" ? (M.sector === "all" ? "company-wide" : "company-wide (no sector numbers entered)") : `${M.cap.source} crew`;
 
 function renderKpis(M){
   const tot = totalSeries(M); let pk = 0, pi = 0; tot.forEach((v,i)=>{ if (v>pk){pk=v;pi=i;} });
   const hours = M.visJobs.reduce((s,j)=> s + (+j.hours||0)*factor(j), 0);
   const visCrafts = M.crafts.filter(c => inVisGroup(M,c));
-  const capCount = visCrafts.filter(hasCap).length;
+  const capCount = visCrafts.filter(c => hasCapIn(M.cap.map,c)).length;
   const sh = shortages(M);
-  const totalCap = capFor(visCrafts);
+  const totalCap = capSum(M.cap.map, visCrafts);
   const pipeline = M.visJobs.filter(j => j.status !== "Awarded").length;
-  const scen = {awarded:"Awarded work only", weighted:"Pipeline weighted by win %", all:"Every job at full size"}[state.scenario];
+  const scen = {awarded:"Awarded work only", weighted:"Not-yet-awarded work weighted by win %", all:"Every job at full size"}[state.scenario];
   let gapTile;
   if (!capCount) gapTile = `<div class="kpi"><div class="eyebrow">Craft shortages</div><div class="v">—</div><span class="pill idle">Headcount on hand not entered</span><div class="d">Open “Update the plan” below and enter people per craft to see gaps.</div></div>`;
   else if (!sh.length) gapTile = `<div class="kpi"><div class="eyebrow">Craft shortages</div><div class="v">0</div><span class="pill good">${ICON_OK}Covered</span><div class="d">Every craft with headcount entered is covered in every week.</div></div>`;
   else gapTile = `<div class="kpi"><div class="eyebrow">Craft shortages</div><div class="v">${sh.length} <span style="font-size:15px;font-weight:600;color:var(--ink-2)">of ${capCount} crafts</span></div><span class="pill crit">${ICON_ALERT}Need to hire</span><div class="d">Biggest: <b>${esc(sh[0].craft)}</b> short ${fmt(sh[0].gap)} people, week of ${wkLabel(sh[0].week)}.</div></div>`;
   $("kpis").innerHTML = `
     <div class="kpi"><div class="eyebrow">Peak crew</div><div class="v">${fmt(pk)}</div><div class="d">people, week of <b>${wkLabel(M.weeks[pi])}</b></div></div>
-    <div class="kpi"><div class="eyebrow">Headcount on hand</div><div class="v">${totalCap===null?"—":fmt(totalCap)}</div><div class="d">${totalCap===null?"Not entered yet":`${fmt(capCount)} crafts entered · peak needs ${fmt(Math.max(0,pk-totalCap))} more`}</div></div>
+    <div class="kpi"><div class="eyebrow">Headcount on hand</div><div class="v">${totalCap===null?"—":fmt(totalCap)}</div><div class="d">${totalCap===null?"Not entered yet":`${capSourceText(M)} · peak needs ${fmt(Math.max(0,pk-totalCap))} more`}</div></div>
     ${gapTile}
-    <div class="kpi"><div class="eyebrow">Labor hours in plan</div><div class="v">${hours>=1e6?fmt(hours/1e6,2)+"M":fmt(hours/1000)+"k"}</div><div class="d">${M.visJobs.length} job${M.visJobs.length!==1?"s":""}${pipeline?` (${pipeline} in pipeline)`:""} · ${scen}</div></div>`;
+    <div class="kpi"><div class="eyebrow">Labor hours in plan</div><div class="v">${hours>=1e6?fmt(hours/1e6,2)+"M":fmt(hours/1000)+"k"}</div><div class="d">${M.visJobs.length} job${M.visJobs.length!==1?"s":""}${pipeline?` (${pipeline} not yet awarded)`:""} · ${scen}</div></div>`;
 }
 
-function chartTheme(){
-  return {ink:css("--ink"), ink2:css("--ink-2"), muted:css("--muted"), grid:css("--grid"), line:css("--line"), surface:css("--surface")};
-}
+function chartTheme(){ return {ink:css("--ink"), muted:css("--muted"), grid:css("--grid"), line:css("--line"), surface:css("--surface")}; }
 function periodLabels(M){ return state.grain === "week" ? M.weeks.map(wkLabel) : M.months.map(moLabel); }
-
+function sumJobs(M, jobs, useFactor=true){
+  const a = new Float64Array(M.W);
+  jobs.forEach(j => { const f = useFactor ? factor(j) : 1; if (!f) return; const m = M.aligned.get(j.id); if (!m) return;
+    for (const c in m) { if (!inVisGroup(M,c)) continue; const x = m[c]; for (let i=0;i<M.W;i++) a[i]+=x[i]*f; } });
+  return a;
+}
 function stackSeries(M){
   const series = [];
   if (state.stack === "group") {
@@ -375,22 +463,23 @@ function stackSeries(M){
       const a = new Float64Array(M.W); M.crafts.forEach(c => { if (groupOf(c) === g) { const d = M.demand[c]; for (let i=0;i<M.W;i++) a[i]+=d[i]; } });
       series.push({label:g.name, color:css(g.color), data:toPeriods(M,a)});
     });
+  } else if (state.stack === "sector") {
+    [...SECTORS, UNASSIGNED].forEach(s => { const js = M.visJobs.filter(j => jobSector(j) === s.name); if (!js.length) return;
+      series.push({label:s.name, color:css(s.color), data:toPeriods(M, sumJobs(M, js))}); });
   } else {
-    M.visJobs.forEach(j => { const f = factor(j); if (!f) return; const m = M.aligned.get(j.id); const a = new Float64Array(M.W);
-      for (const c in m) { if (!inVisGroup(M,c)) continue; const x = m[c]; for (let i=0;i<M.W;i++) a[i]+=x[i]*f; }
-      series.push({label:j.name + (f<1?` (${fmt(f*100)}%)`:""), color:css(jobColor(j.id)), data:toPeriods(M,a)}); });
+    M.visJobs.forEach(j => { const f = factor(j); if (!f) return;
+      series.push({label:j.name + (f<1?` (${fmt(f*100)}%)`:""), color:css(jobColor(j.id)), data:toPeriods(M, sumJobs(M,[j]))}); });
   }
   return series;
 }
 
 function renderMain(M){
   const T = chartTheme(); const labels = periodLabels(M); const series = stackSeries(M);
-  const visCrafts = M.crafts.filter(c => inVisGroup(M,c)); const cap = capFor(visCrafts);
+  const visCrafts = M.crafts.filter(c => inVisGroup(M,c)); const cap = capSum(M.cap.map, visCrafts);
   const ds = series.map(s => ({type:"bar", label:s.label, data:s.data.map(v=>+v.toFixed(2)), backgroundColor:s.color, borderColor:T.surface, borderWidth:{top:2,bottom:0,left:0,right:0}, borderSkipped:false, borderRadius:0, stack:"d", categoryPercentage:0.86, barPercentage:0.94, order:2}));
-  if (ds.length) ds[ds.length-1].borderRadius = {topLeft:4, topRight:4};
   if (cap !== null) ds.push({type:"line", label:"Headcount on hand", data:labels.map(()=>cap), borderColor:T.ink, borderWidth:2, borderDash:[6,4], pointRadius:0, pointHitRadius:0, stepped:true, order:1});
   $("mainNote").textContent = state.grain === "month" ? "Average weekly headcount in each month." : "Headcount each week (weeks start Sunday).";
-  $("capNote").textContent = cap === null ? "Enter headcount on hand to draw the capacity line" : "";
+  $("capNote").textContent = cap === null ? "Enter headcount on hand to draw the capacity line" : `Capacity line: ${capSourceText(M)}`;
   const totals = labels.map((_,i) => series.reduce((s,x)=>s+x.data[i],0));
   const cfg = {
     data:{labels, datasets:ds},
@@ -405,6 +494,8 @@ function renderMain(M){
           callbacks:{label:it => ` ${it.dataset.label}: ${fmt(it.parsed.y,1)}`,
             footer:items => { const i = items[0].dataIndex; const t = totals[i]; let s = `Total crew: ${fmt(t,1)}`; if (cap!==null) s += t>cap ? `\nShort by ${fmt(t-cap,1)}` : `\nSpare: ${fmt(cap-t,1)}`; return s; }}}}}
   };
+  // round the top of each stack: the last dataset with a value in that column gets the radius
+  ds.filter(d=>d.type==="bar").forEach((d,k,arr) => { d.borderRadius = ctx => { const i = ctx.dataIndex; for (let q=arr.length-1;q>=0;q--) if (arr[q].data[i] > 0.01) return q===k ? {topLeft:4,topRight:4} : 0; return 0; }; });
   if (mainChart) { mainChart.data = cfg.data; mainChart.options = cfg.options; mainChart.update(); }
   else mainChart = new Chart($("mainChart"), cfg);
   $("mainLegend").innerHTML = series.map(s => `<span><i style="--c:${s.color}"></i>${esc(s.label)}</span>`).join("") + (cap!==null?`<span><i class="line"></i>Headcount on hand (${fmt(cap)})</span>`:"");
@@ -422,31 +513,32 @@ function cellStyle(v, mode, scale){
 }
 
 function renderHeatmap(M){
+  const map = M.cap.map;
   const visCrafts = M.crafts.filter(c => inVisGroup(M,c));
-  const anyCap = visCrafts.some(hasCap);
+  const anyCap = visCrafts.some(c => hasCapIn(map,c));
   const mode = anyCap ? "gap" : "demand";
   $("hmTitle").textContent = anyCap ? "Where we are short" : "Headcount needed by craft";
   $("hmNote").textContent = anyCap
-    ? "Headcount on hand minus the busiest week of each month. Red is a shortage, blue is spare people. Crafts with no headcount entered show demand in grey text."
+    ? `Headcount on hand (${capSourceText(M)}) minus the busiest week of each month. Red is a shortage, blue is spare people. Crafts with no headcount entered are left blank.`
     : "Busiest week of each month. Enter headcount on hand to turn this into a shortage map.";
   const rows = [];
   M.usedGroups.filter(g => M.visGroup(g)).forEach(g => {
-    const cs = visCrafts.filter(c => groupOf(c) === g).sort((a,b) => (g.crafts.indexOf(a)+1||99) - (g.crafts.indexOf(b)+1||99));
+    const cs = visCrafts.filter(c => groupOf(c) === g).sort((a,b) => ((g.crafts.indexOf(a)+1)||99) - ((g.crafts.indexOf(b)+1)||99) || a.localeCompare(b));
     if (!cs.length) return;
-    const peakArr = M.monthIdx.map(ix => Math.max(...ix.map(i => cs.reduce((s,c)=>s+M.demand[c][i],0))));
-    const capCs = cs.filter(hasCap);
-    const gapArr = capCs.length ? M.monthIdx.map(ix => { const cap = capFor(capCs); return cap - Math.max(...ix.map(i => capCs.reduce((s,c)=>s+M.demand[c][i],0))); }) : null;
-    rows.push({type:"grp", g, label:g.name, peak:peakArr, gap:gapArr, n:cs.length});
+    const peak = M.monthIdx.map(ix => Math.max(...ix.map(i => cs.reduce((s,c)=>s+M.demand[c][i],0))));
+    const capCs = cs.filter(c => hasCapIn(map,c)); const gcap = capSum(map, capCs);
+    const gap = capCs.length ? M.monthIdx.map(ix => gcap - Math.max(...ix.map(i => capCs.reduce((s,c)=>s+M.demand[c][i],0)))) : null;
+    rows.push({type:"grp", g, label:g.name, peak, gap, cap:gcap});
     if (state.expandAll || state.expanded.has(g.id)) cs.forEach(c => {
-      const peak = M.monthIdx.map(ix => Math.max(...ix.map(i => M.demand[c][i])));
-      rows.push({type:"craft", g, label:c, peak, gap: hasCap(c) ? peak.map(v => +state.capacity[c] - v) : null});
+      const pk = M.monthIdx.map(ix => Math.max(...ix.map(i => M.demand[c][i])));
+      rows.push({type:"craft", g, label:c, peak:pk, gap: hasCapIn(map,c) ? pk.map(v => +map[c] - v) : null, cap: hasCapIn(map,c) ? +map[c] : null});
     });
   });
   const scaleGap = Math.max(1, ...rows.flatMap(r => r.gap ? r.gap.map(Math.abs) : []));
   const scaleDem = Math.max(1, ...rows.flatMap(r => r.peak));
   let h = `<thead><tr><th class="rl">${anyCap?"Craft · on hand":"Craft"}</th>${M.months.map(k=>`<th scope="col">${moLabel(k)}</th>`).join("")}</tr></thead><tbody>`;
   rows.forEach(r => {
-    const capTxt = r.type === "craft" ? (hasCap(r.label) ? ` <span class="note">${fmt(+state.capacity[r.label])}</span>` : "") : (anyCap && capFor(r.g.crafts.filter(c=>visCrafts.includes(c)))!==null ? ` <span class="note">${fmt(capFor(r.g.crafts.filter(c=>visCrafts.includes(c))))}</span>` : "");
+    const capTxt = anyCap && r.cap !== null ? ` <span class="note">${fmt(r.cap)}</span>` : "";
     const lab = r.type === "grp"
       ? `<button type="button" data-expand="${r.g.id}" aria-expanded="${state.expandAll||state.expanded.has(r.g.id)}"><i style="width:10px;height:10px;border-radius:3px;background:var(${r.g.color});display:inline-block"></i>${esc(r.label)}</button>${capTxt}`
       : `${esc(r.label)}${capTxt}`;
@@ -467,74 +559,116 @@ function renderHeatmap(M){
     : `<span><i style="background:color-mix(in oklab,var(--seq) 15%,var(--surface))"></i>Few</span><span><i style="background:color-mix(in oklab,var(--seq) 95%,var(--surface))"></i>Many people</span><span class="note">Click a group to see its crafts.</span>`;
 }
 
-function renderMultiples(M){
-  const T = chartTheme();
-  const box = $("multiples"); const keep = new Set();
-  // shared y max: monthly avg total per job at full size
-  const per = M.jobs.map(j => { const m = M.aligned.get(j.id);
-    const gs = M.usedGroups.filter(g => M.visGroup(g)).map(g => { const a = new Float64Array(M.W); for (const c in m) if (groupOf(c)===g) { const x=m[c]; for (let i=0;i<M.W;i++) a[i]+=x[i]; } return {g, data:M.monthIdx.map(ix=>ix.reduce((s,i)=>s+a[i],0)/ix.length)}; });
-    const tot = M.months.map((_,i)=>gs.reduce((s,x)=>s+x.data[i],0)); return {j, gs, tot}; });
-  const ymax = Math.max(1, ...per.flatMap(p => p.tot));
-  per.forEach(({j,gs,tot}) => {
-    keep.add(j.id);
-    let el = box.querySelector(`[data-mini="${CSS.escape(j.id)}"]`);
-    if (!el) { el = document.createElement("div"); el.className = "mini"; el.dataset.mini = j.id; el.innerHTML = `<div class="hd"></div><div class="meta"></div><div class="box"><canvas></canvas></div>`; box.appendChild(el); }
-    const pk = Math.max(...tot), pki = tot.indexOf(pk);
-    const first = M.months.findIndex((_,i)=>tot[i]>0.05), last = M.months.length-1-[...tot].reverse().findIndex(v=>v>0.05);
-    el.querySelector(".hd").innerHTML = `<h3>${esc(j.name)}</h3>`;
-    el.querySelector(".meta").innerHTML = `<span class="tag ${j.status==="Awarded"?"awarded":""}">${esc(j.status)}${j.status!=="Awarded"?` · ${fmt(+j.win||0)}% win`:""}</span>${j.size?`<span>${esc(j.size)}</span>`:""}<span>Peak ${fmt(pk)} avg in ${moLabel(M.months[pki])}</span><span>${moLabel(M.months[first])} – ${moLabel(M.months[last])}</span>${state.hiddenJobs.has(j.id)?`<span class="note">(hidden from totals)</span>`:""}`;
-    const cfg = {type:"bar", data:{labels:M.months.map(moLabel), datasets:gs.map(({g,data},k)=>({label:g.name, data:data.map(v=>+v.toFixed(2)), backgroundColor:css(g.color), borderColor:T.surface, borderWidth:{top:1.5,bottom:0,left:0,right:0}, borderSkipped:false, stack:"s", categoryPercentage:0.9, barPercentage:0.95}))},
+// small multiples: items = [{key, head, meta, labels, gs:[{g,data}], tot}]
+function renderMinis(boxId, items, ymax){
+  const T = chartTheme(); const box = $(boxId); const keep = new Set();
+  items.forEach(it => {
+    const key = boxId + ":" + it.key; keep.add(key);
+    let el = box.querySelector(`[data-mini="${CSS.escape(key)}"]`);
+    if (!el) { el = document.createElement("div"); el.className = "mini"; el.dataset.mini = key; el.innerHTML = `<div class="hd"></div><div class="meta"></div><div class="box"><canvas></canvas></div>`; box.appendChild(el); }
+    el.querySelector(".hd").innerHTML = it.head; el.querySelector(".meta").innerHTML = it.meta;
+    const tot = it.tot;
+    const cfg = {type:"bar", data:{labels:it.labels, datasets:it.gs.map(({g,data})=>({label:g.name, data:data.map(v=>+v.toFixed(2)), backgroundColor:css(g.color), borderColor:T.surface, borderWidth:{top:1.5,bottom:0,left:0,right:0}, borderSkipped:false, stack:"s", categoryPercentage:0.9, barPercentage:0.95}))},
       options:{responsive:true, maintainAspectRatio:false, animation:false, interaction:{mode:"index", intersect:false},
         scales:{x:{stacked:true, grid:{display:false}, border:{color:T.line}, ticks:{color:T.muted, maxRotation:0, autoSkip:true, autoSkipPadding:10, font:{size:10}}},
-                y:{stacked:true, max:Math.ceil(ymax/10)*10, beginAtZero:true, grid:{color:T.grid}, border:{display:false}, ticks:{color:T.muted, font:{size:10}, maxTicksLimit:4}}},
-        plugins:{legend:{display:false}, tooltip:{backgroundColor:T.ink, titleColor:T.surface, bodyColor:T.surface, footerColor:T.surface, usePointStyle:true, filter:it=>it.parsed.y>=0.05, itemSort:(a,b)=>b.parsed.y-a.parsed.y,
-          callbacks:{label:it=>` ${it.dataset.label}: ${fmt(it.parsed.y,1)}`, footer:items=>`Total: ${fmt(tot[items[0].dataIndex],1)}`}}}}};
-    const ex = minis.get(j.id);
-    if (ex) { ex.data = cfg.data; ex.options = cfg.options; ex.update(); } else minis.set(j.id, new Chart(el.querySelector("canvas"), cfg));
+                y:{stacked:true, max:Math.max(10, Math.ceil(ymax/10)*10), beginAtZero:true, grid:{color:T.grid}, border:{display:false}, ticks:{color:T.muted, font:{size:10}, maxTicksLimit:4}}},
+        plugins:{legend:{display:false}, tooltip:{backgroundColor:T.ink, titleColor:T.surface, bodyColor:T.surface, footerColor:T.surface, usePointStyle:true, filter:x=>x.parsed.y>=0.05, itemSort:(a,b)=>b.parsed.y-a.parsed.y,
+          callbacks:{label:x=>` ${x.dataset.label}: ${fmt(x.parsed.y,1)}`, footer:xs=>`Total: ${fmt(tot[xs[0].dataIndex],1)}`}}}}};
+    const ex = minis.get(key);
+    if (ex) { ex.data = cfg.data; ex.options = cfg.options; ex.update(); } else minis.set(key, new Chart(el.querySelector("canvas"), cfg));
   });
   [...box.querySelectorAll("[data-mini]")].forEach(el => { if (!keep.has(el.dataset.mini)) { minis.get(el.dataset.mini)?.destroy(); minis.delete(el.dataset.mini); el.remove(); } });
 }
+function groupMonthly(M, jobs, useFactor){
+  return M.usedGroups.filter(g => M.visGroup(g)).map(g => { const a = new Float64Array(M.W);
+    jobs.forEach(j => { const f = useFactor ? factor(j) : 1; if (!f) return; const m = M.aligned.get(j.id); for (const c in m) if (groupOf(c)===g) { const x=m[c]; for (let i=0;i<M.W;i++) a[i]+=x[i]*f; } });
+    return {g, data:monthlyAvg(M,a)}; });
+}
+function span(M, tot){ const first = tot.findIndex(v=>v>0.05); if (first<0) return "No crew in this scenario"; const last = tot.length-1-[...tot].reverse().findIndex(v=>v>0.05); return `${moLabel(M.months[first])} – ${moLabel(M.months[last])}`; }
 
-function renderEmpty(){
-  $("subline").textContent = "No jobs loaded yet";
-  $("kpis").innerHTML = "";
-  $("mainPanel").hidden = false;
-  if (mainChart) { mainChart.destroy(); mainChart = null; }
-  $("mainLegend").innerHTML = "";
-  $("mainNote").textContent = ""; $("capNote").textContent = "";
-  $("heatmap").innerHTML = `<tbody><tr><td><div class="empty"><h3>Load your first job</h3><ol class="steps"><li>Open <b>Update the plan</b> at the bottom of this page.</li><li>Drop in your workforce planning workbook (.xlsm). Each job tab with a craft-by-week summary becomes a job.</li><li>Set each job's status and win %, then enter headcount on hand per craft.</li></ol></div></td></tr></tbody>`;
-  $("hmKey").innerHTML = ""; renderMultiples({jobs:[], usedGroups:[], visGroup:()=>true, months:[], monthIdx:[], aligned:new Map(), W:0});
-  $("manage").open = true;
+function renderSectorMinis(){
+  const M = buildModel("all"); if (!M) return;
+  const items = [];
+  [...SECTORS, ...([...state.jobs.values()].some(j=>jobSector(j)==="Unassigned") ? [UNASSIGNED] : [])].forEach(s => {
+    const js = M.visJobs.filter(j => jobSector(j) === s.name);
+    const gs = groupMonthly(M, js, true); const tot = M.months.map((_,i)=>gs.reduce((a,x)=>a+x.data[i],0));
+    const pk = Math.max(0,...tot), pki = tot.indexOf(pk);
+    // sector shortages against that sector's own numbers (or company-wide)
+    const SM = buildModel(s.name); const sh = SM ? shortages(SM) : [];
+    const shTxt = !SM ? "" : !Object.keys(SM.cap.map).length ? `<span class="pill idle">No headcount entered</span>` : sh.length ? `<span class="pill crit">${ICON_ALERT}${sh.length} craft${sh.length>1?"s":""} short</span>` : `<span class="pill good">${ICON_OK}Covered</span>`;
+    items.push({key:s.name, labels:M.months.map(moLabel), gs, tot,
+      head:`<button type="button" data-sector="${esc(s.name)}" style="--c:var(${s.color})"><i></i>${esc(s.name)} →</button>`,
+      meta: js.length ? `<span>${js.length} job${js.length>1?"s":""}</span><span>Peak ${fmt(pk)} avg in ${moLabel(M.months[pki])}</span><span>${span(M,tot)}</span>${shTxt}` : `<span class="note">No jobs loaded for ${esc(s.name)} yet. Drop its workbook into “Update the plan”.</span>`});
+  });
+  $("sectorNote").textContent = "Monthly average headcount by craft group for each sector, with the same work-included setting as above. All on one scale. Click a sector to open it.";
+  renderMinis("sectorMinis", items, Math.max(1, ...items.flatMap(i => i.tot)));
 }
 
-function renderManage(M){
-  const jobs = M ? M.jobs : [];
+function renderJobMinis(M){
+  const items = M.jobs.map(j => {
+    const gs = groupMonthly(M, [j], false); const tot = M.months.map((_,i)=>gs.reduce((a,x)=>a+x.data[i],0));
+    const pk = Math.max(0,...tot), pki = tot.indexOf(pk); const s = sectorInfo(jobSector(j));
+    return {key:j.id, labels:M.months.map(moLabel), gs, tot, head:`<h3>${esc(j.name)}</h3>`,
+      meta:`<span class="tag" style="border-color:var(${s.color})">${esc(jobSector(j))}</span><span class="tag ${j.status==="Awarded"?"awarded":""}">${esc(j.status)}${j.status!=="Awarded"?` · ${fmt(+j.win||0)}% win`:""}</span>${j.size?`<span>${esc(j.size)}</span>`:""}<span>Peak ${fmt(pk)} avg in ${moLabel(M.months[pki])}</span><span>${span(M,tot)}</span>${state.hiddenJobs.has(j.id)?`<span class="note">(hidden from totals)</span>`:""}`};
+  });
+  renderMinis("multiples", items, Math.max(1, ...items.flatMap(i => i.tot)));
+}
+
+function renderEmpty(label){
+  $("subline").textContent = state.jobs.size ? `No ${label} jobs loaded yet` : "No jobs loaded yet";
+  $("kpis").innerHTML = "";
+  if (mainChart) { mainChart.destroy(); mainChart = null; }
+  $("mainLegend").innerHTML = ""; $("mainNote").textContent = ""; $("capNote").textContent = "";
+  const msg = state.jobs.size ? `<h3>No ${esc(label)} jobs yet</h3><ol class="steps"><li>Open <b>Update the plan</b> below and drop in the ${esc(label)} workbook, or name the file with “${esc(label)}” in it.</li><li>Or change a job's sector in the Jobs table.</li></ol>`
+    : `<h3>Load your first job</h3><ol class="steps"><li>Open <b>Update the plan</b> at the bottom of this page.</li><li>Drop in your workforce planning workbooks (.xlsm). Each job tab with a craft-by-week summary becomes a job.</li><li>Set each job's sector, status and win %, then enter headcount on hand per craft.</li></ol>`;
+  $("heatmap").innerHTML = `<tbody><tr><td><div class="empty">${msg}</div></td></tr></tbody>`;
+  $("hmKey").innerHTML = "";
+  renderMinis("multiples", [], 1);
+  if (!state.jobs.size) $("manage").open = true;
+}
+
+function renderManage(){
   $("manageNote").textContent = !canWrite ? "View only. Ask the plan owner to update jobs or headcount."
-    : live ? "Load job workbooks, set job status and enter headcount on hand. Changes save for everyone who opens this page."
-    : "Load job workbooks, set job status and enter headcount on hand. Changes stay in this browser window.";
+    : live ? "Load job workbooks, set sector and status, and enter headcount on hand. Changes save for everyone who opens this page."
+    : "Load job workbooks, set sector and status, and enter headcount on hand. Changes stay in this browser window.";
   const dis = canWrite ? "" : "disabled";
   $("drop").hidden = !canWrite;
-  $("jobTable").innerHTML = jobs.length ? `<thead><tr><th>Job</th><th>Status</th><th>Win %</th><th class="num">Peak</th><th class="num">Hours</th><th>Starts</th><th></th></tr></thead><tbody>` + jobs.map(j => {
-      const tot = new Float64Array(M.W); const m = M.aligned.get(j.id); for (const c in m) for (let i=0;i<M.W;i++) tot[i]+=m[c][i];
+  const Mall = buildModel("all");
+  const jobs = Mall ? Mall.jobs : [];
+  $("jobTable").innerHTML = jobs.length ? `<thead><tr><th>Job</th><th>Sector</th><th>Status</th><th>Win %</th><th class="num">Peak</th><th class="num">Hours</th><th>Starts</th><th></th></tr></thead><tbody>` + jobs.map(j => {
+      const tot = new Float64Array(Mall.W); const m = Mall.aligned.get(j.id); for (const c in m) for (let i=0;i<Mall.W;i++) tot[i]+=m[c][i];
       return `<tr data-row="${esc(j.id)}"><td title="${esc(j.source||"")}">${esc(j.name)}</td>
+      <td><select data-f="sector" aria-label="Sector for ${esc(j.name)}" ${dis}>${[...SECTORS.map(s=>s.name),"Unassigned"].map(s=>`<option ${s===jobSector(j)?"selected":""}>${s}</option>`).join("")}</select></td>
       <td><select data-f="status" aria-label="Status for ${esc(j.name)}" ${dis}>${["Awarded","Likely","Bidding"].map(s=>`<option ${s===j.status?"selected":""}>${s}</option>`).join("")}</select></td>
       <td><input type="number" min="0" max="100" step="5" data-f="win" value="${esc(j.win??"")}" aria-label="Win % for ${esc(j.name)}" ${dis}></td>
       <td class="num">${fmt(Math.max(...tot))}</td><td class="num">${fmt(+j.hours||0)}</td><td>${wkLabel(parseDay(j.start))}</td>
       <td>${canWrite?`<button type="button" class="btn ghost danger" data-remove="${esc(j.id)}">Remove</button>`:""}</td></tr>`; }).join("") + "</tbody>"
     : `<tbody><tr><td class="note">No jobs yet.</td></tr></tbody>`;
-  const crafts = new Set(Object.keys(state.capacity)); jobs.forEach(j => Object.keys(j.crafts||{}).forEach(c=>crafts.add(c)));
-  const list = [...crafts].sort((a,b)=>{ const ga=[...GROUPS,OTHER].indexOf(groupOf(a)), gb=[...GROUPS,OTHER].indexOf(groupOf(b)); return ga-gb || (groupOf(a).crafts.indexOf(a)-groupOf(b).crafts.indexOf(b)) || a.localeCompare(b); });
-  const peakOf = c => M && M.demand[c] ? Math.max(...M.demand[c]) : 0;
-  const focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.cap;
+  // headcount table
+  const targets = [{k:"company", n:"Company-wide"}, ...SECTORS.map(s=>({k:s.name, n:s.name}))];
+  $("capTarget").innerHTML = targets.map(t => `<button type="button" data-cap-target="${esc(t.k)}" aria-pressed="${state.capTarget===t.k}">${esc(t.n)}</button>`).join("");
+  const focused = document.activeElement?.dataset?.cap !== undefined || document.activeElement?.dataset?.craftgroup !== undefined;
   if (focused) return; // don't rebuild under the cursor
-  $("capTable").innerHTML = list.length ? `<thead><tr><th>Craft</th><th class="grpcol">Group</th><th class="num">Peak need</th><th class="num">On hand</th></tr></thead><tbody>` + list.map(c => `<tr><td>${esc(c)}</td><td class="note grpcol">${esc(groupOf(c).name)}</td><td class="num">${fmt(peakOf(c),1)}</td><td class="num"><input type="number" min="0" step="1" id="cap-${slug(c)}" data-cap="${esc(c)}" value="${hasCap(c)?esc(state.capacity[c]):""}" placeholder="—" aria-label="Headcount on hand, ${esc(c)}" ${dis}></td></tr>`).join("") + "</tbody>"
-    : `<tbody><tr><td class="note">Crafts appear here once a job is loaded.</td></tr></tbody>`;
+  const tmap = state.capTarget === "company" ? (state.capacity.company||{}) : (state.capacity.bySector?.[state.capTarget] || {});
+  const TM = buildModel(state.capTarget === "company" ? "all" : state.capTarget);
+  const crafts = new Set(Object.keys(tmap)); (TM ? TM.crafts : []).forEach(c=>crafts.add(c));
+  if (state.capTarget === "company") Object.keys(state.capacity.company||{}).forEach(c=>crafts.add(c));
+  const list = [...crafts].sort((a,b)=>{ const ga=ALLG.indexOf(groupOf(a)), gb=ALLG.indexOf(groupOf(b)); return ga-gb || a.localeCompare(b); });
+  const peakOf = c => TM && TM.demand[c] ? Math.max(...TM.demand[c]) : 0;
+  $("capTable").innerHTML = list.length ? `<thead><tr><th>Craft</th><th class="grpcol">Group</th><th class="num">Peak need</th><th class="num">On hand</th></tr></thead><tbody>` + list.map(c => `<tr><td>${esc(c)}</td>
+      <td class="grpcol"><select class="sm" data-craftgroup="${esc(c)}" aria-label="Craft group for ${esc(c)}" ${dis}>${ALLG.map(g=>`<option value="${g.id}" ${groupOf(c)===g?"selected":""}>${esc(g.name)}</option>`).join("")}</select></td>
+      <td class="num">${fmt(peakOf(c),1)}</td>
+      <td class="num"><input type="number" min="0" step="1" id="cap-${slug(state.capTarget)}-${slug(c)}" data-cap="${esc(c)}" value="${hasCapIn(tmap,c)?esc(tmap[c]):""}" placeholder="—" aria-label="Headcount on hand, ${esc(c)}" ${dis}></td></tr>`).join("") + "</tbody>"
+    : `<tbody><tr><td class="note">Crafts appear here once a job is loaded${state.capTarget!=="company"?` for ${esc(state.capTarget)}`:""}.</td></tr></tbody>`;
 }
 
 // ---------- events ----------
 document.addEventListener("click", e => {
+  const tab = e.target.closest("[data-sector]");
+  if (tab) { state.sector = tab.dataset.sector; state.hiddenJobs.clear(); if (state.sector !== "all") { if (state.stack === "sector") state.stack = "group"; if (SECTORS.some(s=>s.name===state.sector)) state.capTarget = state.sector; } else state.capTarget = "company"; saveUi(); render(); window.scrollTo({top:0, behavior:"smooth"}); return; }
+  const ct = e.target.closest("[data-cap-target]"); if (ct) { state.capTarget = ct.dataset.capTarget; renderManage(); return; }
   const seg = e.target.closest(".seg button");
-  if (seg) { const key = seg.parentElement.id; state[key] = seg.dataset.v; saveUi(); render(); return; }
+  if (seg && ["scenario","stack","grain","theme"].includes(seg.parentElement.id)) { const key = seg.parentElement.id; state[key] = seg.dataset.v; saveUi(); if (key === "theme") { applyTheme(); rethemed(); } else render(); return; }
   const jc = e.target.closest("[data-job]"); if (jc) { const id = jc.dataset.job; state.hiddenJobs.has(id) ? state.hiddenJobs.delete(id) : state.hiddenJobs.add(id); render(); return; }
   const gc = e.target.closest("[data-group]"); if (gc) { const id = gc.dataset.group; state.hiddenGroups.has(id) ? state.hiddenGroups.delete(id) : state.hiddenGroups.add(id); render(); return; }
   const ex = e.target.closest("[data-expand]"); if (ex) { const id = ex.dataset.expand; state.expanded.has(id) ? state.expanded.delete(id) : state.expanded.add(id); render(); return; }
@@ -547,32 +681,36 @@ document.addEventListener("click", e => {
 document.addEventListener("change", e => {
   const row = e.target.closest("[data-row]");
   if (row && e.target.dataset.f) { const j = state.jobs.get(row.dataset.row); if (!j) return;
-    const patch = e.target.dataset.f === "win" ? {win: Math.max(0, Math.min(100, +e.target.value || 0))} : {status: e.target.value};
-    saveJob({...j, ...patch}); }
+    const f = e.target.dataset.f;
+    const patch = f === "win" ? {win: Math.max(0, Math.min(100, +e.target.value || 0))} : f === "sector" ? {sector: e.target.value} : {status: e.target.value};
+    saveJob({...j, ...patch}); return; }
+  if (e.target.dataset.craftgroup !== undefined) { const c = e.target.dataset.craftgroup; state.craftMap = {...state.craftMap, [c]: e.target.value}; e.target.blur(); saveCraftMap(); }
 });
 let capTimer = null;
 document.addEventListener("input", e => {
-  if (!e.target.dataset.cap) return;
+  if (e.target.dataset.cap === undefined) return;
   const c = e.target.dataset.cap, v = e.target.value;
-  if (v === "") delete state.capacity[c]; else state.capacity[c] = Math.max(0, +v);
+  const cap = state.capacity; cap.bySector = cap.bySector || {}; cap.company = cap.company || {};
+  const map = state.capTarget === "company" ? cap.company : (cap.bySector[state.capTarget] = cap.bySector[state.capTarget] || {});
+  if (v === "") delete map[c]; else map[c] = Math.max(0, +v);
+  if (state.capTarget !== "company" && !Object.keys(map).length) delete cap.bySector[state.capTarget];
   clearTimeout(capTimer); capTimer = setTimeout(saveCapacity, 700);
-  renderKpisMainOnly();
+  const M = buildModel(); if (M) { renderKpis(M); renderMain(M); renderHeatmap(M); }
 });
-function renderKpisMainOnly(){ const M = buildModel(); if (!M) return; renderKpis(M); renderMain(M); renderHeatmap(M); }
 
-// tooltip for heatmap cells
 const tip = $("tip");
 document.addEventListener("pointerover", e => { const t = e.target.closest("[data-tip]"); if (!t) { tip.hidden = true; return; }
   const [a,...rest] = t.dataset.tip.split("|"); tip.innerHTML = `<b>${esc(a)}</b><br>${rest.map(esc).join("<br>")}`; tip.hidden = false; });
 document.addEventListener("pointermove", e => { if (tip.hidden) return; const x = Math.min(e.clientX+14, innerWidth - tip.offsetWidth - 8); const y = e.clientY + 16 + tip.offsetHeight > innerHeight ? e.clientY - tip.offsetHeight - 10 : e.clientY + 16; tip.style.left = x+"px"; tip.style.top = y+"px"; });
 document.addEventListener("pointerleave", () => tip.hidden = true);
 
-// theme changes repaint charts
-const rethemed = () => { if (mainChart){ mainChart.destroy(); mainChart = null; } minis.forEach(c=>c.destroy()); minis.clear(); $("multiples").innerHTML = ""; render(); };
-matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", rethemed);
-new MutationObserver(rethemed).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
+function rethemed(){ if (mainChart){ mainChart.destroy(); mainChart = null; } minis.forEach(c=>c.destroy()); minis.clear(); $("multiples").innerHTML = ""; $("sectorMinis").innerHTML = ""; render(); }
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { if (state.theme === "auto") rethemed(); });
+new MutationObserver(() => { if (applyingTheme) return; if (state.theme !== "auto" && document.documentElement.getAttribute("data-theme") !== state.theme) applyTheme(); rethemed(); })
+  .observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
 
 // ---------- persistence ----------
+function status(msg, err=false){ const s = $("loadStatus"); s.textContent = msg; s.classList.toggle("err", err); }
 async function saveJob(job){
   state.jobs.set(job.id, job); render();
   if (!db) return;
@@ -583,24 +721,34 @@ async function removeJob(id){
   if (!db) return;
   try { await db.doc("jobs/" + id).delete(); } catch (err) { status(`Could not remove the job: ${err.message || err.code}`, true); }
 }
-let capSaving = Promise.resolve();
+let capSaving = Promise.resolve(), mapSaving = Promise.resolve();
 function saveCapacity(){
   render();
   if (!db) return;
-  const body = {crafts: {...state.capacity}};
+  const body = {company:{...(state.capacity.company||{})}, bySector:JSON.parse(JSON.stringify(state.capacity.bySector||{}))};
   capSaving = capSaving.then(() => db.doc("settings/capacity").set(body)).catch(err => status(`Could not save headcount: ${err.message || err.code}`, true));
 }
-function status(msg, err=false){ const s = $("loadStatus"); s.textContent = msg; s.classList.toggle("err", err); }
+function saveCraftMap(){
+  render();
+  if (!db) return;
+  const body = {map:{...state.craftMap}};
+  mapSaving = mapSaving.then(() => db.doc("settings/craftmap").set(body)).catch(err => status(`Could not save craft groups: ${err.message || err.code}`, true));
+}
 
 // ---------- Excel parsing ----------
 const isSerial = v => typeof v === "number" && v > 30000 && v < 80000;
 const serialToT = v => Math.round((v - 25569) * DAY);
+function labelValue(rows, re, test){
+  for (let k=0; k<Math.min(rows.length, 400); k++) { const r = rows[k] || [];
+    for (let x=0; x<r.length; x++) { const v = r[x]; if (typeof v !== "string" || !re.test(v.trim().toLowerCase())) continue;
+      for (let y=x+1; y<x+4; y++) { const n = r[y]; if (n !== null && n !== "" && n !== undefined && test(n)) return n; } } }
+  return null;
+}
 function parseSheet(ws, sheetName, fileName){
   const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, blankrows:true, defval:null});
   const jobs = [];
   for (let r=0; r<rows.length; r++) for (let c=0; c<(rows[r]||[]).length; c++) {
     if (typeof rows[r][c] !== "string" || rows[r][c].trim().toLowerCase() !== "total crew") continue;
-    // walk up to the "Craft" header with dates to its right
     let h = -1; for (let k=r-1; k>=0 && k>=r-80; k--) { const v = rows[k]?.[c]; if (typeof v === "string" && v.trim().toLowerCase() === "craft" && isSerial(rows[k][c+1])) { h = k; break; } }
     if (h < 0) continue;
     const hdr = rows[h]; const dateCols = []; for (let x=c+1; x<hdr.length; x++) { if (isSerial(hdr[x])) dateCols.push(x); else if (dateCols.length) break; }
@@ -612,53 +760,63 @@ function parseSheet(ws, sheetName, fileName){
     const nz = dateCols.map((_,i) => Object.values(crafts).some(a => a[i] > 0.01));
     const a = nz.indexOf(true), b = nz.lastIndexOf(true) + 1;
     for (const k in crafts) crafts[k] = crafts[k].slice(a,b).map(v => Math.round(v*100)/100);
-    // title: any text left of Craft on the header row, else E1-ish
     let title = null; for (let x=0; x<c; x++) if (typeof hdr[x] === "string" && hdr[x].trim()) { title = hdr[x]; break; }
     if (!title) for (let k=0; k<4 && !title; k++) (rows[k]||[]).forEach(v => { if (!title && typeof v === "string" && /workforce plan/i.test(v)) title = v; });
     let name = sheetName, size = "";
     if (title) { const first = String(title).split(/\n/)[0]; const m = first.match(/([\d.,]+\s*MW\w*)/i); if (m) size = m[1];
       name = first.split(/\s+[–—-]\s+workforce plan/i)[0].trim() || sheetName; }
-    if (/^workforce planning$/i.test(name) && sheetName && !/^workforce planning$/i.test(sheetName)) name = sheetName;
+    const jobName = labelValue(rows, /^(job|job name|project|project name)$/, v => typeof v === "string");
+    if (jobName) name = String(jobName).trim();
     const hoursCell = rows[r+1]?.[c];
-    // optional Status / Win % cells
-    let st = null, win = null;
-    for (let k=0; k<Math.min(rows.length, 400); k++) (rows[k]||[]).forEach((v,x) => {
-      if (typeof v !== "string") return; const t = v.trim().toLowerCase();
-      const nxt = () => { for (let y=x+1; y<x+4; y++) if (rows[k][y] !== null && rows[k][y] !== "") return rows[k][y]; return null; };
-      if (t === "status" || t === "job status") { const n = nxt(); if (typeof n === "string" && /award|likely|bid/i.test(n)) st = /award/i.test(n) ? "Awarded" : /likely/i.test(n) ? "Likely" : "Bidding"; }
-      if (/^win\s*(%|prob)/.test(t)) { const n = nxt(); if (typeof n === "number") win = n <= 1 ? n*100 : n; }
-    });
-    jobs.push({id:slug(name), name, size, status:st, win, start:isoDay(serialToT(hdr[dateCols[a]])), weeks:b-a, hours: typeof hoursCell === "number" ? Math.round(hoursCell) : null, crafts, source:`${fileName} / ${sheetName}`});
+    const stRaw = labelValue(rows, /^(job )?status$/, v => typeof v === "string" && /award|likely|bid/i.test(v));
+    const st = stRaw ? (/award/i.test(stRaw) ? "Awarded" : /likely/i.test(stRaw) ? "Likely" : "Bidding") : null;
+    const winRaw = labelValue(rows, /^win\s*(%|prob)/, v => typeof v === "number");
+    const secRaw = labelValue(rows, /^(sector|business unit|division|market)$/, v => typeof v === "string" && !!matchSector(v));
+    const sector = (secRaw && matchSector(secRaw)) || matchSector(fileName) || matchSector(sheetName) || null;
+    jobs.push({id:slug(name), name, size, sector, sectorFrom: secRaw ? "cell" : sector ? "file name" : null, status:st, win: winRaw === null ? null : (winRaw <= 1 ? winRaw*100 : winRaw),
+      start:isoDay(serialToT(hdr[dateCols[a]])), weeks:b-a, hours: typeof hoursCell === "number" ? Math.round(hoursCell) : null, crafts, source:`${fileName} / ${sheetName}`});
   }
   return jobs;
 }
-function parseCapacity(ws){
-  const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null}); const out = {};
-  rows.forEach(r => { if (r && typeof r[0] === "string" && typeof r[1] === "number" && r[0].trim().toLowerCase() !== "craft") out[r[0].trim()] = r[1]; });
-  return out;
-}
+function parseTwoCol(ws){ return XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null}).filter(r => r && typeof r[0] === "string" && r[0].trim() && !/^craft/i.test(r[0].trim())); }
 async function loadFiles(files){
   if (!canWrite) return;
   if (typeof XLSX === "undefined") { status("The Excel reader did not load. Check your connection and reload the page.", true); return; }
-  let added = [], capN = 0;
+  const added = []; let capN = 0, mapN = 0;
   for (const f of files) {
     status(`Reading ${f.name}…`);
     try {
       const wb = XLSX.read(await f.arrayBuffer(), {type:"array", cellFormula:false, cellHTML:false, cellStyles:false});
+      const fileSector = matchSector(f.name);
       for (const sn of wb.SheetNames) {
         const ws = wb.Sheets[sn];
-        if (/^(capacity|headcount|bench|manpower on hand)/i.test(sn)) { const cap = parseCapacity(ws); capN += Object.keys(cap).length; Object.assign(state.capacity, cap); continue; }
-        parseSheet(ws, sn, f.name).forEach(j => added.push(j));
+        if (/^(capacity|headcount|bench|manpower on hand)/i.test(sn)) {
+          parseTwoCol(ws).forEach(r => { if (typeof r[1] !== "number") return; const sec = matchSector(r[2]) || null;
+            const cap = state.capacity; cap.company = cap.company || {}; cap.bySector = cap.bySector || {};
+            const target = sec ? (cap.bySector[sec] = cap.bySector[sec] || {}) : cap.company; target[r[0].trim()] = r[1]; capN++; });
+          continue; }
+        if (/^(crafts?|craft groups?|craft list)$/i.test(sn)) {
+          parseTwoCol(ws).forEach(r => { const g = groupFromName(r[1]); if (g) { state.craftMap = {...state.craftMap, [r[0].trim()]: g.id}; mapN++; } });
+          continue; }
+        parseSheet(ws, sn, f.name).forEach(j => { if (!j.sector && fileSector) j.sector = fileSector; added.push(j); });
       }
     } catch (err) { status(`Could not read ${f.name}. Make sure it is an Excel workbook that has been saved in Excel (so formulas have values). ${err.message||""}`, true); return; }
   }
   for (const j of added) { const prev = state.jobs.get(j.id);
+    j.sector = j.sector || prev?.sector || "Unassigned";
     j.status = j.status || prev?.status || "Awarded"; j.win = j.win ?? prev?.win ?? (j.status === "Awarded" ? 100 : 50);
     if (j.hours === null) j.hours = prev?.hours ?? 0;
+    delete j.sectorFrom;
     await saveJob(j); }
   if (capN) saveCapacity();
-  if (!added.length && !capN) status("No job summary found. Each job tab needs a “Craft” header row with week dates and a “Total Crew” row under the craft list.", true);
-  else status(`Loaded ${added.length} job${added.length!==1?"s":""}${added.length?`: ${added.map(j=>j.name).join(", ")}`:""}${capN?` · headcount for ${capN} crafts`:""}.`);
+  if (mapN) saveCraftMap();
+  if (!added.length && !capN && !mapN) { status("No job summary found. Each job tab needs a “Craft” header row with week dates and a “Total Crew” row under the craft list.", true); return; }
+  const unassigned = added.filter(j => j.sector === "Unassigned");
+  const parts = [];
+  if (added.length) parts.push(`Loaded ${added.length} job${added.length!==1?"s":""}: ${added.map(j=>`${j.name} (${j.sector})`).join(", ")}`);
+  if (capN) parts.push(`headcount for ${capN} crafts`);
+  if (mapN) parts.push(`groups for ${mapN} crafts`);
+  status(parts.join(" · ") + "." + (unassigned.length ? ` ${unassigned.length} job${unassigned.length>1?"s have":" has"} no sector: add a Sector cell, put the sector in the file name, or pick it in the table below.` : ""), unassigned.length > 0);
 }
 $("file").addEventListener("change", e => { loadFiles([...e.target.files]); e.target.value = ""; });
 const drop = $("drop");
@@ -679,9 +837,11 @@ render();
     state.jobs = new Map(snap.docs.map(d => [d.id, {...d.data(), id:d.id}])); render();
   }, err => status(`Live updates stopped: ${err.message||err.code}. Reload the page.`, true));
   db.doc("settings/capacity").onSnapshot(snap => {
-    if (document.activeElement?.dataset?.cap) return;
-    state.capacity = snap.exists ? {...(snap.data().crafts || {})} : {}; render();
+    if (document.activeElement?.dataset?.cap !== undefined) return;
+    const d = snap.exists ? snap.data() : {};
+    state.capacity = {company:{...(d.company || d.crafts || {})}, bySector:JSON.parse(JSON.stringify(d.bySector || {}))}; render();
   }, () => {});
+  db.doc("settings/craftmap").onSnapshot(snap => { state.craftMap = snap.exists ? {...(snap.data().map || {})} : {}; render(); }, () => {});
 })();
 })();
 </script>
