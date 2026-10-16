@@ -229,6 +229,24 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .jump a:focus-visible{outline:2px solid var(--accent)}
 .wrap > section, .wrap > details{scroll-margin-top:64px}
 body.present #manage, body.present .entry-zone{display:none!important}
+/* collapsible sections with a title bar */
+.panel[data-sec]{padding:0}
+.panel[data-sec] > .panel-head{padding:13px 18px;margin:0;border-bottom:1px solid var(--grid);background:color-mix(in oklab,var(--ink) 4%,var(--surface));border-radius:var(--r) var(--r) 0 0;align-items:center}
+.panel[data-sec] > .sec-body{padding:16px 18px 18px}
+.panel[data-sec].collapsed > .panel-head{border-bottom:0;border-radius:var(--r)}
+.panel[data-sec] h2{font-size:19px;font-weight:800;letter-spacing:-.005em}
+.panel[data-sec] h2 + .note{margin-top:3px}
+.sec-toggle{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:11px}
+.sec-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+.sec-toggle .chev{width:8px;height:8px;border-right:2px solid var(--ink-2);border-bottom:2px solid var(--ink-2);transform:translateY(-2px) rotate(45deg);transition:transform .15s;flex:none}
+.collapsed .sec-toggle .chev{transform:rotate(-45deg)}
+.sec-hint{display:none;font-family:var(--f-body);font-size:12px;font-weight:500;color:var(--muted);margin-left:4px}
+.collapsed .sec-hint{display:inline}
+.panel.collapsed > .panel-head .note, .panel.collapsed > .panel-head .hr-actions, .panel.collapsed > .panel-head > .note{display:none}
+.jump-btn{all:unset;cursor:pointer;margin-left:auto;white-space:nowrap;font-size:12.5px;font-weight:600;color:var(--ink-2);padding:6px 11px;border:1px solid var(--line);border-radius:999px}
+.jump-btn:hover{color:var(--ink);background:var(--surface)}
+.jump-btn:focus-visible{outline:2px solid var(--accent)}
+@media (prefers-reduced-motion: reduce){.sec-toggle .chev{transition:none}}
 /* data entry zone: amber = where you type */
 .entry-zone{background:var(--entry-bg);border:1px solid var(--entry-line);border-radius:var(--r);padding:12px 14px 14px;display:grid;gap:10px}
 .entry-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
@@ -334,12 +352,13 @@ details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.
   </header>
 
   <nav class="jump" aria-label="Jump to section">
-    <a href="#kpis">Summary</a><a href="#mainPanel">Histogram</a><a href="#gapsPanel">Future gaps</a><a href="#hrPanel">HR hiring plan</a><a href="#sectorPanel" id="jumpSector">By sector</a><a href="#hmPanel">Shortage grid</a><a href="#jobsPanel">Jobs</a><a href="#manage" id="jumpManage" class="entry-link">Data entry</a>
+    <a href="#kpis">Summary</a><a href="#mainPanel">Histogram</a><a href="#hmPanel">Month by month</a><a href="#gapsPanel">Future gaps</a><a href="#hrPanel">HR hiring plan</a><a href="#sectorPanel" id="jumpSector">By sector</a><a href="#jobsPanel">Jobs</a><a href="#manage" id="jumpManage" class="entry-link">Data entry</a>
+    <button type="button" class="jump-btn" id="collapseAll">Collapse all</button>
   </nav>
 
   <section class="kpis" id="kpis" aria-label="Headline numbers"></section>
 
-  <section class="panel" id="mainPanel">
+  <section class="panel" id="mainPanel" data-sec>
     <div class="panel-head">
       <div><h2>Manpower histogram</h2><div class="note" id="mainNote"></div></div>
       <div class="note" id="capNote"></div>
@@ -348,7 +367,22 @@ details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.
     <div class="legend" id="mainLegend"></div>
   </section>
 
-  <section class="panel" id="gapsPanel">
+  <section class="panel" id="hmPanel" data-sec>
+    <div class="panel-head">
+      <div><h2 id="hmTitle">Where we are short</h2><div class="note" id="hmNote"></div></div>
+      <div class="hr-actions">
+        <div class="seg" id="hmCells" role="group" aria-label="Cells show">
+          <button type="button" data-v="gap">Over / under</button>
+          <button type="button" data-v="need">Forecast need</button>
+        </div>
+        <button type="button" class="btn ghost" id="expandAll">Show every craft</button>
+      </div>
+    </div>
+    <div class="hm-wrap"><table class="hm" id="heatmap"></table></div>
+    <div class="hm-key" id="hmKey"></div>
+  </section>
+
+  <section class="panel" id="gapsPanel" data-sec>
     <div class="panel-head">
       <div><h2>Future gaps</h2><div class="note" id="gapsNote"></div></div>
     </div>
@@ -356,7 +390,7 @@ details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.
     <button type="button" class="btn ghost gaps-more" id="gapsMore" hidden></button>
   </section>
 
-  <section class="panel" id="hrPanel">
+  <section class="panel" id="hrPanel" data-sec>
     <div class="panel-head">
       <div><h2>HR hiring plan</h2><div class="note" id="hrNote"></div></div>
       <div class="hr-actions">
@@ -378,29 +412,14 @@ details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.
     <div class="note" style="margin-top:8px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><span id="hrFoot"></span><span id="hrStatus" role="status"></span></div>
   </section>
 
-  <section class="panel" id="sectorPanel">
+  <section class="panel" id="sectorPanel" data-sec>
     <div class="panel-head">
       <div><h2>By sector</h2><div class="note" id="sectorNote"></div></div>
     </div>
     <div class="multiples" id="sectorMinis"></div>
   </section>
 
-  <section class="panel" id="hmPanel">
-    <div class="panel-head">
-      <div><h2 id="hmTitle">Where we are short</h2><div class="note" id="hmNote"></div></div>
-      <div class="hr-actions">
-        <div class="seg" id="hmCells" role="group" aria-label="Cells show">
-          <button type="button" data-v="gap">Over / under</button>
-          <button type="button" data-v="need">Forecast need</button>
-        </div>
-        <button type="button" class="btn ghost" id="expandAll">Show every craft</button>
-      </div>
-    </div>
-    <div class="hm-wrap"><table class="hm" id="heatmap"></table></div>
-    <div class="hm-key" id="hmKey"></div>
-  </section>
-
-  <section class="panel" id="jobsPanel">
+  <section class="panel" id="jobsPanel" data-sec>
     <div class="panel-head">
       <div><h2>Each job's histogram</h2><div class="note">Monthly average headcount by craft group at full job size, all on the same scale so jobs compare directly.</div></div>
     </div>
@@ -1357,6 +1376,41 @@ const drop = $("drop");
 ["dragenter","dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
 ["dragleave","drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
 drop.addEventListener("drop", e => loadFiles([...e.dataTransfer.files]));
+
+// ---------- collapsible sections ----------
+let collapsedSecs = new Set(); try { collapsedSecs = new Set(JSON.parse(localStorage.getItem("wfo-collapsed") || "[]")); } catch {}
+const saveCollapsed = () => { try { localStorage.setItem("wfo-collapsed", JSON.stringify([...collapsedSecs])); } catch {} };
+function setupSections(){
+  document.querySelectorAll("section.panel[data-sec]").forEach(sec => {
+    const head = sec.querySelector(":scope > .panel-head");
+    const body = document.createElement("div"); body.className = "sec-body"; body.id = sec.id + "-body";
+    [...sec.children].filter(ch => ch !== head).forEach(ch => body.appendChild(ch));
+    sec.appendChild(body);
+    const h2 = head.querySelector("h2"); const span = document.createElement("span");
+    while (h2.firstChild) span.appendChild(h2.firstChild);
+    if (h2.id) { span.id = h2.id; h2.removeAttribute("id"); }
+    const btn = document.createElement("button"); btn.type = "button"; btn.className = "sec-toggle"; btn.dataset.sec = sec.id; btn.setAttribute("aria-controls", body.id);
+    btn.innerHTML = `<span class="chev" aria-hidden="true"></span>`; btn.appendChild(span);
+    const hint = document.createElement("span"); hint.className = "sec-hint"; hint.textContent = "Hidden · click to show"; btn.appendChild(hint);
+    h2.appendChild(btn);
+    setCollapsed(sec.id, collapsedSecs.has(sec.id), false);
+  });
+  updateCollapseAll();
+}
+function setCollapsed(id, on, rerender = true){
+  const sec = $(id); if (!sec) return;
+  sec.classList.toggle("collapsed", on); $(id + "-body").hidden = on;
+  sec.querySelector(".sec-toggle")?.setAttribute("aria-expanded", String(!on));
+  on ? collapsedSecs.add(id) : collapsedSecs.delete(id); saveCollapsed(); updateCollapseAll();
+  if (!on && rerender) render();
+}
+function updateCollapseAll(){ const all = [...document.querySelectorAll("section.panel[data-sec]")]; const b = $("collapseAll"); if (b) b.textContent = all.length && all.every(x => x.classList.contains("collapsed")) ? "Expand all" : "Collapse all"; }
+document.addEventListener("click", e => {
+  const t = e.target.closest(".sec-toggle"); if (t) { setCollapsed(t.dataset.sec, !$(t.dataset.sec).classList.contains("collapsed")); return; }
+  if (e.target.id === "collapseAll") { const all = [...document.querySelectorAll("section.panel[data-sec]")]; const expand = all.every(x => x.classList.contains("collapsed")); all.forEach(x => setCollapsed(x.id, !expand, false)); if (expand) render(); return; }
+  const a = e.target.closest(".jump a[href^='#']"); if (a) { const id = a.getAttribute("href").slice(1); if ($(id)?.classList.contains("collapsed")) setCollapsed(id, false); }
+});
+setupSections();
 
 // ---------- boot ----------
 render();
