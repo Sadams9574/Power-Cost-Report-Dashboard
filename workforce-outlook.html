@@ -95,6 +95,11 @@ table.hm{border-collapse:separate;border-spacing:2px;font-size:12px;font-variant
 .hm tr.grp th.rl button{all:unset;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
 .hm tr.grp th.rl button:focus-visible{outline:2px solid var(--accent)}
 .hm tr.craft th.rl{padding-left:26px;color:var(--ink-2)}
+.hm .rlw{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.hm .oh{min-width:58px;text-align:right;font-family:var(--f-display);font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink);padding:4px 8px;border-left:1px solid var(--line);margin-right:-12px}
+.hm thead .oh{font-family:var(--f-body);font-size:11px;font-weight:600;color:var(--muted);border-left-color:transparent}
+.hm .oh.none{color:var(--muted);font-weight:500}
+.hm tr.craft .oh{font-weight:600;font-size:12px}
 .hm td div{min-width:42px;height:26px;display:grid;place-items:center;border-radius:4px;color:var(--ink)}
 .hm td div.dark{color:#fff}
 .hm td div.zero{color:var(--muted)}
@@ -687,7 +692,7 @@ function renderHeatmap(M){
   const ixOf = i => M.monthIdx[i].filter(w => w >= M.tw);
   $("hmTitle").textContent = anyCap ? "Where we are short, month by month" : "Headcount needed by craft";
   $("hmNote").textContent = anyCap
-    ? `From this month on. Headcount on hand (${capSourceText(M)}${state.capMode==="plan"?", with hiring plan":""}) minus the busiest week of each month. Red is a shortage, blue is spare people. Crafts with no headcount entered are left blank.`
+    ? `From this month on. Headcount on hand (${capSourceText(M)}${state.capMode==="plan"?", with hiring plan":""}) minus the busiest week of each month. The On hand column is the headcount you entered; each month shows + spare or − short against it. Crafts with no headcount entered show people needed in grey.`
     : "From this month on, busiest week of each month. Enter headcount on hand to turn this into a shortage map.";
   if (!mi.length) { $("heatmap").innerHTML = `<tbody><tr><td><div class="empty">All work in this view is in the past.</div></td></tr></tbody>`; $("hmKey").innerHTML = ""; return; }
   const rows = [];
@@ -707,12 +712,13 @@ function renderHeatmap(M){
   });
   const scaleGap = Math.max(1, ...rows.flatMap(r => r.gap ? r.gap.map(Math.abs) : []));
   const scaleDem = Math.max(1, ...rows.flatMap(r => r.peak));
-  let h = `<thead><tr><th class="rl">${anyCap?"Craft · on hand today":"Craft"}</th>${mi.map(m=>`<th scope="col">${moLabel(M.months[m])}</th>`).join("")}</tr></thead><tbody>`;
+  const planLbl = state.capMode === "plan" && planChanges().length ? " (months to the right include the hiring plan)" : "";
+  let h = `<thead><tr><th class="rl"><div class="rlw"><span>Craft</span>${anyCap?`<span class="oh">On hand</span>`:""}</div></th>${mi.map(m=>`<th scope="col">${moLabel(M.months[m])}</th>`).join("")}</tr></thead><tbody>`;
   rows.forEach(r => {
-    const capTxt = anyCap && r.cap !== null ? ` <span class="note">${fmt(r.cap)}</span>` : "";
+    const capTxt = anyCap ? `<span class="oh ${r.cap===null?"none":""}" title="${r.cap===null?"No headcount entered":`On hand today${planLbl}`}">${r.cap===null?"—":fmt(r.cap)}</span>` : "";
     const lab = r.type === "grp"
-      ? `<button type="button" data-expand="${r.g.id}" aria-expanded="${state.expandAll||state.expanded.has(r.g.id)}"><i style="width:10px;height:10px;border-radius:3px;background:var(${r.g.color});display:inline-block"></i>${esc(r.label)}</button>${capTxt}`
-      : `${esc(r.label)}${capTxt}`;
+      ? `<div class="rlw"><button type="button" data-expand="${r.g.id}" aria-expanded="${state.expandAll||state.expanded.has(r.g.id)}"><i style="width:10px;height:10px;border-radius:3px;background:var(${r.g.color});display:inline-block"></i>${esc(r.label)}</button>${capTxt}</div>`
+      : `<div class="rlw"><span>${esc(r.label)}</span>${capTxt}</div>`;
     h += `<tr class="${r.type}"><th class="rl" scope="row">${lab}</th>`;
     mi.forEach((m,i) => {
       const useGap = mode === "gap" && r.gap; const v = useGap ? r.gap[i] : r.peak[i];
