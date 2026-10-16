@@ -142,6 +142,25 @@ ol.steps{margin:6px 0 0;padding-left:20px;color:var(--ink-2);display:grid;gap:4p
 .mini .hd button:hover{text-decoration:underline}
 .mini .hd button:focus-visible{outline:2px solid var(--accent)}
 .mini .hd i{width:10px;height:10px;border-radius:3px;background:var(--c)}
+.dd{position:relative}
+.dd > summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:13px;color:var(--ink);white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis}
+.dd > summary::-webkit-details-marker{display:none}
+.dd > summary::after{content:"";width:7px;height:7px;border-right:1.5px solid var(--ink-2);border-bottom:1.5px solid var(--ink-2);transform:translateY(-2px) rotate(45deg);flex:none}
+.dd[open] > summary{border-color:var(--ink)}
+.dd > summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dd > summary.filtered{background:color-mix(in oklab,var(--accent) 10%,var(--surface));border-color:var(--accent)}
+.menu{position:absolute;z-index:30;top:calc(100% + 6px);left:0;min-width:280px;max-width:min(380px,calc(100vw - 32px));max-height:min(420px,70vh);overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.16);padding:6px;display:grid;gap:1px}
+.menu .acts{display:flex;justify-content:space-between;gap:8px;padding:4px 6px 8px;border-bottom:1px solid var(--grid);margin-bottom:4px}
+.menu .acts button{all:unset;cursor:pointer;font-size:12px;font-weight:600;color:var(--accent)}
+.menu .acts button:focus-visible{outline:2px solid var(--accent)}
+.menu label{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:6px;cursor:pointer;font-size:13px}
+.menu label:hover{background:var(--bg)}
+.menu label i{width:10px;height:10px;border-radius:3px;background:var(--c);flex:none}
+.menu label .nm{display:grid;line-height:1.3;min-width:0}
+.menu label .nm small{color:var(--muted);font-size:11.5px}
+.menu input{accent-color:var(--ink);margin:0;flex:none}
+@media (min-width:700px){.menu-r{left:auto;right:0}}
+@media (max-width:699px){.controls{position:relative}.dd{position:static}.menu{left:0;right:0;min-width:0;max-width:none}}
 .list select.sm{font-size:12px;padding:2px 4px;max-width:140px}
 </style>
 
@@ -185,13 +204,14 @@ ol.steps{margin:6px 0 0;padding-left:20px;color:var(--ink-2);display:grid;gap:4p
           <button type="button" data-v="week">Weekly</button>
         </div>
       </label>
+      <div class="ctl"><span>Jobs</span>
+        <details class="dd" id="jobsDD"><summary id="jobsSum">All jobs</summary><div class="menu" id="jobChips"></div></details>
+      </div>
+      <div class="ctl"><span>Craft groups</span>
+        <details class="dd" id="groupsDD"><summary id="groupsSum">All craft groups</summary><div class="menu menu-r" id="groupChips"></div></details>
+      </div>
     </div>
   </header>
-
-  <div class="panel" style="display:grid;gap:12px">
-    <div class="ctl"><span>Jobs</span><div class="chips" id="jobChips"></div></div>
-    <div class="ctl"><span>Craft groups</span><div class="chips" id="groupChips"></div></div>
-  </div>
 
   <section class="kpis" id="kpis" aria-label="Headline numbers"></section>
 
@@ -420,8 +440,14 @@ function renderControls(){
     $(id).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === state[key])));
   $("stack").querySelector('[data-v="sector"]').hidden = state.sector !== "all";
   const jobs = [...state.jobs.values()].filter(j => state.sector === "all" || jobSector(j) === state.sector).sort((a,b)=>a.start.localeCompare(b.start));
-  $("jobChips").innerHTML = jobs.length ? jobs.map(j => `<button type="button" class="chip" data-job="${esc(j.id)}" aria-pressed="${!state.hiddenJobs.has(j.id)}" style="--c:var(${jobColor(j.id)})"><i></i>${esc(j.name)} <span class="note">${state.sector==="all"?esc(jobSector(j))+" · ":""}${esc(j.status)}${j.status!=="Awarded"?` · ${fmt(+j.win||0)}%`:""}</span></button>`).join("") : `<span class="note">No jobs in this view yet</span>`;
-  $("groupChips").innerHTML = GROUPS.map(g => `<button type="button" class="chip" data-group="${g.id}" aria-pressed="${!state.hiddenGroups.has(g.id)}" style="--c:var(${g.color})"><i></i>${g.name}</button>`).join("");
+  const hj = jobs.filter(j => state.hiddenJobs.has(j.id)).length;
+  $("jobsSum").textContent = !jobs.length ? "No jobs" : hj ? `${jobs.length-hj} of ${jobs.length} jobs` : `All jobs (${jobs.length})`;
+  $("jobsSum").classList.toggle("filtered", hj > 0);
+  $("jobChips").innerHTML = jobs.length ? `<div class="acts"><button type="button" data-all="jobs">Select all</button><button type="button" data-none="jobs">Clear</button></div>` + jobs.map(j => `<label style="--c:var(${jobColor(j.id)})"><input type="checkbox" data-jobcb="${esc(j.id)}" ${state.hiddenJobs.has(j.id)?"":"checked"}><i></i><span class="nm">${esc(j.name)}<small>${state.sector==="all"?esc(jobSector(j))+" · ":""}${esc(j.status)}${j.status!=="Awarded"?` · ${fmt(+j.win||0)}% win`:""}</small></span></label>`).join("") : `<span class="note" style="padding:8px">No jobs in this view yet</span>`;
+  const hg = GROUPS.filter(g => state.hiddenGroups.has(g.id)).length;
+  $("groupsSum").textContent = hg ? `${GROUPS.length-hg} of ${GROUPS.length} craft groups` : "All craft groups";
+  $("groupsSum").classList.toggle("filtered", hg > 0);
+  $("groupChips").innerHTML = `<div class="acts"><button type="button" data-all="groups">Select all</button><button type="button" data-none="groups">Clear</button></div>` + GROUPS.map(g => `<label style="--c:var(${g.color})"><input type="checkbox" data-groupcb="${g.id}" ${state.hiddenGroups.has(g.id)?"":"checked"}><i></i>${g.name}</label>`).join("");
 }
 
 const ICON_ALERT = `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.5 15 14H1L8 1.5Zm-.75 4.5v4h1.5V6h-1.5Zm0 5.25v1.5h1.5v-1.5h-1.5Z"/></svg>`;
@@ -664,13 +690,17 @@ function renderManage(){
 
 // ---------- events ----------
 document.addEventListener("click", e => {
+  document.querySelectorAll("details.dd[open]").forEach(d => { if (!d.contains(e.target)) d.open = false; });
   const tab = e.target.closest("[data-sector]");
   if (tab) { state.sector = tab.dataset.sector; state.hiddenJobs.clear(); if (state.sector !== "all") { if (state.stack === "sector") state.stack = "group"; if (SECTORS.some(s=>s.name===state.sector)) state.capTarget = state.sector; } else state.capTarget = "company"; saveUi(); render(); window.scrollTo({top:0, behavior:"smooth"}); return; }
   const ct = e.target.closest("[data-cap-target]"); if (ct) { state.capTarget = ct.dataset.capTarget; renderManage(); return; }
   const seg = e.target.closest(".seg button");
   if (seg && ["scenario","stack","grain","theme"].includes(seg.parentElement.id)) { const key = seg.parentElement.id; state[key] = seg.dataset.v; saveUi(); if (key === "theme") { applyTheme(); rethemed(); } else render(); return; }
-  const jc = e.target.closest("[data-job]"); if (jc) { const id = jc.dataset.job; state.hiddenJobs.has(id) ? state.hiddenJobs.delete(id) : state.hiddenJobs.add(id); render(); return; }
-  const gc = e.target.closest("[data-group]"); if (gc) { const id = gc.dataset.group; state.hiddenGroups.has(id) ? state.hiddenGroups.delete(id) : state.hiddenGroups.add(id); render(); return; }
+  const sa = e.target.closest("[data-all],[data-none]");
+  if (sa) { const which = sa.dataset.all || sa.dataset.none, none = !!sa.dataset.none;
+    if (which === "jobs") { state.hiddenJobs.clear(); if (none) [...state.jobs.values()].filter(j => state.sector === "all" || jobSector(j) === state.sector).forEach(j => state.hiddenJobs.add(j.id)); }
+    else { state.hiddenGroups.clear(); if (none) GROUPS.forEach(g => state.hiddenGroups.add(g.id)); }
+    render(); return; }
   const ex = e.target.closest("[data-expand]"); if (ex) { const id = ex.dataset.expand; state.expanded.has(id) ? state.expanded.delete(id) : state.expanded.add(id); render(); return; }
   if (e.target.id === "expandAll") { state.expandAll = !state.expandAll; if (!state.expandAll) state.expanded.clear(); render(); return; }
   const rm = e.target.closest("[data-remove]");
@@ -679,6 +709,8 @@ document.addEventListener("click", e => {
     removeJob(id); }
 });
 document.addEventListener("change", e => {
+  if (e.target.dataset.jobcb !== undefined) { const id = e.target.dataset.jobcb; e.target.checked ? state.hiddenJobs.delete(id) : state.hiddenJobs.add(id); render(); return; }
+  if (e.target.dataset.groupcb !== undefined) { const id = e.target.dataset.groupcb; e.target.checked ? state.hiddenGroups.delete(id) : state.hiddenGroups.add(id); render(); return; }
   const row = e.target.closest("[data-row]");
   if (row && e.target.dataset.f) { const j = state.jobs.get(row.dataset.row); if (!j) return;
     const f = e.target.dataset.f;
@@ -703,6 +735,7 @@ document.addEventListener("pointerover", e => { const t = e.target.closest("[dat
   const [a,...rest] = t.dataset.tip.split("|"); tip.innerHTML = `<b>${esc(a)}</b><br>${rest.map(esc).join("<br>")}`; tip.hidden = false; });
 document.addEventListener("pointermove", e => { if (tip.hidden) return; const x = Math.min(e.clientX+14, innerWidth - tip.offsetWidth - 8); const y = e.clientY + 16 + tip.offsetHeight > innerHeight ? e.clientY - tip.offsetHeight - 10 : e.clientY + 16; tip.style.left = x+"px"; tip.style.top = y+"px"; });
 document.addEventListener("pointerleave", () => tip.hidden = true);
+document.addEventListener("keydown", e => { if (e.key === "Escape") document.querySelectorAll("details.dd[open]").forEach(d => { d.open = false; d.querySelector("summary").focus(); }); });
 
 function rethemed(){ if (mainChart){ mainChart.destroy(); mainChart = null; } minis.forEach(c=>c.destroy()); minis.clear(); $("multiples").innerHTML = ""; $("sectorMinis").innerHTML = ""; render(); }
 matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { if (state.theme === "auto") rethemed(); });
