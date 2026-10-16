@@ -264,6 +264,10 @@ body.present #manage, body.present .entry-zone{display:none!important}
 .entry-tag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--entry-ink)}
 .entry-tag svg{width:13px;height:13px}
 .entry-head .note{color:var(--ink-2)}
+.save-state{order:3;margin-left:auto;max-width:100%;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--entry-line);color:var(--ink-2)}
+.save-state:empty{display:none}
+.save-state i{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.save-state.ok i{background:var(--good)} .save-state.busy i{background:var(--warn)} .save-state.bad{color:var(--crit)} .save-state.bad i{background:var(--crit)} .save-state.local i{background:var(--warn)}
 .legacy{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;padding:10px 12px;border-radius:8px;background:var(--surface);border:1px dashed var(--entry-line)}
 .list tfoot th{border-top:2px solid var(--line);font-variant-numeric:tabular-nums}
 .entry-zone .step{background:var(--surface);border-color:var(--entry-line)}
@@ -332,7 +336,7 @@ details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.
 
 <div class="wrap">
   <section class="entry-zone" id="entryZone" aria-label="Data entry">
-    <div class="entry-head"><span class="entry-tag"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M11.7 1.3a1 1 0 0 1 1.4 0l1.6 1.6a1 1 0 0 1 0 1.4L5.6 13.4 2 14l.6-3.6 9.1-9.1Z"/></svg>Data entry</span><span class="note">Keep the plan current in three steps. Anything in this amber color is where you type or load data; everything else is the review.</span></div>
+    <div class="entry-head"><span class="entry-tag"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M11.7 1.3a1 1 0 0 1 1.4 0l1.6 1.6a1 1 0 0 1 0 1.4L5.6 13.4 2 14l.6-3.6 9.1-9.1Z"/></svg>Data entry</span><span class="save-state" id="saveState" role="status"></span><span class="note">Keep the plan current in three steps. Anything in this amber color is where you type or load data; everything else is the review.</span></div>
     <div class="legacy" id="legacyBanner" hidden></div>
     <ol class="steps-bar" id="stepsBar" aria-label="Data entry steps"></ol>
   </section>
@@ -1302,14 +1306,14 @@ document.addEventListener("input", e => {
     const cap = state.capacity; cap.bySector = cap.bySector || {};
     const map = cap.bySector[state.sector] = cap.bySector[state.sector] || {};
     if (v === "") delete map[c]; else map[c] = Math.max(0, Math.round(+v));
-    clearTimeout(capTimer); capTimer = setTimeout(saveCapacity, 900);
+    clearTimeout(capTimer); markTyping(); capTimer = setTimeout(saveCapacity, 900);
     const M = buildModel(); if (M) { renderKpis(M); renderMain(M); renderGaps(M); renderHR(M); renderSummary(M); renderSteps(); }
     return; }
   if (e.target.dataset.lead !== undefined) { const c = e.target.dataset.lead, v = e.target.value; const lt = state.capacity.leadTimes = {...(state.capacity.leadTimes||{})};
-    if (v === "") delete lt[c]; else lt[c] = Math.max(0, Math.min(52, +v)); clearTimeout(capTimer); capTimer = setTimeout(saveCapacity, 700); return; }
+    if (v === "") delete lt[c]; else lt[c] = Math.max(0, Math.min(52, +v)); clearTimeout(capTimer); markTyping(); capTimer = setTimeout(saveCapacity, 700); return; }
   if (e.target.dataset.chg !== undefined) { const i = +e.target.dataset.chg, f = e.target.dataset.f; const chs = state.capacity.changes = [...(state.capacity.changes||[])];
     chs[i] = {...chs[i], [f]: f === "delta" ? (e.target.value === "" ? "" : +e.target.value) : e.target.value};
-    clearTimeout(capTimer); capTimer = setTimeout(saveCapacity, 700);
+    clearTimeout(capTimer); markTyping(); capTimer = setTimeout(saveCapacity, 700);
     if (e.target.tagName === "SELECT") { const M = buildModel(); if (M) { renderKpis(M); renderMain(M); renderGaps(M); renderHeatmap(M); } }
     return; }
   if (e.target.dataset.cap === undefined) return;
@@ -1323,7 +1327,7 @@ document.addEventListener("input", e => {
     const colT = k => Object.values(cap.bySector[k] || {}).reduce((a,w) => a + (w === "" || w == null ? 0 : +w), 0);
     const f = $("capTable").querySelector(`[data-coltot="${sn}"]`); if (f) f.textContent = fmt(colT(sn));
     const fa = $("capTable").querySelector('[data-coltot="all"]'); if (fa) fa.textContent = fmt(SECTORS.reduce((a,x)=>a+colT(x.name),0)); }
-  clearTimeout(capTimer); capTimer = setTimeout(saveCapacity, 700);
+  clearTimeout(capTimer); markTyping(); capTimer = setTimeout(saveCapacity, 700);
   const M = buildModel(); if (M) { renderKpis(M); renderMain(M); renderGaps(M); renderHR(M); renderHeatmap(M); renderSummary(M); }
 });
 
@@ -1345,28 +1349,50 @@ new MutationObserver(() => { if (applyingTheme) return; if (state.theme !== "aut
 
 // ---------- persistence ----------
 function status(msg, err=false){ const s = $("loadStatus"); s.textContent = msg; s.classList.toggle("err", err); }
+// save indicator: tells whoever is entering data whether it is stored for everyone who opens the link
+let pendingSaves = 0, lastSaved = null, saveError = null, typing = false;
+function showSave(){
+  const el = $("saveState"); if (!el) return;
+  const t = d => `${d.getHours()%12||12}:${String(d.getMinutes()).padStart(2,"0")} ${d.getHours()<12?"AM":"PM"}`;
+  let cls = "", txt = "";
+  if (!live) { cls = "local"; txt = "Not saved: this copy keeps data until you reload. Use the shared link to save."; }
+  else if (!canWrite) { txt = "View only"; }
+  else if (saveError) { cls = "bad"; txt = `Not saved: ${saveError}`; }
+  else if (pendingSaves > 0 || typing) { cls = "busy"; txt = "Saving…"; }
+  else if (lastSaved) { cls = "ok"; txt = `All changes saved for everyone · ${t(lastSaved)}`; }
+  else { cls = "ok"; txt = "Changes save automatically for everyone with the link"; }
+  el.className = "save-state " + cls; el.innerHTML = `<i aria-hidden="true"></i>${esc(txt)}`;
+}
+function markTyping(){ if (live) { typing = true; showSave(); } }
+async function tracked(promiseFn){
+  if (!db) { showSave(); return; }
+  pendingSaves++; typing = false; showSave();
+  try { await promiseFn(); lastSaved = new Date(); saveError = null; }
+  catch (err) { saveError = err?.code === "quota_exceeded" ? "storage is full" : (err?.message || err?.code || "unknown error"); throw err; }
+  finally { pendingSaves--; showSave(); }
+}
 async function saveJob(job){
   state.jobs.set(job.id, job); render();
   if (!db) return;
-  try { await db.doc("jobs/" + job.id).set(job); } catch (err) { status(`Could not save ${job.name}: ${err.message || err.code}`, true); }
+  try { await tracked(() => db.doc("jobs/" + job.id).set(job)); } catch (err) { status(`Could not save ${job.name}: ${err.message || err.code}`, true); }
 }
 async function removeJob(id){
   state.jobs.delete(id); state.hiddenJobs.delete(id); render();
   if (!db) return;
-  try { await db.doc("jobs/" + id).delete(); } catch (err) { status(`Could not remove the job: ${err.message || err.code}`, true); }
+  try { await tracked(() => db.doc("jobs/" + id).delete()); } catch (err) { status(`Could not remove the job: ${err.message || err.code}`, true); }
 }
 let capSaving = Promise.resolve(), mapSaving = Promise.resolve();
 function saveCapacity(){
   render();
   if (!db) return;
   const body = {company:{...(state.capacity.company||{})}, bySector:JSON.parse(JSON.stringify(state.capacity.bySector||{})), changes:JSON.parse(JSON.stringify(state.capacity.changes||[])), leadTimes:{...(state.capacity.leadTimes||{})}};
-  capSaving = capSaving.then(() => db.doc("settings/capacity").set(body)).catch(err => status(`Could not save headcount: ${err.message || err.code}`, true));
+  capSaving = capSaving.then(() => tracked(() => db.doc("settings/capacity").set(body))).catch(err => status(`Could not save headcount: ${err.message || err.code}`, true));
 }
 function saveCraftMap(){
   render();
   if (!db) return;
   const body = {map:{...state.craftMap}};
-  mapSaving = mapSaving.then(() => db.doc("settings/craftmap").set(body)).catch(err => status(`Could not save craft groups: ${err.message || err.code}`, true));
+  mapSaving = mapSaving.then(() => tracked(() => db.doc("settings/craftmap").set(body))).catch(err => status(`Could not save craft groups: ${err.message || err.code}`, true));
 }
 
 // ---------- Excel parsing ----------
@@ -1500,7 +1526,7 @@ document.addEventListener("click", e => {
 setupSections();
 
 // ---------- boot ----------
-render();
+render(); showSave();
 (async () => {
   if (!window.claude?.use) return;
   db = await window.claude.use("db");
@@ -1508,6 +1534,7 @@ render();
   live = true;
   const user = await window.claude.use("user");
   if (user && user.can) { const c = user.can("data.write"); if (c === false) canWrite = false; }
+  showSave();
   db.collection("jobs").onSnapshot(snap => {
     state.jobs = new Map(snap.docs.map(d => [d.id, {...d.data(), id:d.id}])); render();
   }, err => status(`Live updates stopped: ${err.message||err.code}. Reload the page.`, true));
