@@ -298,6 +298,15 @@ table.hr{border-collapse:separate;border-spacing:0;font-size:12.5px;font-variant
 details.paste{margin-top:4px}
 details.paste summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--accent)}
 details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.4 ui-monospace,Menlo,Consolas,monospace;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px}
+.link-btn{all:unset;cursor:pointer;font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap}
+.link-btn:hover{text-decoration:underline}
+.link-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.subtotal-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border-radius:var(--r);border:1px solid color-mix(in oklab,var(--accent) 45%,var(--ring));background:color-mix(in oklab,var(--accent) 8%,var(--surface));font-size:13.5px}
+.subtotal-bar b{font-family:var(--f-display)}
+.hm tfoot th, .hm tfoot td{padding-top:6px}
+.hm tfoot tr:first-child th, .hm tfoot tr:first-child td{border-top:2px solid var(--line)}
+.hm tfoot th.rl{font-weight:800;font-family:var(--f-display);color:var(--ink)}
+.hm tfoot td div{font-weight:700}
 .list select.sm{font-size:12px;padding:2px 4px;max-width:140px}
 </style>
 
@@ -370,6 +379,7 @@ details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.
     <button type="button" class="jump-btn" id="collapseAll">Collapse all</button>
   </nav>
 
+  <div class="subtotal-bar" id="subtotalBar" role="status" hidden></div>
   <section class="kpis" id="kpis" aria-label="Headline numbers"></section>
 
   <section class="panel" id="mainPanel" data-sec>
@@ -711,6 +721,8 @@ function render(){
   if (!M) { renderEmpty(label); return; }
   const names = M.jobs.map(j => j.name);
   $("subline").textContent = `${M.jobs.length} job${M.jobs.length>1?"s":""} · ${wkLabel(M.weeks[0])} – ${wkLabel(M.weeks[M.W-1])} · ${names.slice(0,3).join(", ")}${names.length>3?` +${names.length-3} more`:""}`;
+  { const FI = filterInfo(M); const bar = $("subtotalBar"); bar.hidden = !FI.sub;
+    if (FI.sub) bar.innerHTML = `<span><b>Subtotal:</b> ${esc(FI.text)}${FI.names.length && FI.names.length <= 3 ? ` (${FI.names.map(esc).join(", ")})` : ""}. Every number and chart below covers only this selection.</span><button type="button" class="btn ghost" data-all="jobs" data-also-groups="1">Show all</button>`; }
   renderKpis(M); renderMain(M); renderGaps(M); renderHR(M); if (state.sector === "all") renderSectorMinis(); renderHeatmap(M); renderJobMinis(M);
 }
 
@@ -789,6 +801,31 @@ function stackSeries(M){
   return series;
 }
 
+// what the current numbers cover: everything, or a subtotal of the selected jobs / craft groups
+function filterInfo(M){
+  const hj = M.jobs.filter(j => state.hiddenJobs.has(j.id)).length, hg = GROUPS.filter(g => state.hiddenGroups.has(g.id)).length;
+  const sub = hj > 0 || hg > 0;
+  const parts = []; if (hj) parts.push(`${M.jobs.length - hj} of ${M.jobs.length} jobs`); if (hg) parts.push(`${GROUPS.length - hg} of ${GROUPS.length} craft groups`);
+  return {sub, word: sub ? "Subtotal" : "Total", text: parts.join(", "), names: M.visJobs.map(j => j.name)};
+}
+// labels each stacked bar with its total (the stack's subtotal for the jobs and crafts shown)
+const barTotals = {id:"barTotals", afterDatasetsDraw(chart, _a, o){
+  if (!o || o.display === false) return;
+  const bars = chart.data.datasets.map((d,i)=>({d,i})).filter(x => x.d.type !== "line" && chart.isDatasetVisible(x.i));
+  if (!bars.length) return;
+  const n = chart.data.labels.length, ctx = chart.ctx, y = chart.scales.y, meta = chart.getDatasetMeta(bars[0].i);
+  const totals = Array.from({length:n}, (_,k) => bars.reduce((s,x) => s + (+x.d.data[k] || 0), 0));
+  let pk = -1, pv = 0; totals.forEach((v,k) => { if (v > pv) { pv = v; pk = k; } });
+  const w = meta.data[0]?.width || 0;
+  ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.font = `${o.weight||600} ${o.size||11}px system-ui, sans-serif`;
+  totals.forEach((v,k) => {
+    if (v < 0.5) return;
+    if ((o.peakOnly || w < (o.minWidth||20)) && k !== pk) return;
+    const el = meta.data[k]; if (!el) return;
+    ctx.fillStyle = k === pk ? o.peak : (k < (o.past||0) ? o.muted : o.color);
+    ctx.fillText((k === pk && o.peakTag ? "Peak " : "") + fmt(v), el.x, y.getPixelForValue(v) - 4);
+  });
+  ctx.restore(); }};
 const todayLine = {id:"todayLine", afterDatasetsDraw(chart, _a, o){
   const i = o && o.index; const x = chart.scales.x; if (!x || i === undefined || i <= 0 || i >= chart.data.labels.length) return;
   const px = (x.getPixelForValue(i-1) + x.getPixelForValue(i)) / 2, {top, bottom} = chart.chartArea, ctx = chart.ctx;
@@ -801,7 +838,8 @@ function renderMain(M){
   const capP = capT ? (state.grain === "week" ? Array.from(capT) : M.monthIdx.map(ix => ix.reduce((s,i)=>s+capT[i],0)/ix.length)) : null;
   const ds = series.map(s => ({type:"bar", label:s.label, data:s.data.map(v=>+v.toFixed(2)), backgroundColor:ctx => ctx.dataIndex < past ? s.color + "4d" : s.color, borderColor:T.surface, borderWidth:{top:2,bottom:0,left:0,right:0}, borderSkipped:false, borderRadius:0, stack:"d", categoryPercentage:0.86, barPercentage:0.94, order:2}));
   if (capP) ds.push({type:"line", label:state.capMode==="plan"?"Headcount (with hiring plan)":"Headcount on hand", data:capP.map((v,i)=> i < past ? null : +v.toFixed(1)), borderColor:T.ink, borderWidth:2, borderDash:[6,4], pointRadius:0, pointHitRadius:0, stepped:true, spanGaps:false, order:1});
-  $("mainNote").textContent = (state.grain === "month" ? "Average weekly headcount in each month." : "Headcount each week (weeks start Sunday).") + " Faded bars are already behind us.";
+  const FI = filterInfo(M);
+  $("mainNote").textContent = (FI.sub ? `Subtotal for ${FI.text}. ` : "") + "The number on each bar is the total crew. " + (state.grain === "month" ? "Average weekly headcount in each month." : "Headcount each week (weeks start Sunday).") + " Faded bars are already behind us.";
   $("capNote").textContent = capP === null ? "Enter headcount on hand to draw the capacity line" : `Capacity line: ${capSourceText(M)}${state.capMode==="plan"?", with hiring plan":", as of today"}`;
   const totals = labels.map((_,i) => series.reduce((s,x)=>s+x.data[i],0));
   const cfg = {
@@ -809,14 +847,14 @@ function renderMain(M){
     options:{responsive:true, maintainAspectRatio:false, animation:false, interaction:{mode:"index", intersect:false},
       scales:{
         x:{stacked:true, grid:{display:false}, border:{color:T.line}, ticks:{color:T.muted, maxRotation:0, autoSkip:true, autoSkipPadding:14, font:{size:11}}},
-        y:{stacked:true, beginAtZero:true, grid:{color:T.grid}, border:{display:false}, ticks:{color:T.muted, font:{size:11}, precision:0}, title:{display:true, text:"People", color:T.muted, font:{size:11}}}},
-      plugins:{legend:{display:false}, todayLine:{index:past, color:T.muted},
+        y:{stacked:true, beginAtZero:true, grace:"12%", grid:{color:T.grid}, border:{display:false}, ticks:{color:T.muted, font:{size:11}, precision:0}, title:{display:true, text:"People", color:T.muted, font:{size:11}}}},
+      plugins:{legend:{display:false}, todayLine:{index:past, color:T.muted}, barTotals:{color:css("--ink-2"), muted:T.muted, peak:T.ink, past, size:11, weight:700},
         tooltip:{backgroundColor:T.ink, titleColor:T.surface, bodyColor:T.surface, footerColor:T.surface, padding:10, boxPadding:4, usePointStyle:true,
           filter:it => (it.dataset.type === "line" && it.parsed.y !== null) || it.parsed.y >= 0.05,
           itemSort:(a,b)=> (b.dataset.type==="line") - (a.dataset.type==="line") || b.parsed.y - a.parsed.y,
           callbacks:{label:it => ` ${it.dataset.label}: ${fmt(it.parsed.y,1)}`,
-            footer:items => { const i = items[0].dataIndex; const t = totals[i]; let s = `Total crew: ${fmt(t,1)}`; if (i < past) return s + "\n(already behind us)"; if (capP) { const c = capP[i]; s += t>c ? `\nShort by ${fmt(t-c,1)}` : `\nSpare: ${fmt(c-t,1)}`; } return s; }}}}},
-    plugins:[todayLine]
+            footer:items => { const i = items[0].dataIndex; const t = totals[i]; let s = `${FI.sub?"Subtotal":"Total"} crew: ${fmt(t,1)}`; if (i < past) return s + "\n(already behind us)"; if (capP) { const c = capP[i]; s += t>c ? `\nShort by ${fmt(t-c,1)}` : `\nSpare: ${fmt(c-t,1)}`; } return s; }}}}},
+    plugins:[todayLine, barTotals]
   };
   ds.filter(d=>d.type==="bar").forEach((d,k,arr) => { d.borderRadius = ctx => { const i = ctx.dataIndex; for (let q=arr.length-1;q>=0;q--) if (arr[q].data[i] > 0.01) return q===k ? {topLeft:4,topRight:4} : 0; return 0; }; });
   if (mainChart) mainChart.destroy();
@@ -913,7 +951,19 @@ function renderHeatmap(M){
     });
     h += `</tr>`;
   });
-  $("heatmap").innerHTML = h + "</tbody>";
+  { const FI = filterInfo(M);
+    const totNeed = mi.map(m => Math.max(0, ...ixOf(m).map(i => visCrafts.reduce((s,c)=>s+M.demand[c][i],0))));
+    const capAll = visCrafts.filter(c => M.capS[c]);
+    const tw = Math.min(M.tw, M.W-1);
+    const totAct = capAll.length ? capAll.reduce((s,c)=>s+M.capS[c][tw],0) : null;
+    const totGap = capAll.length ? mi.map(m => Math.min(...ixOf(m).map(i => capAll.reduce((s,c)=>s+M.capS[c][i]-M.demand[c][i],0)))) : null;
+    const sc = Math.max(1, ...(totGap||[]).map(Math.abs));
+    h += `</tbody><tfoot><tr><th class="rl" scope="row"><div class="rlw"><span>${FI.word} forecast need</span><span class="oh">${totAct===null?"":""}</span></div></th>`
+      + totNeed.map((v,i) => `<td><div data-tip="${esc(`${FI.word} · ${moLabel(M.months[mi[i]])}|Busiest week needs ${fmt(v,1)} people across all crafts shown`)}">${v<0.05?"·":fmt(v)}</div></td>`).join("") + `</tr>`;
+    if (totGap) h += `<tr><th class="rl" scope="row"><div class="rlw"><span>${FI.word} over / under</span><span class="oh" title="Total actual for crafts with manpower entered">${fmt(totAct)}</span></div></th>`
+      + totGap.map((v,i) => { const st = cellStyle(v,"gap",sc); return `<td><div class="${st.dark?"dark":""}" style="background:${st.bg}" data-tip="${esc(`${FI.word} · ${moLabel(M.months[mi[i]])}|Actual ${fmt(totAct)} (crafts with manpower entered)|${v<0?`Short by ${fmt(-v,1)}`:`Spare ${fmt(v,1)}`}`)}">${Math.abs(v)<0.5?"0":(v>0?"+":"−")+fmt(Math.abs(v))}</div></td>`; }).join("") + `</tr>`;
+    h += `</tfoot>`; }
+  $("heatmap").innerHTML = h;
   $("expandAll").textContent = state.expandAll ? "Show groups only" : "Show every craft";
   $("hmKey").innerHTML = mode === "gap"
     ? `<span><i style="background:color-mix(in oklab,var(--div-neg) 90%,var(--div-mid))"></i>Short (need to hire)</span><span><i style="background:var(--div-mid)"></i>Even</span><span><i style="background:color-mix(in oklab,var(--div-pos) 90%,var(--div-mid))"></i>Spare people</span><span><i class="entry-swatch"></i>Actual: type here</span><span class="note">Click a group to see its crafts.</span>`
@@ -932,9 +982,9 @@ function renderMinis(boxId, items, ymax){
     const cfg = {type:"bar", data:{labels:it.labels, datasets:it.gs.map(({g,data})=>({label:g.name, data:data.map(v=>+v.toFixed(2)), backgroundColor:css(g.color), borderColor:T.surface, borderWidth:{top:1.5,bottom:0,left:0,right:0}, borderSkipped:false, stack:"s", categoryPercentage:0.9, barPercentage:0.95}))},
       options:{responsive:true, maintainAspectRatio:false, animation:false, interaction:{mode:"index", intersect:false},
         scales:{x:{stacked:true, grid:{display:false}, border:{color:T.line}, ticks:{color:T.muted, maxRotation:0, autoSkip:true, autoSkipPadding:10, font:{size:10}}},
-                y:{stacked:true, max:Math.max(10, Math.ceil(ymax/10)*10), beginAtZero:true, grid:{color:T.grid}, border:{display:false}, ticks:{color:T.muted, font:{size:10}, maxTicksLimit:4}}},
+                y:{stacked:true, max:Math.max(10, Math.ceil(ymax*1.12/10)*10), beginAtZero:true, grid:{color:T.grid}, border:{display:false}, ticks:{color:T.muted, font:{size:10}, maxTicksLimit:4}}},
         plugins:{legend:{display:false}, tooltip:{backgroundColor:T.ink, titleColor:T.surface, bodyColor:T.surface, footerColor:T.surface, usePointStyle:true, filter:x=>x.parsed.y>=0.05, itemSort:(a,b)=>b.parsed.y-a.parsed.y,
-          callbacks:{label:x=>` ${x.dataset.label}: ${fmt(x.parsed.y,1)}`, footer:xs=>`Total: ${fmt(tot[xs[0].dataIndex],1)}`}}}}};
+          callbacks:{label:x=>` ${x.dataset.label}: ${fmt(x.parsed.y,1)}`, footer:xs=>`Total: ${fmt(tot[xs[0].dataIndex],1)}`}}, barTotals:{peakOnly:true, peakTag:true, size:10, peak:T.ink, color:T.ink, muted:T.muted}}}, plugins:[barTotals]};
     const ex = minis.get(key);
     if (ex) { ex.data = cfg.data; ex.options = cfg.options; ex.update(); } else minis.set(key, new Chart(el.querySelector("canvas"), cfg));
   });
@@ -969,7 +1019,7 @@ function renderJobMinis(M){
   const items = M.jobs.map(j => {
     const gs = groupMonthly(M, [j], false); const tot = M.months.map((_,i)=>gs.reduce((a,x)=>a+x.data[i],0));
     const pk = Math.max(0,...tot), pki = tot.indexOf(pk); const s = sectorInfo(jobSector(j));
-    return {key:j.id, labels:M.months.map(moLabel), gs, tot, head:`<h3>${esc(j.name)}</h3>`,
+    return {key:j.id, labels:M.months.map(moLabel), gs, tot, head:`<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><h3>${esc(j.name)}</h3><button type="button" class="link-btn" data-only="${esc(j.id)}">${M.visJobs.length===1 && M.visJobs[0].id===j.id && M.jobs.length>1 ? "Show all jobs" : "Show only this job"}</button></div>`,
       meta:`<span class="tag" style="border-color:var(${s.color})">${esc(jobSector(j))}</span><span class="tag ${j.status==="Awarded"?"awarded":""}">${esc(j.status)}${j.status!=="Awarded"?` · ${fmt(+j.win||0)}% win`:""}</span>${j.size?`<span>${esc(j.size)}</span>`:""}<span>Peak ${fmt(pk)} avg in ${moLabel(M.months[pki])}</span><span>${span(M,tot)}</span>${state.hiddenJobs.has(j.id)?`<span class="note">(hidden from totals)</span>`:""}`};
   });
   renderMinis("multiples", items, Math.max(1, ...items.flatMap(i => i.tot)));
@@ -1191,6 +1241,12 @@ document.addEventListener("click", e => {
   const ct = e.target.closest("[data-cap-target]"); if (ct) { state.capTarget = ct.dataset.capTarget; renderManage(); return; }
   const seg = e.target.closest(".seg button");
   if (seg && ["scenario","stack","grain","theme","capMode","hrView","hrHorizon","hmCells"].includes(seg.parentElement.id)) { const key = seg.parentElement.id; state[key] = seg.dataset.v; saveUi(); if (key === "theme") { applyTheme(); rethemed(); } else render(); return; }
+  const only = e.target.closest("[data-only]");
+  if (only) { const id = only.dataset.only; const view = [...state.jobs.values()].filter(j => state.sector === "all" || jobSector(j) === state.sector);
+    const isolated = view.every(j => j.id === id ? !state.hiddenJobs.has(j.id) : state.hiddenJobs.has(j.id));
+    state.hiddenJobs.clear(); if (!isolated) view.forEach(j => { if (j.id !== id) state.hiddenJobs.add(j.id); });
+    render(); $("kpis").scrollIntoView({behavior:"smooth"}); return; }
+  if (e.target.closest("[data-also-groups]")) state.hiddenGroups.clear();
   const sa = e.target.closest("[data-all],[data-none]");
   if (sa) { const which = sa.dataset.all || sa.dataset.none, none = !!sa.dataset.none;
     if (which === "jobs") { state.hiddenJobs.clear(); if (none) [...state.jobs.values()].filter(j => state.sector === "all" || jobSector(j) === state.sector).forEach(j => state.hiddenJobs.add(j.id)); }
