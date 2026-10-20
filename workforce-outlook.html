@@ -1404,6 +1404,7 @@ function labelValue(rows, re, test){
       for (let y=x+1; y<x+4; y++) { const n = r[y]; if (n !== null && n !== "" && n !== undefined && test(n)) return n; } } }
   return null;
 }
+let zeroTabs = [];
 function parseSheet(ws, sheetName, fileName){
   const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, blankrows:true, defval:null});
   const jobs = [];
@@ -1416,7 +1417,7 @@ function parseSheet(ws, sheetName, fileName){
     for (let k=h+1; k<r; k++) { const name = rows[k]?.[c]; if (typeof name !== "string" || !name.trim()) continue;
       const vals = dateCols.map(x => { const v = rows[k][x]; return typeof v === "number" && isFinite(v) ? v : 0; });
       if (vals.some(v => v > 0.001)) crafts[name.trim()] = vals; }
-    if (!Object.keys(crafts).length) continue;
+    if (!Object.keys(crafts).length) { zeroTabs.push(sheetName.trim()); continue; } // block found but every week is 0
     const nz = dateCols.map((_,i) => Object.values(crafts).some(a => a[i] > 0.01));
     const a = nz.indexOf(true), b = nz.lastIndexOf(true) + 1;
     for (const k in crafts) crafts[k] = crafts[k].slice(a,b).map(v => Math.round(v*100)/100);
@@ -1442,7 +1443,7 @@ function parseTwoCol(ws){ return XLSX.utils.sheet_to_json(ws, {header:1, raw:tru
 async function loadFiles(files){
   if (!canWrite) return;
   if (typeof XLSX === "undefined") { status("The Excel reader did not load. Check your connection and reload the page.", true); return; }
-  const added = []; let capN = 0, mapN = 0;
+  const added = []; let capN = 0, mapN = 0; zeroTabs = [];
   for (const f of files) {
     status(`Reading ${f.name}…`);
     try {
@@ -1476,6 +1477,11 @@ async function loadFiles(files){
     await saveJob(j); }
   if (capN) saveCapacity();
   if (mapN) saveCraftMap();
+  if (zeroTabs.length) {
+    const msg = `${zeroTabs.length} tab${zeroTabs.length>1?"s have":" has"} the crew summary but every week is 0 (${zeroTabs.slice(0,4).join(", ")}${zeroTabs.length>4?"…":""}). This usually means the Bid Hrs in column C came out as 0 because the linked estimate workbook was closed when Excel recalculated. Open the estimate workbook in Excel, let the plan recalculate (Data > Edit Links > Update Values), save, and load it again.`;
+    if (!added.length && !capN && !mapN) { status(msg, true); return; }
+    setTimeout(() => status($("loadStatus").textContent + " " + msg, true), 0);
+  }
   if (!added.length && !capN && !mapN) { status("No job summary found. Each job tab needs a “Craft” header row with week dates and a “Total Crew” row under the craft list.", true); return; }
   const unassigned = added.filter(j => j.sector === "Unassigned");
   const parts = [];
