@@ -292,6 +292,7 @@ table.hr{border-collapse:separate;border-spacing:0;font-size:12.5px;font-variant
 .hr th.rl{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1;font-weight:500;color:var(--ink);min-width:170px}
 .hr th.rl i{display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--c);margin-right:7px}
 .hr td.lead{color:var(--muted)}
+.hr .na{font-size:10.5px;font-weight:600;color:var(--muted);margin-left:4px;text-transform:uppercase;letter-spacing:.04em}
 .hr .h{display:inline-block;min-width:34px;padding:2px 7px;border-radius:5px;background:color-mix(in oklab,var(--crit) 14%,transparent);color:var(--crit);font-weight:700}
 .hr .r{color:var(--muted)}
 .hr .z{color:var(--line)}
@@ -311,6 +312,14 @@ details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.
 .hm tfoot tr:first-child th, .hm tfoot tr:first-child td{border-top:2px solid var(--line)}
 .hm tfoot th.rl{font-weight:800;font-family:var(--f-display);color:var(--ink)}
 .hm tfoot td div{font-weight:700}
+.ph-box{display:grid;gap:10px;padding:14px;border:1px dashed var(--entry-line);border-radius:8px;background:var(--surface)}
+.ph-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px 14px}
+.ph-grid input,.ph-grid select{font:inherit;color:var(--ink);background:var(--entry-field);border:1px solid var(--entry-line);border-radius:6px;padding:6px 8px;min-width:0;width:100%;box-sizing:border-box}
+.ph-grid .ph-check{grid-column:span 2}
+.ph-grid .ph-check input{width:auto}
+.ph-keep{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ink);cursor:pointer;padding-top:6px}
+@media (max-width:420px){.ph-grid .ph-check{grid-column:auto}}
+.tag.ph{border-style:dashed}
 .list select.sm{font-size:12px;padding:2px 4px;max-width:140px}
 </style>
 
@@ -369,6 +378,9 @@ details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.
           <button type="button" data-v="plan">With hiring plan</button>
         </div>
       </label>
+      <div class="ctl"><span>Status</span>
+        <details class="dd" id="statusDD"><summary id="statusSum">All statuses</summary><div class="menu" id="statusChips"></div></details>
+      </div>
       <div class="ctl"><span>Jobs</span>
         <details class="dd" id="jobsDD"><summary id="jobsSum">All jobs</summary><div class="menu" id="jobChips"></div></details>
       </div>
@@ -379,7 +391,7 @@ details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.
   </header>
 
   <nav class="jump" aria-label="Jump to section">
-    <a href="#kpis">Summary</a><a href="#mainPanel">Histogram</a><a href="#hmPanel">Month by month</a><a href="#gapsPanel">Future gaps</a><a href="#hrPanel">HR hiring plan</a><a href="#sectorPanel" id="jumpSector">By sector</a><a href="#jobsPanel">Jobs</a><a href="#manage" id="jumpManage" class="entry-link">Data entry</a>
+    <a href="#kpis">Summary</a><a href="#mainPanel">Histogram</a><a href="#hmPanel">Month by month</a><a href="#gapsPanel">Future gaps</a><a href="#hrPanel">Workforce Planning</a><a href="#sectorPanel" id="jumpSector">By sector</a><a href="#jobsPanel">Jobs</a><a href="#manage" id="jumpManage" class="entry-link">Data entry</a>
     <button type="button" class="jump-btn" id="collapseAll">Collapse all</button>
   </nav>
 
@@ -420,7 +432,7 @@ details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.
 
   <section class="panel" id="hrPanel" data-sec>
     <div class="panel-head">
-      <div><h2>HR hiring plan</h2><div class="note" id="hrNote"></div></div>
+      <div><h2>Workforce Planning</h2><div class="note" id="hrNote"></div></div>
       <div class="hr-actions">
         <div class="seg" id="hrView" role="group" aria-label="Show hires by">
           <button type="button" data-v="start">By start month</button>
@@ -469,10 +481,27 @@ details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.
           <h3 style="margin-bottom:6px">Jobs in the plan</h3>
           <div class="tbl-wrap"><table class="list" id="jobTable"></table></div>
         </div>
+        <div class="ph-box" id="phBox">
+          <h3>Add a possible job based on a similar one</h3>
+          <div class="note">For work you expect to chase but don't have an estimate for yet, like “we need 3 more projects in 2029.” Pick a similar job; its crew mix and shape are copied and fitted between your start and finish dates.</div>
+          <div class="ph-grid">
+            <label class="ctl"><span>Like this job</span><select id="phSrc"></select></label>
+            <label class="ctl"><span>Name</span><input type="text" id="phName" placeholder="Possible PV job 2029"></label>
+            <label class="ctl"><span>Sector</span><select id="phSector"><option>Power</option><option>Pipeline</option><option>Facilities</option></select></label>
+            <label class="ctl"><span>Status</span><select id="phStatus"><option>Possible</option><option>Bidding</option><option>Likely</option><option>Awarded</option></select></label>
+            <label class="ctl"><span>Win %</span><input type="number" id="phWin" min="0" max="100" step="5" value="25"></label>
+            <label class="ctl"><span>Start</span><input type="date" id="phStart"></label>
+            <label class="ctl"><span>Finish</span><input type="date" id="phFinish"></label>
+            <label class="ctl"><span>How many</span><input type="number" id="phCount" min="1" max="12" step="1" value="1"></label>
+            <label class="ctl"><span>Months between starts</span><input type="number" id="phGap" min="0" max="36" step="1" value="0"></label>
+            <div class="ctl ph-check"><span>Hours</span><label class="ph-keep"><input type="checkbox" id="phKeep" checked> Keep the same total hours (crew grows if the job is shorter)</label></div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" id="phAdd">Add to plan</button><span class="status" id="phStatus2" role="status"></span></div>
+        </div>
         <div class="note" style="display:grid;gap:6px">
           <b>How the workbook tells the dashboard what it is</b>
           <span><b>Sector:</b> a cell reading <i>Sector</i> with Power, Pipeline or Facilities next to it. If there is none, the file name is used (for example <i>Pipeline_Workforce.xlsm</i>). You can also change it in the table above.</span>
-          <span><b>Status and Win %:</b> a cell reading <i>Status</i> (Awarded, Likely or Bidding) and a cell reading <i>Win %</i>, each with the value next to it.</span>
+          <span><b>Status and Win %:</b> a cell reading <i>Status</i> (Awarded, Likely, Bidding or Possible) and a cell reading <i>Win %</i>, each with the value next to it.</span>
           <span><b>Crafts tab:</b> a tab named <i>Crafts</i> with the craft in column A and its group in column B (for example <i>Welder Helper | Welding &amp; Pipefitting</i>).</span>
           <span><b>Capacity tab:</b> a tab named <i>Capacity</i> with craft in column A, headcount in column B, the sector in column C and optionally weeks to hire in column D. Rows with no sector use the sector in the file name.</span>
           <span><b>Hiring Plan tab:</b> a tab named <i>Hiring Plan</i> with craft in column A, the change in column B (+10 or −20), the starting month in column C, and optionally a sector in column D.</span>
@@ -533,6 +562,8 @@ function groupFromName(n){ const t = String(n||"").toLowerCase().trim(); if (!t)
   for (const id of ["mod","wel","ele","sup","ops","lab","trd","stf"]) { const g = gById(id); if (g.kw.test(t)) return g; } return OTHER; }
 const JOB_SLOTS = ["--s1","--s2","--s3","--s4","--s5","--s6","--s7","--s8"];
 const DAY = 86400000, WEEK = 7*DAY;
+const STATUSES = ["Awarded","Likely","Bidding","Possible"];
+const normStatus = v => { const t = String(v||""); return /award/i.test(t) ? "Awarded" : /likely/i.test(t) ? "Likely" : /possib/i.test(t) ? "Possible" : /bid/i.test(t) ? "Bidding" : null; };
 const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 // ---------- state ----------
@@ -542,7 +573,7 @@ const state = {
   craftMap: {},
   capMode: "plan", hrView: "start", hrHorizon: "12",
   sector: "all", scenario: "weighted", stack: "sector", grain: "month", theme: "light", capTarget: "company",
-  hiddenJobs: new Set(), hiddenGroups: new Set(), expanded: new Set(), expandAll: true, hmCells: "gap",
+  hiddenJobs: new Set(), hiddenGroups: new Set(), hiddenStatus: new Set(), expanded: new Set(), expandAll: true, hmCells: "gap",
 };
 try { const s = JSON.parse(localStorage.getItem("wfo-ui") || "{}");
   ["scenario","stack","grain","theme","sector","capMode","hrView","hrHorizon"].forEach(k => { if (s[k]) state[k] = s[k]; }); } catch {}
@@ -610,8 +641,8 @@ function capSeries(M, c){
 }
 
 // ---------- model ----------
-function buildModel(sector = state.sector){
-  const jobs = [...state.jobs.values()].filter(j => sector === "all" || jobSector(j) === sector)
+function buildModel(sector = state.sector, allStatus = false){
+  const jobs = [...state.jobs.values()].filter(j => (sector === "all" || jobSector(j) === sector) && (allStatus || !state.hiddenStatus.has(normStatus(j.status) || "Awarded")))
     .sort((a,b) => a.start.localeCompare(b.start) || a.name.localeCompare(b.name));
   if (!jobs.length) return null;
   let t0 = Infinity, t1 = -Infinity;
@@ -743,6 +774,12 @@ function renderControls(){
     $(id).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === state[key])));
   $("stack").querySelector('[data-v="sector"]').hidden = state.sector !== "all";
   const jobs = [...state.jobs.values()].filter(j => state.sector === "all" || jobSector(j) === state.sector).sort((a,b)=>a.start.localeCompare(b.start));
+  { const all = [...state.jobs.values()].filter(j => state.sector === "all" || jobSector(j) === state.sector);
+    const hs = STATUSES.filter(x => state.hiddenStatus.has(x)).length;
+    $("statusSum").textContent = hs ? STATUSES.filter(x => !state.hiddenStatus.has(x)).join(", ") || "No statuses" : "All statuses";
+    $("statusSum").classList.toggle("filtered", hs > 0);
+    $("statusChips").innerHTML = `<div class="acts"><button type="button" data-all="status">Select all</button><button type="button" data-none="status">Clear</button></div>` + STATUSES.map(x => { const n = all.filter(j => (normStatus(j.status)||"Awarded") === x).length;
+      return `<label><input type="checkbox" data-statuscb="${x}" ${state.hiddenStatus.has(x)?"":"checked"}><span class="nm">${x}<small>${n} job${n!==1?"s":""}${x==="Awarded"?" · counted at 100%":" · weighted by win %"}</small></span></label>`; }).join(""); }
   const hj = jobs.filter(j => state.hiddenJobs.has(j.id)).length;
   $("jobsSum").textContent = !jobs.length ? "No jobs" : hj ? `${jobs.length-hj} of ${jobs.length} jobs` : `All jobs (${jobs.length})`;
   $("jobsSum").classList.toggle("filtered", hj > 0);
@@ -807,9 +844,9 @@ function stackSeries(M){
 
 // what the current numbers cover: everything, or a subtotal of the selected jobs / craft groups
 function filterInfo(M){
-  const hj = M.jobs.filter(j => state.hiddenJobs.has(j.id)).length, hg = GROUPS.filter(g => state.hiddenGroups.has(g.id)).length;
-  const sub = hj > 0 || hg > 0;
-  const parts = []; if (hj) parts.push(`${M.jobs.length - hj} of ${M.jobs.length} jobs`); if (hg) parts.push(`${GROUPS.length - hg} of ${GROUPS.length} craft groups`);
+  const hj = M.jobs.filter(j => state.hiddenJobs.has(j.id)).length, hg = GROUPS.filter(g => state.hiddenGroups.has(g.id)).length, hs = STATUSES.filter(x => state.hiddenStatus.has(x));
+  const sub = hj > 0 || hg > 0 || hs.length > 0;
+  const parts = []; if (hs.length) parts.push(`${STATUSES.filter(x => !hs.includes(x)).join(", ") || "no"} jobs only`); if (hj) parts.push(`${M.jobs.length - hj} of ${M.jobs.length} jobs`); if (hg) parts.push(`${GROUPS.length - hg} of ${GROUPS.length} craft groups`);
   return {sub, word: sub ? "Subtotal" : "Total", text: parts.join(", "), names: M.visJobs.map(j => j.name)};
 }
 // labels each stacked bar with its total (the stack's subtotal for the jobs and crafts shown)
@@ -821,10 +858,11 @@ const barTotals = {id:"barTotals", afterDatasetsDraw(chart, _a, o){
   const totals = Array.from({length:n}, (_,k) => bars.reduce((s,x) => s + (+x.d.data[k] || 0), 0));
   let pk = -1, pv = 0; totals.forEach((v,k) => { if (v > pv) { pv = v; pk = k; } });
   const w = meta.data[0]?.width || 0;
-  ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.font = `${o.weight||600} ${o.size||11}px system-ui, sans-serif`;
+  const fs = w < 24 ? Math.max(9, (o.size||11) - 1.5) : (o.size||11);
+  ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.font = `${o.weight||600} ${fs}px system-ui, sans-serif`;
   totals.forEach((v,k) => {
     if (v < 0.5) return;
-    if ((o.peakOnly || w < (o.minWidth||20)) && k !== pk) return;
+    if ((o.peakOnly || w < (o.minWidth||13)) && k !== pk) return;
     const el = meta.data[k]; if (!el) return;
     ctx.fillStyle = k === pk ? o.peak : (k < (o.past||0) ? o.muted : o.color);
     ctx.fillText((k === pk && o.peakTag ? "Peak " : "") + fmt(v), el.x, y.getPixelForValue(v) - 4);
@@ -1024,7 +1062,7 @@ function renderJobMinis(M){
     const gs = groupMonthly(M, [j], false); const tot = M.months.map((_,i)=>gs.reduce((a,x)=>a+x.data[i],0));
     const pk = Math.max(0,...tot), pki = tot.indexOf(pk); const s = sectorInfo(jobSector(j));
     return {key:j.id, labels:M.months.map(moLabel), gs, tot, head:`<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><h3>${esc(j.name)}</h3><button type="button" class="link-btn" data-only="${esc(j.id)}">${M.visJobs.length===1 && M.visJobs[0].id===j.id && M.jobs.length>1 ? "Show all jobs" : "Show only this job"}</button></div>`,
-      meta:`<span class="tag" style="border-color:var(${s.color})">${esc(jobSector(j))}</span><span class="tag ${j.status==="Awarded"?"awarded":""}">${esc(j.status)}${j.status!=="Awarded"?` · ${fmt(+j.win||0)}% win`:""}</span>${j.size?`<span>${esc(j.size)}</span>`:""}<span>Peak ${fmt(pk)} avg in ${moLabel(M.months[pki])}</span><span>${span(M,tot)}</span>${state.hiddenJobs.has(j.id)?`<span class="note">(hidden from totals)</span>`:""}`};
+      meta:`${j.placeholder?`<span class="tag ph">Placeholder · like ${esc(j.basedOn||"")}</span>`:""}<span class="tag" style="border-color:var(${s.color})">${esc(jobSector(j))}</span><span class="tag ${j.status==="Awarded"?"awarded":""}">${esc(j.status)}${j.status!=="Awarded"?` · ${fmt(+j.win||0)}% win`:""}</span>${j.size?`<span>${esc(j.size)}</span>`:""}<span>Peak ${fmt(pk)} avg in ${moLabel(M.months[pki])}</span><span>${span(M,tot)}</span>${state.hiddenJobs.has(j.id)?`<span class="note">(hidden from totals)</span>`:""}`};
   });
   renderMinis("multiples", items, Math.max(1, ...items.flatMap(i => i.tot)));
 }
@@ -1048,13 +1086,13 @@ function renderManage(){
     : "Load job workbooks, set sector and status, and enter headcount on hand. Changes stay in this browser window.";
   const dis = canWrite ? "" : "disabled";
   $("drop").hidden = !canWrite;
-  const Mall = buildModel("all");
+  const Mall = buildModel("all", true);
   const jobs = Mall ? Mall.jobs : [];
   $("jobTable").innerHTML = jobs.length ? `<thead><tr><th>Job</th><th>Sector</th><th>Status</th><th>Win %</th><th class="num">Peak</th><th class="num">Hours</th><th>Starts</th><th></th></tr></thead><tbody>` + jobs.map(j => {
       const tot = new Float64Array(Mall.W); const m = Mall.aligned.get(j.id); for (const c in m) for (let i=0;i<Mall.W;i++) tot[i]+=m[c][i];
-      return `<tr data-row="${esc(j.id)}"><td title="${esc(j.source||"")}">${esc(j.name)}</td>
+      return `<tr data-row="${esc(j.id)}"><td title="${esc(j.source||"")}">${esc(j.name)}${j.placeholder?` <span class="tag ph" title="Based on ${esc(j.basedOn||"")}">Placeholder</span>`:""}</td>
       <td><select data-f="sector" aria-label="Sector for ${esc(j.name)}" ${dis}>${[...SECTORS.map(s=>s.name),"Unassigned"].map(s=>`<option ${s===jobSector(j)?"selected":""}>${s}</option>`).join("")}</select></td>
-      <td><select data-f="status" aria-label="Status for ${esc(j.name)}" ${dis}>${["Awarded","Likely","Bidding"].map(s=>`<option ${s===j.status?"selected":""}>${s}</option>`).join("")}</select></td>
+      <td><select data-f="status" aria-label="Status for ${esc(j.name)}" ${dis}>${STATUSES.map(s=>`<option ${s===j.status?"selected":""}>${s}</option>`).join("")}</select></td>
       <td><input type="number" min="0" max="100" step="5" data-f="win" value="${esc(j.win??"")}" aria-label="Win % for ${esc(j.name)}" ${dis}></td>
       <td class="num">${fmt(Math.max(...tot))}</td><td class="num">${fmt(+j.hours||0)}</td><td>${wkLabel(parseDay(j.start))}</td>
       <td>${canWrite?`<button type="button" class="btn ghost danger" data-remove="${esc(j.id)}">Remove</button>`:""}</td></tr>`; }).join("") + "</tbody>"
@@ -1063,7 +1101,7 @@ function renderManage(){
   const ae = document.activeElement;
   const focused = ae && (ae.closest?.("#capTable") || ae.closest?.("#chgTable")) && /INPUT|SELECT/.test(ae.tagName);
   $("chgAdd").hidden = !canWrite;
-  renderLegacy();
+  renderLegacy(); renderPlaceholderForm();
   if (focused) return; // don't rebuild under the cursor
   renderChanges(dis);
   if (SECTORS.some(x => x.name === state.sector)) $("pasteSector").value = state.sector;
@@ -1083,6 +1121,46 @@ function renderManage(){
       + `</tbody><tfoot><tr><th>All crafts</th><th class="grpcol"></th><th></th>${SECTORS.map(x=>`<th class="num" data-coltot="${x.name}">${fmt(colTot(x.name))}</th>`).join("")}<th class="num" data-coltot="all">${fmt(SECTORS.reduce((a,x)=>a+colTot(x.name),0))}</th><th></th></tr></tfoot>`
     : `<tbody><tr><td class="note">Crafts appear here once a job is loaded.</td></tr></tbody>`;
 }
+function renderPlaceholderForm(){
+  const sel = $("phSrc"); if (!sel) return; $("phBox").hidden = !canWrite || !state.jobs.size;
+  const cur = sel.value; const jobs = [...state.jobs.values()].filter(j => !j.placeholder).sort((a,b) => a.name.localeCompare(b.name));
+  sel.innerHTML = jobs.map(j => `<option value="${esc(j.id)}">${esc(j.name)} (${fmt(j.weeks)} wks)</option>`).join("");
+  if (cur && jobs.some(j => j.id === cur)) sel.value = cur;
+  if (SECTORS.some(x => x.name === state.sector) && document.activeElement !== $("phSector")) $("phSector").value = state.sector;
+}
+// copy a job's crew curve onto new dates: resample each craft to the new length; optionally keep total hours
+function fitJob(src, startISO, finishISO, keepHours){
+  const s = parseDay(startISO), f = parseDay(finishISO);
+  const s0 = s - new Date(s).getUTCDay()*DAY;
+  const T = Math.max(1, Math.round((f - s0)/WEEK) + 1), L = Math.max(1, src.weeks);
+  const crafts = {};
+  for (const [c, arr] of Object.entries(src.crafts || {})) {
+    const out = new Array(T);
+    for (let t=0;t<T;t++){ const x = T === 1 ? 0 : t*(L-1)/(T-1); const i = Math.floor(x), fr = x - i; const a = +arr[i] || 0, b = +arr[Math.min(i+1, L-1)] || 0; out[t] = a + (b-a)*fr; }
+    if (keepHours) { const so = arr.reduce((p,v)=>p+(+v||0),0), sn = out.reduce((p,v)=>p+v,0); const k = sn > 0 ? so/sn : 0; for (let t=0;t<T;t++) out[t] *= k; }
+    crafts[c] = out.map(v => Math.round(v*100)/100);
+  }
+  return {start: isoDay(s0), weeks: T, crafts, hours: keepHours ? (+src.hours||0) : Math.round((+src.hours||0)*T/L)};
+}
+const addMonths = (iso, k) => { const [y,m,d] = iso.split("-").map(Number); const t = new Date(Date.UTC(y, m-1+k, 1)); const last = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth()+1, 0)).getUTCDate(); return isoDay(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), Math.min(d, last))); };
+async function addPlaceholders(){
+  const st = $("phStatus2"); const src = state.jobs.get($("phSrc").value);
+  const start = $("phStart").value, finish = $("phFinish").value;
+  if (!src) { st.textContent = "Pick a job to copy."; return; }
+  if (!start || !finish || finish <= start) { st.textContent = "Enter a start date and a finish date after it."; return; }
+  const n = Math.max(1, Math.min(12, Math.round(+$("phCount").value || 1))), gap = Math.max(0, Math.round(+$("phGap").value || 0));
+  const base = ($("phName").value || `Possible job like ${src.name}`).trim();
+  const status = $("phStatus").value, win = Math.max(0, Math.min(100, +$("phWin").value || 0)), sector = $("phSector").value, keep = $("phKeep").checked;
+  const made = [];
+  for (let k=0;k<n;k++){
+    const fit = fitJob(src, addMonths(start, k*gap), addMonths(finish, k*gap), keep);
+    const name = n > 1 ? `${base} #${k+1}` : base; let id = slug(name), q = 2; while (state.jobs.has(id)) id = `${slug(name)}-${q++}`;
+    const job = {id, name, sector, status, win, size:src.size||"", ...fit, placeholder:true, basedOn:src.name, source:`Placeholder based on ${src.name}`};
+    made.push(job); await saveJob(job);
+  }
+  st.textContent = `Added ${made.length} placeholder job${made.length>1?"s":""}: ${made.map(j => `${j.name} (${wkLabel(parseDay(j.start))} – ${wkLabel(parseDay(j.start) + (j.weeks-1)*WEEK)})`).join(", ")}.`;
+  $("phName").value = "";
+}
 function renderLegacy(){
   const L = legacyCompany(), el = $("legacyBanner"); if (!el) return;
   el.hidden = !L.length || !canWrite;
@@ -1099,9 +1177,9 @@ function renderSteps(){
   $("stepsBar").innerHTML =
     step(1, s1, "Drop in your Excel", n ? `${n} job${n>1?"s":""} loaded. Drop in again any time to refresh.` : "Load your workforce planning workbook (.xlsm).", n ? "Refresh →" : "Choose file →") +
     step(2, s2, "Enter current manpower (actuals)", !n ? "Available after step 1." : entered ? `${entered} of ${crafts.length} crafts entered. Blank crafts are left out.` : `Enter the people you have today by sector (Power, Pipeline, Facilities). Company total adds them up.`, entered ? "Edit →" : "Enter →") +
-    step(3, s3, "See shortfalls vs covered", !(n && entered) ? "Available after step 2." : sh.length ? `${sh.length} craft${sh.length>1?"s":""} short ahead · see gaps and the HR hiring plan.` : "Every craft entered is covered from today on.", "View →");
+    step(3, s3, "See shortfalls vs covered", !(n && entered) ? "Available after step 2." : sh.length ? `${sh.length} craft${sh.length>1?"s":""} short ahead · see gaps and Workforce Planning.` : "Every craft entered is covered from today on.", "View →");
 }
-function summaryCounts(M){ const P = hrPlan(M, 12, "start"); return {hires12: P.rows.reduce((s,r)=>s+r.hires.reduce((a,b)=>a+b,0),0)}; }
+function summaryCounts(M){ const P = hrPlan(M, 12, "start"); return {hires12: P.rows.filter(r => !r.noActual).reduce((s,r)=>s+r.hires.reduce((a,b)=>a+b,0),0)}; }
 function renderSummary(M){
   const el = $("execSummary");
   if (!M) { el.innerHTML = state.jobs.size ? "No jobs in this sector yet. Load its workbook or change a job's sector under Data entry." : "Load your Excel workforce plans to see the crew you need, where you fall short, and who HR has to hire."; return; }
@@ -1110,10 +1188,10 @@ function renderSummary(M){
   const where = state.sector === "all" ? "" : ` in ${state.sector}`;
   let h = `Across <b>${M.visJobs.length} job${M.visJobs.length!==1?"s":""}</b>${where}, the crew peaks at <b>${fmt(pk)} people</b> the week of <b>${wkLabel(M.weeks[pi])}</b>. `;
   const capT = capTotal(M);
-  if (!capT) h += `Enter current manpower to see shortfalls and the HR hiring plan.`;
+  if (!capT) h += `Enter current manpower to see shortfalls; Workforce Planning shows the full need until then.`;
   else {
     const sh = shortages(M), G = findGaps(M), {hires12} = summaryCounts(M);
-    h += sh.length ? `Against <b>${fmt(capT[M.tw])} on hand</b>, <b>${sh.length} craft${sh.length>1?"s":""}</b> come up short${hires12?` and HR needs about <b>${fmt(hires12)} new hires</b> in the next 12 months`:""}. ` : `The <b>${fmt(capT[M.tw])} people on hand</b> cover every craft entered. `;
+    h += sh.length ? `Against <b>${fmt(capT[M.tw])} on hand</b>, <b>${sh.length} craft${sh.length>1?"s":""}</b> come up short${hires12?` and we need about <b>${fmt(hires12)} new hires</b> in the next 12 months`:""}. ` : `The <b>${fmt(capT[M.tw])} people on hand</b> cover every craft entered. `;
     const nx = G.short[0]; if (nx) h += `First decision: hire <b>${fmt(nx.gap)} ${esc(nx.craft)}</b> ${nx.urgency==="now"?"<b>now</b>":`by <b>${wkLabel(nx.hireBy)}</b>`}. `;
     const v = G.valleys.find(x => x.start > NOW + 4*WEEK) || G.valleys[0];
     if (v && v.kind === "idle") h += `Crews run short of work <b>${wkLabel(v.start)} – ${wkLabel(v.end)}</b>; chase work starting then.`;
@@ -1124,8 +1202,9 @@ function renderSummary(M){
 function hrPlan(M, H, view){
   let mi = M.months.map((_,i)=>i).filter(i => i >= M.tm); if (H !== Infinity) mi = mi.slice(0, H);
   const rows = []; const firstKey = mi.length ? M.months[mi[0]] : null;
-  capCrafts(M).forEach(c => {
-    const cap = M.capS[c], d = M.demand[c];
+  const zero = new Float64Array(M.W);
+  M.crafts.filter(c => inVisGroup(M,c)).forEach(c => {
+    const noActual = !M.capS[c], cap = M.capS[c] || zero, d = M.demand[c];
     const S = mi.map(m => { const ix = M.monthIdx[m].filter(w => w >= M.tw); return ix.length ? Math.max(0, Math.round(Math.max(...ix.map(w => d[w]-cap[w])))) : 0; });
     const hires = S.map((v,k) => Math.max(0, v - (k ? S[k-1] : 0)));
     const rel = S.map((v,k) => Math.max(0, (k ? S[k-1] : 0) - v));
@@ -1133,7 +1212,7 @@ function hrPlan(M, H, view){
     const lead = leadOf(c); let overdue = 0; const rec = mi.map(() => 0);
     hires.forEach((v,k) => { if (!v) return; const t = parseDay(M.months[mi[k]] + "-01") - lead*WEEK; const key = moKey(t);
       if (key < firstKey) overdue += v; else { const j = mi.findIndex(m => M.months[m] === key); rec[j >= 0 ? j : k] += v; } });
-    rows.push({craft:c, g:groupOf(c), lead, S, hires, rel, rec, overdue, actual: Math.round(cap[Math.min(M.tw, M.W-1)])});
+    rows.push({craft:c, g:groupOf(c), lead, S, hires, rel, rec, overdue, noActual, actual: noActual ? 0 : Math.round(cap[Math.min(M.tw, M.W-1)])});
   });
   rows.sort((a,b) => ALLG.indexOf(a.g) - ALLG.indexOf(b.g) || a.craft.localeCompare(b.craft));
   return {mi, rows, labels: mi.map(m => moLabel(M.months[m])), view};
@@ -1144,9 +1223,9 @@ function renderHR(M){
   const P = hrCurrent(M), rec = state.hrView === "recruit";
   const scen = {awarded:"awarded work only", weighted:"awarded work plus pipeline weighted by win %", all:"every job at full size"}[state.scenario];
   const noCap = M.crafts.filter(c => inVisGroup(M,c) && !M.capS[c] && Math.max(0, ...Array.from(M.demand[c]).slice(M.tw)) > 0.5);
-  $("hrNote").innerHTML = !capCrafts(M).length ? "Enter current manpower (step 2) to build the hiring plan."
-    : `New people needed each month, by craft, based on ${scen} and ${state.capMode==="plan"?"headcount <b>including</b> your planned hires":"today's headcount"}. ${rec ? "Recruit-by moves each hire earlier by that craft's weeks to hire." : "A hire is counted in the month the shortfall grows; − shows people who free up."}${state.scenario!=="awarded"?" For firm hiring, set Work included to Awarded only.":""}`;
-  if (!capCrafts(M).length) { $("hrTiles").innerHTML = ""; $("hrTable").innerHTML = ""; $("hrFoot").textContent = ""; return; }
+  const none = !capCrafts(M).length;
+  $("hrNote").innerHTML = (none ? "<b>No current manpower entered yet</b>, so this shows the full forecast need as new people. Enter current manpower (step 2) and it drops to only the people you still need. " : "")
+    + `New people needed each month, by craft, based on ${scen} and ${state.capMode==="plan"?"headcount <b>including</b> your planned hires":"today's headcount"}. ${rec ? "Recruit-by moves each hire earlier by that craft's weeks to hire." : "A hire is counted in the month the shortfall grows; − shows people who free up."}${state.scenario!=="awarded"?" For firm hiring, set Work included to Awarded only.":""}`;
   const field = rec ? "rec" : "hires", n = P.mi.length;
   const tot = P.labels.map((_,k) => sumArr(P.rows, field, k));
   const totS = P.labels.map((_,k) => sumArr(P.rows, "S", k));
@@ -1165,12 +1244,12 @@ function renderHR(M){
       return `<td data-tip="${esc(tip)}">${v ? `<span class="h">+${fmt(v)}</span>` : rl ? `<span class="r">−${fmt(rl)}</span>` : `<span class="z">·</span>`}</td>`; };
     let h = `<thead><tr><th class="rl">Craft</th><th>Weeks to hire</th><th>Actual</th>${rec?`<th class="now">Overdue</th>`:""}${P.labels.map(l=>`<th>${l}</th>`).join("")}<th>Total</th></tr></thead><tbody>`;
     P.rows.forEach(r => { const t = r[field].reduce((a,b)=>a+b,0) + (rec ? r.overdue : 0);
-      h += `<tr><th class="rl" scope="row" style="--c:var(${r.g.color})"><i></i>${esc(r.craft)}</th><td class="lead">${r.lead}</td><td class="tot">${fmt(r.actual)}</td>${rec?`<td>${r.overdue?`<span class="h">+${fmt(r.overdue)}</span>`:`<span class="z">·</span>`}</td>`:""}${P.labels.map((_,k)=>cell(r,k)).join("")}<td class="tot">${fmt(t)}</td></tr>`; });
+      h += `<tr><th class="rl" scope="row" style="--c:var(${r.g.color})"><i></i>${esc(r.craft)}${r.noActual && !none ? ` <small class="na">no actual</small>` : ""}</th><td class="lead">${r.lead}</td><td class="tot">${r.noActual ? "—" : fmt(r.actual)}</td>${rec?`<td>${r.overdue?`<span class="h">+${fmt(r.overdue)}</span>`:`<span class="z">·</span>`}</td>`:""}${P.labels.map((_,k)=>cell(r,k)).join("")}<td class="tot">${fmt(t)}</td></tr>`; });
     h += `</tbody><tfoot><tr><th class="rl" scope="row">${rec?"Recruit (all crafts)":"New hires (all crafts)"}</th><td></td><td>${fmt(P.rows.reduce((s,r)=>s+r.actual,0))}</td>${rec?`<td>${fmt(overdue)}</td>`:""}${tot.map(v=>`<td>${v?fmt(v):"·"}</td>`).join("")}<td>${fmt(win(n)+(rec?overdue:0))}</td></tr>
       <tr class="sub"><th class="rl" scope="row">Total short (busiest week)</th><td></td><td></td>${rec?"<td></td>":""}${totS.map(v=>`<td>${v?fmt(v):"·"}</td>`).join("")}<td></td></tr></tfoot>`;
     $("hrTable").innerHTML = h;
   }
-  $("hrFoot").textContent = noCap.length ? `Not included because no manpower is entered: ${noCap.slice(0,8).join(", ")}${noCap.length>8?` +${noCap.length-8} more`:""}.` : "";
+  $("hrFoot").textContent = noCap.length && !none ? `${noCap.length} craft${noCap.length>1?"s have":" has"} no actual entered and ${noCap.length>1?"are":"is"} counted as 0 on hand (marked “no actual”).` : "";
 }
 function hrSheets(M){
   const H = state.hrHorizon === "all" ? Infinity : +state.hrHorizon;
@@ -1179,7 +1258,7 @@ function hrSheets(M){
   const scen = {awarded:"Awarded only", weighted:"Weighted by win %", all:"If we win everything"}[state.scenario];
   const meta = [`Workforce Outlook · ${state.sector==="all"?"Overall":state.sector} · Work included: ${scen} · Headcount: ${state.capMode==="plan"?"with hiring plan":"as of today"} · Generated ${stamp}`];
   const mk = (title, field, extra) => { const head = ["Craft","Craft group","Weeks to hire","Actual today", ...(extra?["Overdue"]:[]), ...P.labels, "Total"];
-    const body = P.rows.map(r => { const vals = r[field]; const t = vals.reduce((a,b)=>a+b,0) + (extra ? r.overdue : 0); return [r.craft, r.g.name, r.lead, r.actual, ...(extra?[r.overdue]:[]), ...vals, t]; });
+    const body = P.rows.map(r => { const vals = r[field]; const t = vals.reduce((a,b)=>a+b,0) + (extra ? r.overdue : 0); return [r.craft, r.g.name, r.lead, r.noActual ? "" : r.actual, ...(extra?[r.overdue]:[]), ...vals, t]; });
     const totRow = ["All crafts","","", P.rows.reduce((s,r)=>s+r.actual,0), ...(extra?[P.rows.reduce((s,r)=>s+r.overdue,0)]:[]), ...P.labels.map((_,k)=>sumArr(P.rows, field, k)), ""];
     return {title, aoa:[meta, [title], [], head, ...body, totRow]}; };
   return {stamp, P, sheets:[mk("New hires by start month","hires"), mk("Recruit-by month","rec",true), mk("Shortfall at busiest week","S"), mk("People who free up","rel")]};
@@ -1196,7 +1275,7 @@ async function exportXlsx(){
   if (typeof XLSX === "undefined") { $("hrStatus").textContent = "The Excel writer did not load. Use Copy table instead."; return; }
   const {stamp, sheets} = hrSheets(M); const wb = XLSX.utils.book_new();
   sheets.forEach(sh => { const ws = XLSX.utils.aoa_to_sheet(sh.aoa); ws["!cols"] = [{wch:34},{wch:26},{wch:13}, ...Array(40).fill({wch:9})]; XLSX.utils.book_append_sheet(wb, ws, sh.title.slice(0,31)); });
-  const filename = `HR_Hiring_Plan_${state.sector==="all"?"Overall":state.sector}_${stamp}.xlsx`;
+  const filename = `Workforce_Planning_${state.sector==="all"?"Overall":state.sector}_${stamp}.xlsx`;
   if (!window.claude) { XLSX.writeFile(wb, filename); $("hrStatus").textContent = `Saved ${filename}.`; return; }
   const dl = await downloadsP;
   if (!dl) { $("hrStatus").textContent = "Download isn't available in this view. Use Copy table and paste into Excel."; return; }
@@ -1250,10 +1329,11 @@ document.addEventListener("click", e => {
     const isolated = view.every(j => j.id === id ? !state.hiddenJobs.has(j.id) : state.hiddenJobs.has(j.id));
     state.hiddenJobs.clear(); if (!isolated) view.forEach(j => { if (j.id !== id) state.hiddenJobs.add(j.id); });
     render(); $("kpis").scrollIntoView({behavior:"smooth"}); return; }
-  if (e.target.closest("[data-also-groups]")) state.hiddenGroups.clear();
+  if (e.target.closest("[data-also-groups]")) { state.hiddenGroups.clear(); state.hiddenStatus.clear(); }
   const sa = e.target.closest("[data-all],[data-none]");
   if (sa) { const which = sa.dataset.all || sa.dataset.none, none = !!sa.dataset.none;
-    if (which === "jobs") { state.hiddenJobs.clear(); if (none) [...state.jobs.values()].filter(j => state.sector === "all" || jobSector(j) === state.sector).forEach(j => state.hiddenJobs.add(j.id)); }
+    if (which === "status") { state.hiddenStatus.clear(); if (none) STATUSES.forEach(x => state.hiddenStatus.add(x)); }
+    else if (which === "jobs") { state.hiddenJobs.clear(); if (none) [...state.jobs.values()].filter(j => state.sector === "all" || jobSector(j) === state.sector).forEach(j => state.hiddenJobs.add(j.id)); }
     else { state.hiddenGroups.clear(); if (none) GROUPS.forEach(g => state.hiddenGroups.add(g.id)); }
     render(); return; }
   const ex = e.target.closest("[data-expand]"); if (ex) { const id = ex.dataset.expand; state.expanded.has(id) ? state.expanded.delete(id) : state.expanded.add(id); render(); return; }
@@ -1275,6 +1355,7 @@ document.addEventListener("click", e => {
     if (to === "discard" && lg.dataset.confirm !== "1") { lg.dataset.confirm = "1"; lg.textContent = "Click again to discard"; return; }
     if (to !== "discard") { cap.bySector = cap.bySector || {}; const m = cap.bySector[to] = cap.bySector[to] || {}; legacyCompany().forEach(([c,v]) => { if (m[c] === undefined || m[c] === "") m[c] = +v; }); }
     cap.company = {}; saveCapacity(); return; }
+  if (e.target.id === "phAdd") { addPlaceholders(); return; }
   if (e.target.id === "hrCopy") { const M = buildModel(); if (M) copyText(tsvOfCurrent(M), $("hrStatus"), "Copied. Paste into Excel or an email."); return; }
   if (e.target.id === "hrXlsx") { exportXlsx(); return; }
   if (e.target.id === "pasteApply") { applyPaste(); return; }
@@ -1289,6 +1370,7 @@ document.addEventListener("click", e => {
     removeJob(id); }
 });
 document.addEventListener("change", e => {
+  if (e.target.dataset.statuscb !== undefined) { const x = e.target.dataset.statuscb; e.target.checked ? state.hiddenStatus.delete(x) : state.hiddenStatus.add(x); render(); return; }
   if (e.target.dataset.jobcb !== undefined) { const id = e.target.dataset.jobcb; e.target.checked ? state.hiddenJobs.delete(id) : state.hiddenJobs.add(id); render(); return; }
   if (e.target.dataset.groupcb !== undefined) { const id = e.target.dataset.groupcb; e.target.checked ? state.hiddenGroups.delete(id) : state.hiddenGroups.add(id); render(); return; }
   const row = e.target.closest("[data-row]");
@@ -1429,8 +1511,8 @@ function parseSheet(ws, sheetName, fileName){
     const jobName = labelValue(rows, /^(job|job name|project|project name)$/, v => typeof v === "string");
     if (jobName) name = String(jobName).trim();
     const hoursCell = rows[r+1]?.[c];
-    const stRaw = labelValue(rows, /^(job )?status$/, v => typeof v === "string" && /award|likely|bid/i.test(v));
-    const st = stRaw ? (/award/i.test(stRaw) ? "Awarded" : /likely/i.test(stRaw) ? "Likely" : "Bidding") : null;
+    const stRaw = labelValue(rows, /^(job )?status$/, v => typeof v === "string" && !!normStatus(v));
+    const st = stRaw ? normStatus(stRaw) : null;
     const winRaw = labelValue(rows, /^win\s*(%|prob)/, v => typeof v === "number");
     const secRaw = labelValue(rows, /^(sector|business unit|division|market)$/, v => typeof v === "string" && !!matchSector(v));
     const sector = (secRaw && matchSector(secRaw)) || matchSector(fileName) || matchSector(sheetName) || null;
