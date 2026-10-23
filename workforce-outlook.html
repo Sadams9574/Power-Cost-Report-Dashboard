@@ -313,12 +313,13 @@ details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.
 .hm tfoot th.rl{font-weight:800;font-family:var(--f-display);color:var(--ink)}
 .hm tfoot td div{font-weight:700}
 .ph-box{display:grid;gap:10px;padding:14px;border:1px dashed var(--entry-line);border-radius:8px;background:var(--surface)}
-.ph-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px 14px}
-.ph-grid input,.ph-grid select{font:inherit;color:var(--ink);background:var(--entry-field);border:1px solid var(--entry-line);border-radius:6px;padding:6px 8px;min-width:0;width:100%;box-sizing:border-box}
-.ph-grid .ph-check{grid-column:span 2}
-.ph-grid .ph-check input{width:auto}
-.ph-keep{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ink);cursor:pointer;padding-top:6px}
-@media (max-width:420px){.ph-grid .ph-check{grid-column:auto}}
+.ph-table td{vertical-align:middle}
+.ph-table td.ctr{text-align:center}
+.ph-table input[type=text]{width:150px}
+.ph-table input[type=number]{width:62px}
+.ph-table select{max-width:180px}
+.ph-table .ph-entry td{background:color-mix(in oklab,var(--entry-bg) 60%,var(--surface));border-bottom:2px solid var(--entry-line)}
+.ph-table #phRows td{font-size:13px}
 .tag.ph{border-style:dashed}
 .list select.sm{font-size:12px;padding:2px 4px;max-width:140px}
 </style>
@@ -483,20 +484,23 @@ details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.
         </div>
         <div class="ph-box" id="phBox">
           <h3>Add a possible job based on a similar one</h3>
-          <div class="note">For work you expect to chase but don't have an estimate for yet, like “we need 3 more projects in 2029.” Pick a similar job; its crew mix and shape are copied and fitted between your start and finish dates.</div>
-          <div class="ph-grid">
-            <label class="ctl"><span>Like this job</span><select id="phSrc"></select></label>
-            <label class="ctl"><span>Name</span><input type="text" id="phName" placeholder="Possible PV job 2029"></label>
-            <label class="ctl"><span>Sector</span><select id="phSector"><option>Power</option><option>Pipeline</option><option>Facilities</option></select></label>
-            <label class="ctl"><span>Status</span><select id="phStatus"><option>Possible</option><option>Bidding</option><option>Likely</option><option>Awarded</option></select></label>
-            <label class="ctl"><span>Win %</span><input type="number" id="phWin" min="0" max="100" step="5" value="25"></label>
-            <label class="ctl"><span>Start</span><input type="date" id="phStart"></label>
-            <label class="ctl"><span>Finish</span><input type="date" id="phFinish"></label>
-            <label class="ctl"><span>How many</span><input type="number" id="phCount" min="1" max="12" step="1" value="1"></label>
-            <label class="ctl"><span>Months between starts</span><input type="number" id="phGap" min="0" max="36" step="1" value="0"></label>
-            <div class="ctl ph-check"><span>Hours</span><label class="ph-keep"><input type="checkbox" id="phKeep" checked> Keep the same total hours (crew grows if the job is shorter)</label></div>
-          </div>
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button type="button" class="btn" id="phAdd">Add to plan</button><span class="status" id="phStatus2" role="status"></span></div>
+          <div class="note">For work you expect to chase but don't have an estimate for yet, like “we need 3 more projects in 2029.” Pick a similar job; its crew mix and shape are copied and fitted between your start and finish dates. Each one you add is listed below, and you can change it there.</div>
+          <div class="tbl-wrap"><table class="list ph-table">
+            <thead><tr><th>Like this job</th><th>Name</th><th>Sector</th><th>Status</th><th>Win %</th><th>Start</th><th>Finish</th><th title="Keep the same total hours: the crew grows if the job is shorter">Same hours</th><th></th></tr></thead>
+            <tbody class="ph-entry"><tr>
+              <td><select id="phSrc" aria-label="Like this job"></select></td>
+              <td><input type="text" id="phName" placeholder="Possible PV job 2029" aria-label="Name"></td>
+              <td><select id="phSector" aria-label="Sector"><option>Power</option><option>Pipeline</option><option>Facilities</option></select></td>
+              <td><select id="phStatus" aria-label="Status"><option>Possible</option><option>Bidding</option><option>Likely</option><option>Awarded</option></select></td>
+              <td><input type="number" id="phWin" min="0" max="100" step="5" value="25" aria-label="Win %"></td>
+              <td><input type="date" id="phStart" aria-label="Start"></td>
+              <td><input type="date" id="phFinish" aria-label="Finish"></td>
+              <td class="ctr"><input type="checkbox" id="phKeep" checked aria-label="Keep the same total hours"></td>
+              <td><button type="button" class="btn" id="phAdd">Add</button></td>
+            </tr></tbody>
+            <tbody id="phRows"></tbody>
+          </table></div>
+          <span class="status" id="phStatus2" role="status"></span>
         </div>
         <div class="note" style="display:grid;gap:6px">
           <b>How the workbook tells the dashboard what it is</b>
@@ -1123,10 +1127,26 @@ function renderManage(){
 }
 function renderPlaceholderForm(){
   const sel = $("phSrc"); if (!sel) return; $("phBox").hidden = !canWrite || !state.jobs.size;
-  const cur = sel.value; const jobs = [...state.jobs.values()].filter(j => !j.placeholder).sort((a,b) => a.name.localeCompare(b.name));
-  sel.innerHTML = jobs.map(j => `<option value="${esc(j.id)}">${esc(j.name)} (${fmt(j.weeks)} wks)</option>`).join("");
-  if (cur && jobs.some(j => j.id === cur)) sel.value = cur;
+  const real = [...state.jobs.values()].filter(j => !j.placeholder).sort((a,b) => a.name.localeCompare(b.name));
+  const cur = sel.value;
+  sel.innerHTML = real.map(j => `<option value="${esc(j.id)}">${esc(j.name)} (${fmt(j.weeks)} wks)</option>`).join("");
+  if (cur && real.some(j => j.id === cur)) sel.value = cur;
   if (SECTORS.some(x => x.name === state.sector) && document.activeElement !== $("phSector")) $("phSector").value = state.sector;
+  // one line per possible job already added
+  const ae = document.activeElement; if (ae && ae.closest?.("#phRows") && /INPUT|SELECT/.test(ae.tagName)) return;
+  const ph = [...state.jobs.values()].filter(j => j.placeholder).sort((a,b) => a.start.localeCompare(b.start) || a.name.localeCompare(b.name));
+  const opt = (list, v) => list.map(x => `<option ${x===v?"selected":""}>${x}</option>`).join("");
+  $("phRows").innerHTML = ph.map(j => { const fin = j.finish || isoDay(parseDay(j.start) + (j.weeks-1)*WEEK + 6*DAY);
+    return `<tr data-ph="${esc(j.id)}">
+      <td>${esc(j.basedOn || "")}</td>
+      <td><input type="text" data-phf="name" value="${esc(j.name)}" aria-label="Name"></td>
+      <td><select data-phf="sector" aria-label="Sector">${opt(SECTORS.map(x=>x.name), jobSector(j))}</select></td>
+      <td><select data-phf="status" aria-label="Status">${opt(["Possible","Bidding","Likely","Awarded"], j.status)}</select></td>
+      <td><input type="number" min="0" max="100" step="5" data-phf="win" value="${esc(j.win ?? "")}" aria-label="Win %"></td>
+      <td><input type="date" data-phf="start" value="${esc(j.startInput || j.start)}" aria-label="Start"></td>
+      <td><input type="date" data-phf="finish" value="${esc(fin)}" aria-label="Finish"></td>
+      <td class="ctr"><input type="checkbox" data-phf="keep" ${j.keepHours !== false ? "checked" : ""} aria-label="Keep the same total hours"></td>
+      <td><button type="button" class="btn ghost danger" data-remove="${esc(j.id)}">Remove</button></td></tr>`; }).join("");
 }
 // copy a job's crew curve onto new dates: resample each craft to the new length; optionally keep total hours
 function fitJob(src, startISO, finishISO, keepHours){
@@ -1142,25 +1162,37 @@ function fitJob(src, startISO, finishISO, keepHours){
   }
   return {start: isoDay(s0), weeks: T, crafts, hours: keepHours ? (+src.hours||0) : Math.round((+src.hours||0)*T/L)};
 }
-const addMonths = (iso, k) => { const [y,m,d] = iso.split("-").map(Number); const t = new Date(Date.UTC(y, m-1+k, 1)); const last = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth()+1, 0)).getUTCDate(); return isoDay(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), Math.min(d, last))); };
+const phSource = j => state.jobs.get(j.basedOnId) || [...state.jobs.values()].find(x => !x.placeholder && x.name === j.basedOn);
 async function addPlaceholders(){
   const st = $("phStatus2"); const src = state.jobs.get($("phSrc").value);
   const start = $("phStart").value, finish = $("phFinish").value;
   if (!src) { st.textContent = "Pick a job to copy."; return; }
   if (!start || !finish || finish <= start) { st.textContent = "Enter a start date and a finish date after it."; return; }
-  const n = Math.max(1, Math.min(12, Math.round(+$("phCount").value || 1))), gap = Math.max(0, Math.round(+$("phGap").value || 0));
-  const base = ($("phName").value || `Possible job like ${src.name}`).trim();
-  const status = $("phStatus").value, win = Math.max(0, Math.min(100, +$("phWin").value || 0)), sector = $("phSector").value, keep = $("phKeep").checked;
-  const made = [];
-  for (let k=0;k<n;k++){
-    const fit = fitJob(src, addMonths(start, k*gap), addMonths(finish, k*gap), keep);
-    const name = n > 1 ? `${base} #${k+1}` : base; let id = slug(name), q = 2; while (state.jobs.has(id)) id = `${slug(name)}-${q++}`;
-    const job = {id, name, sector, status, win, size:src.size||"", ...fit, placeholder:true, basedOn:src.name, source:`Placeholder based on ${src.name}`};
-    made.push(job); await saveJob(job);
-  }
-  st.textContent = `Added ${made.length} placeholder job${made.length>1?"s":""}: ${made.map(j => `${j.name} (${wkLabel(parseDay(j.start))} – ${wkLabel(parseDay(j.start) + (j.weeks-1)*WEEK)})`).join(", ")}.`;
-  $("phName").value = "";
+  const name = ($("phName").value || `Possible job like ${src.name}`).trim();
+  const keep = $("phKeep").checked;
+  let id = slug(name), q = 2; while (state.jobs.has(id)) id = `${slug(name)}-${q++}`;
+  const job = {id, name, sector:$("phSector").value, status:$("phStatus").value, win:Math.max(0, Math.min(100, +$("phWin").value || 0)), size:src.size||"",
+    ...fitJob(src, start, finish, keep), startInput:start, finish, keepHours:keep, placeholder:true, basedOn:src.name, basedOnId:src.id, source:`Placeholder based on ${src.name}`};
+  await saveJob(job);
+  st.textContent = `Added ${job.name} (${wkLabel(parseDay(start))} – ${wkLabel(parseDay(finish))}).`;
+  $("phName").value = ""; $("phStart").value = ""; $("phFinish").value = "";
 }
+function updatePlaceholder(id, f, el){
+  const j = state.jobs.get(id); if (!j) return; const st = $("phStatus2");
+  const next = {...j};
+  if (f === "name") next.name = el.value.trim() || j.name;
+  else if (f === "sector" || f === "status") next[f] = el.value;
+  else if (f === "win") next.win = Math.max(0, Math.min(100, +el.value || 0));
+  else {
+    const start = f === "start" ? el.value : (j.startInput || j.start), finish = f === "finish" ? el.value : (j.finish || isoDay(parseDay(j.start) + (j.weeks-1)*WEEK + 6*DAY));
+    const keep = f === "keep" ? el.checked : j.keepHours !== false;
+    if (!start || !finish || finish <= start) { st.textContent = "The finish date has to be after the start date."; return; }
+    const src = phSource(j); if (!src) { st.textContent = `Can't refit ${j.name}: the job it was based on (${j.basedOn}) is no longer in the plan.`; return; }
+    Object.assign(next, fitJob(src, start, finish, keep), {startInput:start, finish, keepHours:keep});
+  }
+  st.textContent = ""; saveJob(next);
+}
+
 function renderLegacy(){
   const L = legacyCompany(), el = $("legacyBanner"); if (!el) return;
   el.hidden = !L.length || !canWrite;
@@ -1370,6 +1402,7 @@ document.addEventListener("click", e => {
     removeJob(id); }
 });
 document.addEventListener("change", e => {
+  const phr = e.target.closest?.("#phRows [data-ph]"); if (phr && e.target.dataset.phf) { updatePlaceholder(phr.dataset.ph, e.target.dataset.phf, e.target); e.target.blur?.(); return; }
   if (e.target.dataset.statuscb !== undefined) { const x = e.target.dataset.statuscb; e.target.checked ? state.hiddenStatus.delete(x) : state.hiddenStatus.add(x); render(); return; }
   if (e.target.dataset.jobcb !== undefined) { const id = e.target.dataset.jobcb; e.target.checked ? state.hiddenJobs.delete(id) : state.hiddenJobs.add(id); render(); return; }
   if (e.target.dataset.groupcb !== undefined) { const id = e.target.dataset.groupcb; e.target.checked ? state.hiddenGroups.delete(id) : state.hiddenGroups.add(id); render(); return; }
