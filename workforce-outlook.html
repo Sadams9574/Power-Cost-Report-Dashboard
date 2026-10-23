@@ -318,7 +318,7 @@ details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.
 .ph-table input[type=text]{width:150px}
 .ph-table input[type=number]{width:62px}
 .ph-table select{max-width:180px}
-.ph-table .ph-entry td{background:color-mix(in oklab,var(--entry-bg) 60%,var(--surface));border-bottom:2px solid var(--entry-line)}
+.ph-table .ph-entry td{background:color-mix(in oklab,var(--entry-bg) 60%,var(--surface));border-top:2px dashed var(--entry-line);border-bottom:0}
 .ph-table #phRows td{font-size:13px}
 .tag.ph{border-style:dashed}
 .list select.sm{font-size:12px;padding:2px 4px;max-width:140px}
@@ -484,9 +484,10 @@ details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.
         </div>
         <div class="ph-box" id="phBox">
           <h3>Add a possible job based on a similar one</h3>
-          <div class="note">For work you expect to chase but don't have an estimate for yet, like “we need 3 more projects in 2029.” Pick a similar job; its crew mix and shape are copied and fitted between your start and finish dates. Each one you add is listed below, and you can change it there.</div>
+          <div class="note">For work you expect to chase but don't have an estimate for yet, like “we need 3 more projects in 2029.” Pick a similar job; its crew mix and shape are copied and fitted between your start and finish dates. Fill in the bottom line and click <b>+ Add job</b>; it joins the list and a fresh line opens for the next one. Change any listed job right in its row.</div>
           <div class="tbl-wrap"><table class="list ph-table">
             <thead><tr><th>Like this job</th><th>Name</th><th>Sector</th><th>Status</th><th>Win %</th><th>Start</th><th>Finish</th><th title="Keep the same total hours: the crew grows if the job is shorter">Same hours</th><th></th></tr></thead>
+            <tbody id="phRows"></tbody>
             <tbody class="ph-entry"><tr>
               <td><select id="phSrc" aria-label="Like this job"></select></td>
               <td><input type="text" id="phName" placeholder="Possible PV job 2029" aria-label="Name"></td>
@@ -496,9 +497,8 @@ details.paste textarea{width:100%;min-height:110px;margin-top:6px;font:12.5px/1.
               <td><input type="date" id="phStart" aria-label="Start"></td>
               <td><input type="date" id="phFinish" aria-label="Finish"></td>
               <td class="ctr"><input type="checkbox" id="phKeep" checked aria-label="Keep the same total hours"></td>
-              <td><button type="button" class="btn" id="phAdd">Add</button></td>
+              <td><button type="button" class="btn" id="phAdd">+ Add job</button></td>
             </tr></tbody>
-            <tbody id="phRows"></tbody>
           </table></div>
           <span class="status" id="phStatus2" role="status"></span>
         </div>
@@ -1173,9 +1173,11 @@ async function addPlaceholders(){
   let id = slug(name), q = 2; while (state.jobs.has(id)) id = `${slug(name)}-${q++}`;
   const job = {id, name, sector:$("phSector").value, status:$("phStatus").value, win:Math.max(0, Math.min(100, +$("phWin").value || 0)), size:src.size||"",
     ...fitJob(src, start, finish, keep), startInput:start, finish, keepHours:keep, placeholder:true, basedOn:src.name, basedOnId:src.id, source:`Placeholder based on ${src.name}`};
-  await saveJob(job);
+  const ok = await saveJob(job);
+  if (ok !== true && ok !== undefined) { st.textContent = `${job.name} was added on screen but could not be saved: ${ok}. Reload and try again.`; return; }
   st.textContent = `Added ${job.name} (${wkLabel(parseDay(start))} – ${wkLabel(parseDay(finish))}).`;
   $("phName").value = ""; $("phStart").value = ""; $("phFinish").value = "";
+  setTimeout(() => $("phName").focus({preventScroll:true}), 50);
 }
 function updatePlaceholder(id, f, el){
   const j = state.jobs.get(id); if (!j) return; const st = $("phStatus2");
@@ -1489,7 +1491,7 @@ async function tracked(promiseFn){
 async function saveJob(job){
   state.jobs.set(job.id, job); render();
   if (!db) return;
-  try { await tracked(() => db.doc("jobs/" + job.id).set(job)); } catch (err) { status(`Could not save ${job.name}: ${err.message || err.code}`, true); }
+  try { await tracked(() => db.doc("jobs/" + job.id).set(job)); return true; } catch (err) { status(`Could not save ${job.name}: ${err.message || err.code}`, true); return err?.message || err?.code || "unknown error"; }
 }
 async function removeJob(id){
   state.jobs.delete(id); state.hiddenJobs.delete(id); render();
